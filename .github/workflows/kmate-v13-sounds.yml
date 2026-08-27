@@ -1,0 +1,32 @@
+name: K-Mate v13 move sounds
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v13-sounds.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply sound patch
+        run: python .github/scripts/kmate_v13_sound_patch.py
+      - name: Validate assembled application JavaScript
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{n}.txt').read_text() for n in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v13-combined.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v13-combined.js
+      - name: Commit sound feature
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add kmate-trainer/index.html kmate-trainer/styles-v7.css kmate-trainer/app-v7.js kmate-trainer/app-v7-part1.txt kmate-trainer/app-v7-part3.txt kmate-trainer/app-v7-part6.txt
+          git commit -m 'K-Mate v13: subtle move and capture sounds' || exit 0
+          git push
