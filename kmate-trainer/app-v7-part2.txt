@@ -2,6 +2,108 @@
   showView(view);
 }
 
+const GEN_KEY = 'kmate-generated-v8';
+const GEN_LIMIT = 240;
+let genSeen;
+try {
+  const saved = JSON.parse(localStorage.getItem(GEN_KEY) || '[]');
+  genSeen = Array.isArray(saved) ? saved.slice(0, GEN_LIMIT) : [];
+} catch { genSeen = []; }
+
+function shortFen(fen) { return String(fen).split(/\s+/).slice(0, 4).join(' '); }
+function rememberFen(fen) {
+  const key = shortFen(fen);
+  genSeen = [key, ...genSeen.filter((item) => item !== key)].slice(0, GEN_LIMIT);
+  try { localStorage.setItem(GEN_KEY, JSON.stringify(genSeen)); } catch {}
+}
+function materialInfo(g) {
+  const x = { pieces: 0, queens: 0 };
+  g.board().forEach((row) => row.forEach((p) => { if (p) { x.pieces += 1; if (p.type === 'q') x.queens += 1; } }));
+  return x;
+}
+function phaseFits(g, phase) {
+  if (g.isGameOver() || g.moves().length < (phase === 'endgame' ? 2 : 7)) return false;
+  const x = materialInfo(g);
+  if (phase === 'middlegame') return x.pieces >= 21 && x.queens >= 1;
+  if (phase === 'late-middlegame') return x.pieces >= 14;
+  return x.pieces <= 20;
+}
+function quickEval(g, color, phase) {
+  if (g.isCheckmate()) return g.turn() === color ? -99999 : 99999;
+  if (g.isDraw()) return 0;
+  const v = { p: 100, n: 320, b: 335, r: 510, q: 930, k: 0 };
+  let score = 0;
+  g.board().forEach((row, rank) => row.forEach((p, file) => {
+    if (!p) return;
+    const sign = p.color === color ? 1 : -1;
+    const center = 7 - (Math.abs(3.5 - file) + Math.abs(3.5 - rank));
+    let value = v[p.type];
+    if (p.type === 'p') value += (p.color === 'w' ? 6 - rank : rank - 1) * (phase === 'endgame' ? 13 : 7);
+    if (p.type === 'n' || p.type === 'b') value += Math.max(0, center * 4);
+    if (p.type === 'k' && phase === 'endgame') value += Math.max(0, center * 7);
+    score += sign * value;
+  }));
+  if (g.isCheck()) score += g.turn() === color ? -24 : 24;
+  return score;
+}
+function movePriority(m) {
+  const v = { p: 100, n: 320, b: 335, r: 510, q: 930, k: 0 };
+  return (m.captured ? v[m.captured] + 50 : 0) + (m.promotion ? v[m.promotion] + 250 : 0) + (m.san?.includes('#') ? 99999 : m.san?.includes('+') ? 80 : 0);
+}
+function generatedMove(g, rating, phase) {
+  const color = g.turn();
+  const moves = g.moves({ verbose: true });
+  const scored = moves.map((m) => {
+    g.move({ from: m.from, to: m.to, promotion: m.promotion || 'q' });
+    let score = quickEval(g, color, phase) + movePriority(m) * 0.12;
+    const replies = g.moves({ verbose: true }).sort((a, b) => movePriority(b) - movePriority(a)).slice(0, rating >= 1800 ? 5 : 3);
+    if (replies.length && !g.isGameOver()) {
+      let worst = Infinity;
+      for (const reply of replies) {
+        g.move({ from: reply.from, to: reply.to, promotion: reply.promotion || 'q' });
+        worst = Math.min(worst, quickEval(g, color, phase));
+        g.undo();
+      }
+      score = score * 0.45 + worst * 0.55;
+    }
+    g.undo();
+    return { m, score };
+  }).sort((a, b) => b.score - a.score);
+  const choices = rating >= 2000 ? 2 : rating >= 1800 ? 3 : rating >= 1600 ? 4 : rating >= 1400 ? 6 : 8;
+  const pool = scored.slice(0, Math.min(choices, scored.length));
+  const bias = rating >= 1900 ? 2.8 : rating >= 1600 ? 1.8 : 1.1;
+  const index = Math.min(pool.length - 1, Math.floor(Math.pow(Math.random(), bias) * pool.length));
+  return pool[index]?.m || moves[0];
+}
+function freshPosition() {
+  let anchors = candidatePositions();
+  if (!anchors.length) anchors = validPositions.filter((p) => p.phase === settings.phase);
+  if (!anchors.length) anchors = validPositions;
+  const nearest = Math.min(...anchors.map((p) => Math.abs(p.rating - settings.positionRating)));
+  let pool = anchors.filter((p) => Math.abs(p.rating - settings.positionRating) <= Math.max(100, nearest));
+  if (current?.seedId && pool.length > 1) pool = pool.filter((p) => p.id !== current.seedId);
+  for (let attempt = 0; attempt < 14; attempt += 1) {
+    const anchor = pool[Math.floor(Math.random() * pool.length)];
+    const g = new Chess(anchor.fen);
+    const ranges = settings.phase === 'endgame' ? [1, 7] : settings.phase === 'late-middlegame' ? [3, 11] : [3, 9];
+    const plies = ranges[0] + Math.floor(Math.random() * (ranges[1] - ranges[0] + 1));
+    const line = [];
+    for (let ply = 0; ply < plies && !g.isGameOver(); ply += 1) {
+      const m = generatedMove(g, Math.max(1100, Math.min(2200, settings.positionRating + Math.round((Math.random() - 0.5) * 240))), settings.phase);
+      if (!m) break;
+      line.push(g.move({ from: m.from, to: m.to, promotion: m.promotion || 'q' }).san);
+    }
+    const fen = g.fen();
+    if (!genSeen.includes(shortFen(fen)) && phaseFits(g, settings.phase)) {
+      rememberFen(fen);
+      const code = Math.random().toString(36).slice(2, 6).toUpperCase();
+      return { ...anchor, id: `generated-${anchor.id}-${Date.now()}-${code}`, seedId: anchor.id, generated: true, variationPlies: line.length, variation: line, fen, rating: settings.positionRating, title: `${anchor.opening === 'Various' ? anchor.title : anchor.opening} · ${code}`, description: `Fresh legal continuation from “${anchor.title}.” K-Mate varied ${line.length} plies while preserving the selected phase and opening family.` };
+    }
+  }
+  const anchor = pool[Math.floor(Math.random() * pool.length)];
+  return { ...anchor, id: `generated-${anchor.id}-${Date.now()}`, seedId: anchor.id, generated: false, variationPlies: 0, rating: settings.positionRating };
+}
+
 function candidatePositions() {
   let pool = validPositions.filter((position) => position.phase === settings.phase);
   if (settings.phase !== 'endgame' && settings.opening !== 'all') {
@@ -11,15 +113,7 @@ function candidatePositions() {
   return pool;
 }
 
-function pickPosition() {
-  let base = candidatePositions();
-  if (!base.length) base = validPositions.filter((position) => position.phase === settings.phase);
-  if (!base.length) base = validPositions;
-  const nearest = Math.min(...base.map((position) => Math.abs(position.rating - settings.positionRating)));
-  let pool = base.filter((position) => Math.abs(position.rating - settings.positionRating) === nearest);
-  if (current && pool.length > 1) pool = pool.filter((position) => position.id !== current.id);
-  return pool[Math.floor(Math.random() * pool.length)];
-}
+function pickPosition() { return freshPosition(); }
 
 function chooseUserColor() {
   if (settings.side === 'w' || settings.side === 'b') return settings.side;
@@ -152,6 +246,10 @@ function startPosition({ preservePrevious = false } = {}) {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     startedAt: new Date().toISOString(),
     positionId: current.id,
+    seedPositionId: current.seedId || current.id,
+    generated: Boolean(current.generated),
+    variationPlies: current.variationPlies || 0,
+    startFen: current.fen,
     phase: current.phase,
     opening: current.opening,
     theme: current.theme,
@@ -169,11 +267,11 @@ function startPosition({ preservePrevious = false } = {}) {
   };
 
   $('#positionTitle').textContent = current.title;
-  $('#gameMeta').textContent = `${phaseLabel(current.phase)} · ${current.opening}`;
-  $('#positionBadge').textContent = `${current.rating} level`;
+  $('#gameMeta').textContent = `${phaseLabel(current.phase)} · ${current.opening} · fresh variation`;
+  $('#positionBadge').textContent = `${current.rating} level · generated`;
   $('#themeTitle').textContent = current.theme;
   $('#positionDescription').textContent = current.description;
-  $('#positionTags').innerHTML = current.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join('');
+  $('#positionTags').innerHTML = [...current.tags, 'generated variation'].map((tag) => `<span>${escapeHtml(tag)}</span>`).join('');
   $('#engineName').textContent = `K-Mate ${settings.opponentRating}`;
   $('#engineSub').textContent = `${ratingDescriptor(settings.opponentRating)} · ${timeControl().label}`;
   $('#userSide').textContent = userColor === 'w' ? 'White' : 'Black';

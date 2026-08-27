@@ -232,7 +232,7 @@ function updateControls(persist = true) {
     ? base
     : base.filter((position) => position.opening === settings.opening);
   const count = openingPool.length;
-  $('#openingCount').textContent = openingDisabled ? 'Not used' : `${count} position${count === 1 ? '' : 's'}`;
+  $('#openingCount').textContent = `∞ generated · ${count} seed${count === 1 ? '' : 's'}`;
 
   if (openingPool.length) {
     const distances = openingPool.map((position) => Math.abs(position.rating - settings.positionRating));
@@ -242,8 +242,8 @@ function updateControls(persist = true) {
       .map((position) => position.rating))]
       .sort((a, b) => a - b);
     $('#positionBand').textContent = nearest <= 100
-      ? `Draws ${phaseLabel(settings.phase).toLowerCase()} positions near ${settings.positionRating}.`
-      : `Nearest available ${phaseLabel(settings.phase).toLowerCase()} level: ${ratings.join(' or ')}.`;
+      ? `Generates a fresh legal ${phaseLabel(settings.phase).toLowerCase()} near ${settings.positionRating} every session.`
+      : `Generates from the nearest ${phaseLabel(settings.phase).toLowerCase()} anchors: ${ratings.join(' or ')}.`;
   }
 
   if (persist) saveStore();

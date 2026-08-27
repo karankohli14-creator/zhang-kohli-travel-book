@@ -236,14 +236,19 @@ bindControls();
 renderSummary();
 renderInsights();
 $('#startButton').disabled = false;
-$('#startButton').textContent = 'Start position play';
+$('#startButton').textContent = 'Generate & start position';
 document.documentElement.dataset.ready = '1';
 window.__KMATE__ = {
-  version: '7.0',
+  version: '8.0',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
     current: current?.id || null,
+    generated: Boolean(current?.generated),
+    seedId: current?.seedId || null,
+    variationPlies: current?.variationPlies || 0,
+    recentGenerated: genSeen.length,
+    fen: game?.fen() || null,
     phase: current?.phase || null,
     opening: current?.opening || null,
     userColor,
