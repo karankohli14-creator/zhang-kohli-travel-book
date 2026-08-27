@@ -1,0 +1,103 @@
+name: K-Mate v11 material advantage
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v11-material.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add live material advantage
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              s = p.read_text()
+              if old not in s:
+                  raise SystemExit(f'Pattern not found in {path}: {old[:100]!r}')
+              p.write_text(s.replace(old, new))
+
+          # Player-bar badges.
+          replace('kmate-trainer/index.html',
+                  '<span class="turnpill" id="engineTurn">Waiting</span>\n              <strong class="clock" id="engineClock">3:00</strong>',
+                  '<span class="materialpill" id="engineMaterial" title="Material advantage">Even</span>\n              <span class="turnpill" id="engineTurn">Waiting</span>\n              <strong class="clock" id="engineClock">3:00</strong>')
+          replace('kmate-trainer/index.html',
+                  '<span class="turnpill live" id="userTurn">Your move</span>\n              <strong class="clock" id="userClock">3:00</strong>',
+                  '<span class="materialpill" id="userMaterial" title="Material advantage">Even</span>\n              <span class="turnpill live" id="userTurn">Your move</span>\n              <strong class="clock" id="userClock">3:00</strong>')
+          replace('kmate-trainer/index.html', './styles-v7.css?v=10.0.0', './styles-v7.css?v=11.0.0')
+
+          # Material calculation: P=1, N=3, B=3, R=5, Q=9.
+          p = Path('kmate-trainer/app-v7-part3.txt')
+          s = p.read_text()
+          marker = 'function renderAll() {\n'
+          fn = '''function renderMaterialAdvantage() {
+  if (!game) return;
+  const values = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+  const totals = { w: 0, b: 0 };
+  game.board().forEach((row) => row.forEach((piece) => {
+    if (piece) totals[piece.color] += values[piece.type] || 0;
+  }));
+  const userTotal = totals[userColor];
+  const engineTotal = totals[engineColor];
+  const diff = userTotal - engineTotal;
+  const userEl = $('#userMaterial');
+  const engineEl = $('#engineMaterial');
+  if (!userEl || !engineEl) return;
+  if (diff > 0) {
+    userEl.textContent = `+${diff}`;
+    engineEl.textContent = '−';
+    userEl.classList.add('ahead');
+    engineEl.classList.remove('ahead');
+  } else if (diff < 0) {
+    userEl.textContent = '−';
+    engineEl.textContent = `+${Math.abs(diff)}`;
+    engineEl.classList.add('ahead');
+    userEl.classList.remove('ahead');
+  } else {
+    userEl.textContent = 'Even';
+    engineEl.textContent = 'Even';
+    userEl.classList.remove('ahead');
+    engineEl.classList.remove('ahead');
+  }
+  userEl.setAttribute('aria-label', diff > 0 ? `You are up ${diff} material points` : diff < 0 ? `You are down ${Math.abs(diff)} material points` : 'Material is even');
+  engineEl.setAttribute('aria-label', diff < 0 ? `Opponent is up ${Math.abs(diff)} material points` : diff > 0 ? `Opponent is down ${diff} material points` : 'Material is even');
+}
+
+'''
+          if marker not in s:
+              raise SystemExit('renderAll marker missing')
+          s = s.replace(marker, fn + marker, 1)
+          s = s.replace('  renderLiveQuality();\n  renderClocks();', '  renderLiveQuality();\n  renderMaterialAdvantage();\n  renderClocks();', 1)
+          p.write_text(s)
+
+          # Styling, including compact mobile presentation.
+          p = Path('kmate-trainer/styles-v7.css')
+          s = p.read_text()
+          css_marker = '.turnpill.live{background:#b9f4741c;color:var(--accent)}\n'
+          css = '.materialpill{min-width:42px;padding:5px 8px;border:1px solid #ffffff18;border-radius:99px;background:#ffffff08;color:var(--muted);font-size:11px;font-weight:900;text-align:center;white-space:nowrap}\n.materialpill.ahead{border-color:#b9f47455;background:#b9f47418;color:var(--accent)}\n'
+          if css_marker not in s:
+              raise SystemExit('CSS marker missing')
+          s = s.replace(css_marker, css_marker + css, 1)
+          mobile_marker = '  .turnpill{display:none}\n'
+          s = s.replace(mobile_marker, mobile_marker + '  .materialpill{min-width:34px;padding:4px 6px;font-size:10px}\n', 1)
+          p.write_text(s)
+
+          # Cache bust split application files.
+          p = Path('kmate-trainer/app-v7.js')
+          s = p.read_text().replace("./positions-v7.js?v=10.0.0", "./positions-v7.js?v=11.0.0").replace(".txt?v=10.0.0", ".txt?v=11.0.0")
+          p.write_text(s)
+
+      - name: Validate loader
+        run: node --check kmate-trainer/app-v7.js
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add kmate-trainer/index.html kmate-trainer/styles-v7.css kmate-trainer/app-v7.js kmate-trainer/app-v7-part3.txt
+          git commit -m 'K-Mate v11: show live material advantage' || exit 0
+          git push
