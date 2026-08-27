@@ -138,34 +138,41 @@ function fallbackMove() {
   return moves[Math.floor(Math.random() * top)];
 }
 
-function askEngine() {
+async function askEngine() {
   if (!game || finalized || game.turn() !== engineColor) return;
   thinking = true;
   renderTurns();
   const id = ++requestId;
   const fen = game.fen();
-  const maxMs = clockRunning ? Math.max(60, Math.min(2500, clocks[engineColor] * 0.08)) : 2500;
-  if (!moveWorker) {
+  const baseThinkMs = settings.opponentRating >= 2100
+    ? 1400
+    : settings.opponentRating >= 1900
+      ? 1050
+      : settings.opponentRating >= 1700
+        ? 760
+        : settings.opponentRating >= 1500
+          ? 560
+          : 360;
+  const maxMs = clockRunning
+    ? Math.max(180, Math.min(baseThinkMs, clocks[engineColor] * 0.035))
+    : baseThinkMs;
+
+  if (!stockfishEngine) {
     window.setTimeout(() => applyEngineReply(id, { move: null, fallback: true }), 250);
     return;
   }
-  const timeout = window.setTimeout(() => applyEngineReply(id, { timeout: true }), 5500);
-  const handler = (event) => {
-    if (event.data.id !== id || event.data.task !== 'move') return;
-    window.clearTimeout(timeout);
-    moveWorker.removeEventListener('message', handler);
-    applyEngineReply(id, event.data);
-  };
-  moveWorker.addEventListener('message', handler);
-  moveWorker.postMessage({
-    task: 'move',
-    id,
-    fen,
-    rating: settings.opponentRating,
-    phase: current.phase,
-    perspective: engineColor,
-    maxMs,
-  });
+
+  try {
+    const result = await stockfishEngine.bestMove({
+      fen,
+      rating: settings.opponentRating,
+      movetime: Math.round(maxMs),
+    });
+    applyEngineReply(id, { task: 'move', id, ...result, source: 'stockfish-18' });
+  } catch (error) {
+    console.warn('Stockfish move failed; using emergency fallback.', error);
+    applyEngineReply(id, { task: 'move', id, move: null, fallback: true, error: String(error) });
+  }
 }
 
 function applyEngineReply(id, data) {

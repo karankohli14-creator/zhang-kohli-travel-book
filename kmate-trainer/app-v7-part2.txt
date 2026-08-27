@@ -231,6 +231,7 @@ function handleTimeout(loser) {
 function startPosition({ preservePrevious = false } = {}) {
   if (!preservePrevious && game && !finalized) finalizeSession('abandoned', 'new position', false);
   requestId += 1;
+  stockfishEngine?.stop();
   thinking = false;
   current = pickPosition();
   game = new Chess(current.fen);

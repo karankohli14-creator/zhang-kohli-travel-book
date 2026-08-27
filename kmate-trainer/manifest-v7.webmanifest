@@ -1,9 +1,9 @@
 {
-  "name": "K-Mate Timed Position Play",
+  "name": "K-Mate Stockfish Position Play",
   "short_name": "K-Mate",
-  "start_url": "./?v=7",
+  "start_url": "./?v=20260827-9",
   "display": "standalone",
   "background_color": "#08100b",
   "theme_color": "#0b100d",
-  "description": "Timed middlegame, late-middlegame, and endgame position play with opening filters and weakness analysis."
+  "description": "Timed middlegame, late-middlegame, and endgame position play against calibrated Stockfish 18, with opening filters and weakness analysis."
 }

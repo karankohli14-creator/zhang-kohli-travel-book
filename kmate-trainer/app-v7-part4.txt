@@ -123,7 +123,7 @@ function renderSummary() {
   $('#summaryScore').textContent = percent(record.score);
   $('#summaryAccuracy').textContent = Number.isFinite(avgLoss) ? `${Math.round(avgLoss)} cp` : '—';
   $('#summaryBest').textContent = record.best || '—';
-  $('#topBadge').textContent = `${record.games} games · ${percent(record.score)} score`;
+  $('#topBadge').textContent = `Stockfish 18 · ${record.games} games · ${percent(record.score)} score`;
   renderSetupSignal();
 }
 

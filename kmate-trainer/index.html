@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=7.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=9.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -117,8 +117,8 @@
           </div>
 
           <div id="loadError" class="error"></div>
-          <button class="btn primary start" id="startButton" type="button" disabled>Loading chess engine…</button>
-          <p class="fineprint">Opponent and position ratings are approximate training levels, not official FIDE or Chess.com ratings. Move-quality analysis is a local estimate.</p>
+          <button class="btn primary start" id="startButton" type="button" disabled>Loading Stockfish 18…</button>
+          <p class="fineprint">Opponent play now uses Stockfish 18 with its limited-strength Elo setting from 1320 upward. Ratings remain training approximations rather than official FIDE or Chess.com ratings; move-quality analysis is still a local estimate.</p>
         </aside>
       </div>
 
@@ -149,7 +149,7 @@
           <div class="playerbar top" id="engineBar">
             <div class="identity">
               <span class="avatar black-avatar">♟</span>
-              <span><b id="engineName">K-Mate 1600</b><small id="engineSub">Approx. rapid strength</small></span>
+              <span><b id="engineName">K-Mate 1600</b><small id="engineSub">Stockfish calibrated strength</small></span>
             </div>
             <div class="clock-wrap">
               <span class="turnpill" id="engineTurn">Waiting</span>
@@ -292,6 +292,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=7.0.0"></script>
+  <script type="module" src="./app-v7.js?v=9.0.0"></script>
 </body>
 </html>
