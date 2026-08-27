@@ -1,0 +1,9 @@
+{
+  "name": "K-Mate Timed Position Play",
+  "short_name": "K-Mate",
+  "start_url": "./?v=7",
+  "display": "standalone",
+  "background_color": "#08100b",
+  "theme_color": "#0b100d",
+  "description": "Timed middlegame, late-middlegame, and endgame position play with opening filters and weakness analysis."
+}
