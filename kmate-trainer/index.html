@@ -1,117 +1,297 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b100d">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="K-Mate">
-<title>K-Mate — Rating-Based Position Play</title>
-<style>
-:root{color-scheme:dark;--bg:#09100c;--panel:#121b15;--panel2:#18241c;--line:#2e4034;--text:#f5f7f3;--muted:#a8b5aa;--accent:#b8f36f;--accent2:#7fd6a2;--gold:#f6cc71;--bad:#ff8e86;--good:#8ee7a2;--light:#d9c9a7;--dark:#71815f;--shadow:#0008}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 15% -10%,#233824 0,transparent 34rem),var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}button,input{font:inherit}button{color:inherit}.appbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px max(14px,calc((100% - 1220px)/2));border-bottom:1px solid #ffffff13;background:#09100ce9;backdrop-filter:blur(18px)}.brand{display:flex;align-items:center;gap:10px;border:0;background:none;cursor:pointer}.brandmark{display:grid;place-items:center;width:43px;height:43px;border:1px solid #b8f36f55;border-radius:14px;background:linear-gradient(145deg,#b8f36f22,#6aa35a12);color:var(--accent);font:29px Georgia,serif;box-shadow:inset 0 1px #fff2,0 8px 20px #0005}.brandtext{display:flex;flex-direction:column;align-items:flex-start}.brandtext b{font-size:18px;letter-spacing:-.02em}.brandtext small{color:var(--muted);font-size:11px}.topbadge{padding:7px 11px;border:1px solid var(--line);border-radius:99px;background:#ffffff08;color:var(--muted);font-size:12px}.shell{width:min(1220px,calc(100% - 28px));margin:auto;padding:34px 0 70px}.view[hidden]{display:none!important}.hero{display:grid;grid-template-columns:minmax(0,1.22fr) minmax(330px,.78fr);gap:18px}.card{border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#18231b,#101712);box-shadow:0 24px 70px #0005}.intro{min-height:410px;padding:clamp(28px,5vw,60px);background:radial-gradient(circle at 92% 8%,#b8f36f26,transparent 19rem),linear-gradient(145deg,#18231b,#101712)}.eyebrow{color:var(--accent);font-size:11px;font-weight:850;letter-spacing:.15em;text-transform:uppercase}.intro h1{max-width:760px;margin:18px 0 16px;font-size:clamp(43px,6.6vw,79px);line-height:.98;letter-spacing:-.055em}.intro p{max-width:710px;margin:0;color:#d4dcd4;font-size:18px}.featureline{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}.chip{padding:7px 10px;border:1px solid #ffffff15;border-radius:99px;background:#ffffff08;color:#d6ddd7;font-size:12px}.setup{padding:25px}.setup h2{margin:5px 0 20px;font-size:25px}.field{padding:16px 0;border-top:1px solid #ffffff12}.field:first-of-type{border-top:0;padding-top:0}.fieldhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.fieldhead label{font-weight:800}.value{color:var(--accent);font-weight:850}.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.seg button,.preset,.btn,.tool{min-height:45px;border:1px solid var(--line);border-radius:13px;background:#202c23;cursor:pointer}.seg button.active{border-color:#b8f36f88;background:#b8f36f1b;color:var(--accent);box-shadow:inset 0 0 0 1px #b8f36f25}.rangeRow{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:9px}.step{width:44px;height:44px;border:1px solid var(--line);border-radius:12px;background:#202c23;color:var(--accent);font-size:22px;cursor:pointer}.range{width:100%;accent-color:var(--accent)}.sub{display:block;margin-top:7px;color:var(--muted);font-size:12px}.presets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.preset{padding:10px;text-align:left}.preset b,.preset small{display:block}.preset small{margin-top:2px;color:var(--muted)}.btn{padding:0 17px;font-weight:820}.primary{border-color:transparent;background:var(--accent);color:#15200d;box-shadow:0 10px 24px #b8f36f20}.primary:disabled{filter:grayscale(1);opacity:.5;cursor:wait}.start{width:100%;min-height:54px;margin-top:18px;font-size:16px}.fineprint{margin:10px 3px 0;color:var(--muted);font-size:11px}.statsbar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px}.mini{padding:17px}.mini span,.mini small{display:block;color:var(--muted)}.mini b{display:block;margin:4px 0;font-size:29px}.playtop{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.playtop h1{margin:4px 0 0;font-size:clamp(25px,4vw,42px)}.playtop .left{display:flex;align-items:center;gap:12px}.roundbtn{width:45px;height:45px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);cursor:pointer}.playgrid{display:grid;grid-template-columns:minmax(0,760px) minmax(300px,1fr);gap:20px;align-items:start}.boardcol{min-width:0}.playerbar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:58px;padding:9px 13px;border:1px solid var(--line);background:var(--panel);box-shadow:0 10px 28px #0003}.playerbar.top{border-radius:18px 18px 8px 8px}.playerbar.bottom{border-radius:8px 8px 18px 18px}.identity{display:flex;align-items:center;gap:10px}.avatar{display:grid;place-items:center;width:39px;height:39px;border-radius:12px;background:#ffffff0b;font:24px Georgia,serif}.identity b,.identity small{display:block}.identity small{color:var(--muted)}.turnpill{padding:6px 9px;border-radius:99px;background:#ffffff0b;color:var(--muted);font-size:11px}.turnpill.live{background:#b8f36f1c;color:var(--accent)}.boardwrap{padding:8px;border-left:1px solid var(--line);border-right:1px solid var(--line);background:#0d140f}.board{display:grid;grid-template-columns:repeat(8,1fr);width:100%;aspect-ratio:1;overflow:hidden;border-radius:9px;box-shadow:0 22px 60px #0008}.sq{position:relative;display:grid;place-items:center;aspect-ratio:1;border:0;padding:0;cursor:pointer;touch-action:manipulation}.sq.light{background:linear-gradient(145deg,#e3d4b5,#cfbd98)}.sq.dark{background:linear-gradient(145deg,#7e906b,#667756)}.sq:after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 1px #fff1,inset 0 -1px #0001}.sq.selected{box-shadow:inset 0 0 0 5px #f6cc71e8}.sq.last{box-shadow:inset 0 0 0 999px #f6cc7148}.sq.legal:before{content:"";position:absolute;z-index:3;width:21%;aspect-ratio:1;border-radius:50%;background:#17201470;box-shadow:0 1px #fff4}.sq.capture:before{content:"";position:absolute;z-index:3;inset:8%;border:5px solid #17201470;border-radius:50%}.sq.check{box-shadow:inset 0 0 0 999px #df4f4f80}.piece{position:relative;z-index:2;display:block;font-family:"Arial Unicode MS","Apple Symbols","Noto Sans Symbols 2",Georgia,serif;font-size:clamp(34px,7.1vw,72px);font-weight:900;line-height:1;transform:translateY(-2%);user-select:none;pointer-events:none}.piece.white{color:#fff9e9;-webkit-text-stroke:1px #4b463d;text-shadow:0 1px 0 #fff,0 2px 0 #e1d7c4,0 3px 0 #a99f8d,0 5px 7px #0008;filter:drop-shadow(0 2px 1px #0005)}.piece.black{color:#202720;-webkit-text-stroke:1px #dbe3d7;text-shadow:0 1px 0 #727c72,0 2px 0 #343b34,0 3px 0 #080b08,0 5px 7px #000b;filter:drop-shadow(0 2px 1px #0008)}.coord{position:absolute;z-index:5;font:800 10px/1 Arial,sans-serif;opacity:.68;pointer-events:none}.coord.rank{left:4px;top:4px}.coord.file{right:4px;bottom:4px}.sq.light .coord{color:#56624e}.sq.dark .coord{color:#e4eddc}.status{display:flex;align-items:center;gap:10px;min-height:50px;margin-top:10px;padding:11px 13px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.statusdot{width:9px;height:9px;border-radius:50%;background:var(--muted)}.status.good .statusdot{background:var(--good)}.status.bad .statusdot{background:var(--bad)}.status.thinking .statusdot{background:var(--gold);animation:pulse 1s infinite}@keyframes pulse{50%{opacity:.25;transform:scale(.75)}}.sidepanel{position:sticky;top:82px;overflow:hidden}.sidebody{padding:22px}.ratingline{display:flex;align-items:center;justify-content:space-between;gap:10px}.ratingbadge{padding:6px 9px;border-radius:99px;background:#b8f36f18;color:var(--accent);font-size:11px;font-weight:850}.sidepanel h2{margin:14px 0 7px;font-size:25px}.sidepanel p{margin:0;color:var(--muted)}.brief{margin-top:16px;padding:15px;border:1px solid var(--line);border-radius:16px;background:#ffffff07}.brief b,.brief span{display:block}.brief span{margin-top:5px;color:#d4ddd5}.moves{margin-top:16px}.movelist{max-height:255px;overflow:auto;margin-top:9px;padding:10px;border:1px solid var(--line);border-radius:14px;background:#0d140f}.moverow{display:grid;grid-template-columns:35px 1fr 1fr;gap:5px;min-height:27px;align-items:center}.moverow span:first-child{color:var(--muted)}.emptyMoves{padding:15px;color:var(--muted);text-align:center}.tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px;border-top:1px solid var(--line)}.tool{padding:0 11px;font-weight:760}.tool.wide{grid-column:1/-1}.danger{color:#ffc0bb}.sessionnote{margin-top:13px;color:var(--muted);font-size:12px}.error{display:none;margin:15px 0;padding:14px;border:1px solid #ff8e8666;border-radius:14px;background:#ff8e8610;color:#ffd0cd}.error.show{display:block}dialog{width:min(440px,calc(100% - 26px));border:1px solid var(--line);border-radius:22px;background:#142018;color:var(--text);box-shadow:0 30px 100px #000b}dialog::backdrop{background:#000b;backdrop-filter:blur(5px)}dialog h2{margin:0 0 8px}dialog p{color:var(--muted)}.dialogactions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:18px}.promos{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}.promos button{min-height:72px;border:1px solid var(--line);border-radius:14px;background:#233027;font:42px Georgia,serif;cursor:pointer}.toast{position:fixed;left:50%;bottom:20px;z-index:80;transform:translate(-50%,18px);padding:11px 15px;border:1px solid var(--line);border-radius:13px;background:#202c23;box-shadow:0 15px 45px #0008;opacity:0;pointer-events:none;transition:.2s}.toast.show{opacity:1;transform:translate(-50%,0)}@media(max-width:900px){.hero,.playgrid{grid-template-columns:1fr}.sidepanel{position:static}.statsbar{grid-template-columns:repeat(2,1fr)}.intro{min-height:360px}}@media(max-width:560px){.shell{width:min(100% - 16px,1220px);padding-top:18px}.brandtext small,.topbadge{display:none}.intro{padding:29px 21px}.intro h1{font-size:46px}.setup{padding:20px}.presets{grid-template-columns:1fr}.playtop{align-items:flex-start}.playtop .left{align-items:flex-start}.boardwrap{padding:4px}.piece{font-size:clamp(34px,11.2vw,59px)}.tools{grid-template-columns:1fr 1fr}.playerbar{min-height:54px}.seg button{padding:0 5px;font-size:13px}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b100d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="K-Mate">
+  <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
+  <link rel="manifest" href="./manifest-v7.webmanifest">
+  <link rel="stylesheet" href="./styles-v7.css?v=7.0.0">
+  <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
-<header class="appbar"><button class="brand" id="brand"><span class="brandmark">♞</span><span class="brandtext"><b>K-Mate</b><small>Rating-based position play</small></span></button><span class="topbadge" id="topBadge">Engine loading…</span></header>
-<main class="shell">
-<section class="view" id="setupView">
-<div class="hero">
-<article class="card intro"><div class="eyebrow">Skip the opening. Train the real fight.</div><h1>Play middlegames and endgames at your level.</h1><p>Choose the type of position, choose its difficulty, then choose the strength of the opponent. You begin from a real position and play it out—there is no single “puzzle move” you are forced to find.</p><div class="featureline"><span class="chip">Continuous position play</span><span class="chip">Separate position & opponent ratings</span><span class="chip">Clear dimensional pieces</span><span class="chip">Legal move highlighting</span></div></article>
-<aside class="card setup"><div class="eyebrow">New training session</div><h2>Choose your challenge</h2>
-<div class="field"><div class="fieldhead"><label>Position type</label></div><div class="seg" id="phaseSeg"><button type="button" class="active" data-phase="middlegame">Middlegame</button><button type="button" data-phase="endgame">Endgame</button><button type="button" data-phase="mixed">Mixed</button></div></div>
-<div class="field"><div class="fieldhead"><label for="positionRating">Position level</label><span class="value" id="positionValue">1600</span></div><div class="rangeRow"><button class="step" type="button" data-step="position" data-delta="-100">−</button><input class="range" id="positionRating" type="range" min="1200" max="2000" step="100" value="1600"><button class="step" type="button" data-step="position" data-delta="100">+</button></div><small class="sub" id="positionBand">Draws positions rated roughly 1500–1700.</small></div>
-<div class="field"><div class="fieldhead"><label for="opponentRating">Opponent strength</label><span class="value" id="opponentValue">1600</span></div><div class="rangeRow"><button class="step" type="button" data-step="opponent" data-delta="-100">−</button><input class="range" id="opponentRating" type="range" min="1000" max="2200" step="100" value="1600"><button class="step" type="button" data-step="opponent" data-delta="100">+</button></div><small class="sub" id="opponentLabel">Strong club-level resistance.</small><div class="presets"><button class="preset" type="button" data-preset="personal"><b>Your current zone</b><small>1500 position · 1600 opponent</small></button><button class="preset" type="button" data-preset="challenge"><b>Stretch session</b><small>1800 position · 2000 opponent</small></button></div></div>
-<div id="loadError" class="error"></div><button class="btn primary start" id="startBtn" type="button" disabled>Loading chess engine…</button><p class="fineprint">Strength presets approximate online rapid play; they are training levels, not official ratings.</p></aside>
-</div>
-<div class="statsbar"><article class="card mini"><span>Completed</span><b id="statSessions">0</b><small>positions played</small></article><article class="card mini"><span>Wins</span><b id="statWins">0</b><small>converted positions</small></article><article class="card mini"><span>Draws</span><b id="statDraws">0</b><small>held positions</small></article><article class="card mini"><span>Best result</span><b id="statBest">—</b><small>highest opponent beaten</small></article></div>
-</section>
-<section class="view" id="playView" hidden>
-<div class="playtop"><div class="left"><button class="roundbtn" id="backBtn" type="button" aria-label="Back to setup">←</button><div><div class="eyebrow" id="phaseLabel">Middlegame position</div><h1 id="positionTitle">Position play</h1></div></div><button class="roundbtn" id="flipBtn" type="button" aria-label="Flip board">⇅</button></div>
-<div class="playgrid"><div class="boardcol"><div class="playerbar top"><div class="identity"><span class="avatar" id="engineAvatar">♚</span><span><b id="engineName">K-Mate 1600</b><small id="engineSub">Approx. rapid strength</small></span></div><span class="turnpill" id="engineTurn">Waiting</span></div><div class="boardwrap"><div class="board" id="board" aria-label="Interactive chessboard"></div></div><div class="playerbar bottom"><div class="identity"><span class="avatar" id="userAvatar">♔</span><span><b>You</b><small id="userSide">White</small></span></div><span class="turnpill live" id="userTurn">Your move</span></div><div class="status" id="status"><span class="statusdot"></span><span id="statusText">Choose a piece, then a legal destination.</span></div></div>
-<aside class="card sidepanel"><div class="sidebody"><div class="ratingline"><span class="eyebrow">Position brief</span><span class="ratingbadge" id="positionBadge">1600 level</span></div><h2 id="themeTitle">Find a plan</h2><p id="positionDescription">Play the position naturally and respond to the opponent.</p><div class="brief"><b>Your assignment</b><span>Play the position out. You are not being graded against one prescribed move.</span></div><div class="moves"><b>Moves played</b><div class="movelist" id="moveList"><div class="emptyMoves">The move list will appear here.</div></div></div><div class="sessionnote" id="sessionNote">The position continues until mate, draw, resignation, or you choose a new position.</div></div><div class="tools"><button class="tool" id="takebackBtn" type="button">Take back</button><button class="tool" id="copyFenBtn" type="button">Copy FEN</button><button class="tool" id="newBtn" type="button">New position</button><button class="tool danger" id="resignBtn" type="button">Resign</button><button class="btn primary tool wide" id="setupBtn" type="button">Change ratings</button></div></aside></div>
-</section>
-</main>
-<dialog id="promotionDialog"><h2>Choose a promotion</h2><p>Select the piece you want.</p><div class="promos" id="promotionChoices"></div></dialog>
-<dialog id="resultDialog"><div class="eyebrow">Position complete</div><h2 id="resultTitle">Result</h2><p id="resultText"></p><div class="dialogactions"><button class="btn" type="button" id="resultSetup">Change setup</button><button class="btn primary" type="button" id="resultNext">Play another</button></div></dialog>
-<div class="toast" id="toast"></div>
-<script type="module">
-const CDN='https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
-let Chess;
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-try{({Chess}=await import(CDN));}catch(err){console.error(err);$('#loadError').textContent='The chess rules engine could not load. Check the connection and reload this page.';$('#loadError').classList.add('show');$('#topBadge').textContent='Engine unavailable';throw err;}
-const POSITIONS=[
-{id:'m1400-italian',phase:'middlegame',rating:1400,title:'Italian center',theme:'Development versus central tension',fen:'r1bq1rk1/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQR1K1 w - - 4 8',description:'Both sides are developed enough for the real middlegame to begin. Decide whether to increase central pressure, improve a piece, or prepare an attack.'},
-{id:'m1500-qgd',phase:'middlegame',rating:1500,title:'Queen’s Gambit structure',theme:'Piece placement and the central break',fen:'r1bq1rk1/pp2bppp/2n1pn2/2pp4/3P4/2P1PN2/PP1NBPPP/R1BQ1RK1 w - - 4 8',description:'The position is balanced, but the next few improving moves determine who controls the center.'},
-{id:'m1500-sicilian',phase:'middlegame',rating:1500,title:'Sicilian development',theme:'Choose the right plan before committing',fen:'r1bq1rk1/pp2bppp/2np1n2/2p1p3/4P3/2NP1N2/PPP1BPPP/R1BQ1RK1 w - - 6 8',description:'The structure is asymmetrical. Coordinate your pieces and decide which wing deserves your attention.'},
-{id:'m1600-activity',phase:'middlegame',rating:1600,title:'Central outpost',theme:'Improve the least active piece',fen:'r2q1rk1/pp2bppp/2np1n2/2p5/4P3/2N1BN2/PP2BPPP/R2Q1RK1 w - - 0 11',description:'There is no forced tactic. The challenge is to improve coordination while limiting the opponent’s counterplay.'},
-{id:'m1600-openfile',phase:'middlegame',rating:1600,title:'The open file',theme:'Rook placement and pressure',fen:'r2q1rk1/pp2bppp/2np1n2/2p5/4P3/2N1BN2/PP2QPPP/R4RK1 w - - 0 1',description:'Several pieces are developed, but one rook is still outside the game. Build pressure without loosening your king.'},
-{id:'m1700-benoni',phase:'middlegame',rating:1700,title:'Queenside space battle',theme:'Restrict, break, or attack',fen:'r2q1rk1/5pp1/bpnbpn1p/3p4/2PP4/1p1N2P1/PB1N1PBP/2RQR1K1 w - - 0 1',description:'Both sides have long-term assets. Choose between a central break, queenside restraint, and kingside activity.'},
-{id:'m1800-attack',phase:'middlegame',rating:1800,title:'Opposite attacking ideas',theme:'King safety under tension',fen:'r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10',description:'The pieces point toward both kings. Accurate defense and forcing play matter more than general principles.'},
-{id:'m1800-central',phase:'middlegame',rating:1800,title:'Central confrontation',theme:'Calculate before changing the structure',fen:'2rrqbk1/1n3pp1/4pn1p/pp2N3/3PP3/1PN4P/1B2QPP1/2RR2K1 w - - 0 1',description:'A central decision can transform the position. Compare tactical consequences before committing.'},
-{id:'m1800-black',phase:'middlegame',rating:1800,title:'Black to seize the initiative',theme:'Activity over material counting',fen:'r1b2rk1/pp3ppp/4pb2/B7/2q5/4PB2/5PPP/1R2QRK1 b - - 0 1',description:'Black moves first in a sharp position. Find active play before White consolidates.'},
-{id:'m1900-kiwipete',phase:'middlegame',rating:1900,title:'Complex piece coordination',theme:'Tactics hidden inside strategy',fen:'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1',description:'Nearly every piece is involved. Candidate-move discipline is essential because quiet and tactical ideas coexist.'},
-{id:'m1900-space',phase:'middlegame',rating:1900,title:'Space versus counterplay',theme:'Convert space without overextending',fen:'2rqk2r/5pp1/1pp1pnbp/p2nB3/Pb1Pp1P1/2N4P/1PPQNPB1/R4RK1 w k - 0 1',description:'White has space, Black has targets and breaks. Keep the initiative without creating irreversible weaknesses.'},
-{id:'m2000-tactical',phase:'middlegame',rating:2000,title:'Tactical complications',theme:'Calculate forcing continuations',fen:'rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8',description:'The position is concrete and unforgiving. Checks, captures, and threats must be calculated accurately.'},
-{id:'e1200-rookpawn',phase:'endgame',rating:1200,title:'Rook versus passed pawn',theme:'Activity behind the passer',fen:'8/8/4k3/8/3p4/8/6K1/4R3 w - - 0 1',description:'Use the rook and king together. Passive defense can allow the pawn to become dangerous.'},
-{id:'e1200-kingpawn',phase:'endgame',rating:1200,title:'King and pawn basics',theme:'King activity and key squares',fen:'8/8/8/3k4/8/3K4/4P3/8 w - - 0 1',description:'The kings decide the result. Lead with the king and understand when the pawn should advance.'},
-{id:'e1300-opposition',phase:'endgame',rating:1300,title:'Opposition test',theme:'Gain ground with the king',fen:'8/8/4k3/8/4K3/8/4P3/8 w - - 0 1',description:'A single king move can change the result. Fight for the critical entry squares.'},
-{id:'e1600-rooks',phase:'endgame',rating:1600,title:'Active rook ending',theme:'Activity versus pawn structure',fen:'r5k1/5p2/1p4pp/8/P2R2P1/7P/5P2/6K1 w - - 0 1',description:'The rook can attack pawns from several directions. Choose activity over passive protection.'},
-{id:'e1700-pawns',phase:'endgame',rating:1700,title:'Locked pawn ending',theme:'Breakthroughs and reserve tempi',fen:'8/5k2/2pKp3/p1P3p1/6Pp/1P3P1P/8/8 b - - 0 1',description:'Pawn moves cannot be taken back. Calculate the resulting races before changing the structure.'},
-{id:'e1800-rookrace',phase:'endgame',rating:1800,title:'Rook and pawn race',theme:'Checking distance and king safety',fen:'8/8/3p4/1Pp4r/1K3p1k/8/4P1P1/1R6 w - c6 0 3',description:'Both sides have dangerous passers. Accurate rook checks and king placement decide the race.'},
-{id:'e1800-minor',phase:'endgame',rating:1800,title:'Rook against knight pressure',theme:'Coordinate before collecting pawns',fen:'8/6pp/8/R4k2/P3p3/8/5KPP/1r2N3 b - - 0 1',description:'Material and activity pull in different directions. Keep the opponent’s pieces tied down.'},
-{id:'e1900-rooks',phase:'endgame',rating:1900,title:'Technical rook ending',theme:'Cut off the king and create targets',fen:'8/p4pk1/r1r2p1p/2P5/P7/4P2P/5PP1/R4RK1 b - - 0 1',description:'The position rewards precise rook placement. Small improvements accumulate into a winning chance.'},
-{id:'e1900-minors',phase:'endgame',rating:1900,title:'Rook and minor-piece ending',theme:'Passed pawns versus coordination',fen:'r7/5p1k/4b1pp/8/1R1P3P/1pP5/4NPPK/8 w - - 0 1',description:'Each side has a different strength. Balance the passed pawn threat against piece activity.'},
-{id:'e2000-complex',phase:'endgame',rating:2000,title:'Advanced technical ending',theme:'Prophylaxis, tempi, and conversion',fen:'1r3k2/3n3p/6p1/p1ppP3/P1P5/1p5P/1P4P1/3R1BK1 w - - 0 1',description:'The position contains several long forcing lines. Plan around both pawn races and piece exchanges.'}
-];
-const PIECE={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'},FILES='abcdefgh';
-const validPositions=POSITIONS.filter(p=>{try{new Chess(p.fen);return true}catch(e){console.warn('Invalid position skipped',p.id,e);return false}});
-let phase='middlegame',positionRating=1600,opponentRating=1600,game=null,current=null,userColor='w',engineColor='b',orientation='w',selected=null,legal=[],lastMove=null,thinking=false,promotionBase=null,requestId=0,startFullmove=1,startTurn='w',resultRecorded=false,toastTimer;
-let stats;try{stats={sessions:0,wins:0,draws:0,losses:0,best:0,...JSON.parse(localStorage.getItem('kmate-position-v6')||'{}')}}catch{stats={sessions:0,wins:0,draws:0,losses:0,best:0}}
-const workerSource=String.raw`import { Chess } from '${CDN}';
-const V={p:100,n:320,b:335,r:510,q:930,k:0};
-let nodes=0,deadline=0,limit=0;
-function cfg(r){if(r<=1200)return{depth:1,ms:120,nodes:2200,beam:9,choices:7,temp:170,blunder:.34};if(r<=1400)return{depth:2,ms:240,nodes:6500,beam:11,choices:5,temp:105,blunder:.23};if(r<=1600)return{depth:2,ms:420,nodes:14000,beam:14,choices:4,temp:62,blunder:.13};if(r<=1800)return{depth:3,ms:700,nodes:30000,beam:16,choices:3,temp:31,blunder:.065};if(r<=2000)return{depth:3,ms:1150,nodes:65000,beam:19,choices:2,temp:14,blunder:.018};return{depth:4,ms:1800,nodes:125000,beam:21,choices:2,temp:5,blunder:.005}}
-function terminal(g,engine,ply){if(g.isCheckmate())return g.turn()===engine?-100000+ply:100000-ply;if(g.isDraw())return 0;return null}
-function evaluate(g,engine,phase){let t=terminal(g,engine,0);if(t!==null)return t;let score=0,bish={w:0,b:0};const board=g.board();for(let r=0;r<8;r++)for(let f=0;f<8;f++){let p=board[r][f];if(!p)continue;let s=p.color===engine?1:-1,val=V[p.type],cd=Math.abs(3.5-f)+Math.abs(3.5-r);if(p.type==='p'){let adv=p.color==='w'?6-r:r-1;val+=adv*9;if(f>=2&&f<=5)val+=5}else if(p.type==='n')val+=Math.max(0,28-cd*7);else if(p.type==='b'){val+=Math.max(0,18-cd*3);bish[p.color]++}else if(p.type==='r')val+=(r===1||r===6)?4:0;else if(p.type==='q')val+=Math.max(0,8-cd*2);else if(p.type==='k'){if(phase==='endgame')val+=Math.max(0,42-cd*9);else{if(f===6||f===2)val+=34;if(f===3||f===4)val-=20}}score+=s*val}if(bish[engine]>=2)score+=24;if(bish[engine==='w'?'b':'w']>=2)score-=24;if(g.isCheck())score+=g.turn()===engine?-24:24;return score}
-function order(moves){return moves.sort((a,b)=>rank(b)-rank(a));function rank(m){let x=(m.captured?V[m.captured]+40:0)+(m.promotion?V[m.promotion]+250:0);if(m.san&&m.san.includes('+'))x+=80;if(m.san&&m.san.includes('#'))x+=10000;if(m.flags&&m.flags.includes('k'))x+=30;if('d4e4d5e5'.includes(m.to))x+=10;return x}}
-function search(g,depth,alpha,beta,engine,phase,c,ply){nodes++;let t=terminal(g,engine,ply);if(t!==null)return t;if(depth<=0||Date.now()>deadline||nodes>limit)return evaluate(g,engine,phase);let moves=order(g.moves({verbose:true})).slice(0,c.beam),max=g.turn()===engine;if(max){let best=-1e9;for(let m of moves){g.move({from:m.from,to:m.to,promotion:m.promotion||'q'});let v=search(g,depth-1,alpha,beta,engine,phase,c,ply+1);g.undo();if(v>best)best=v;if(v>alpha)alpha=v;if(beta<=alpha||Date.now()>deadline||nodes>limit)break}return best}else{let best=1e9;for(let m of moves){g.move({from:m.from,to:m.to,promotion:m.promotion||'q'});let v=search(g,depth-1,alpha,beta,engine,phase,c,ply+1);g.undo();if(v<best)best=v;if(v<beta)beta=v;if(beta<=alpha||Date.now()>deadline||nodes>limit)break}return best}}
-function choose(scored,c,rating){scored.sort((a,b)=>b.score-a.score);if(scored[0].score>90000)return scored[0];let n=Math.min(c.choices,scored.length);if(Math.random()<c.blunder&&n>2){let lo=Math.min(2,n-1),hi=Math.min(n-1,5);return scored[lo+Math.floor(Math.random()*(hi-lo+1))]}let pool=scored.slice(0,n),best=pool[0].score,weights=pool.map(x=>Math.exp(Math.max(-12,(x.score-best)/c.temp))),sum=weights.reduce((a,b)=>a+b,0),z=Math.random()*sum;for(let i=0;i<pool.length;i++){z-=weights[i];if(z<=0)return pool[i]}return pool[0]}
-self.onmessage=e=>{let{id,fen,rating,phase,engine}=e.data;try{let g=new Chess(fen),c=cfg(rating),root=order(g.moves({verbose:true}));deadline=Date.now()+c.ms;limit=c.nodes;nodes=0;let final=[];for(let d=1;d<=c.depth;d++){let round=[],complete=true;for(let m of root){if(Date.now()>deadline||nodes>limit){complete=false;break}g.move({from:m.from,to:m.to,promotion:m.promotion||'q'});let v=search(g,d-1,-1e9,1e9,engine,phase,c,1);g.undo();round.push({move:m.from+m.to+(m.promotion||''),score:v})}if(complete&&round.length===root.length){final=round;root.sort((a,b)=>{let A=round.find(x=>x.move.startsWith(a.from+a.to))?.score??-1e9,B=round.find(x=>x.move.startsWith(b.from+b.to))?.score??-1e9;return B-A})}else break}if(!final.length)final=root.map(m=>({move:m.from+m.to+(m.promotion||''),score:0}));let pick=choose(final,c,rating);postMessage({id,move:pick.move,score:pick.score,nodes,depth:c.depth})}catch(error){postMessage({id,error:String(error)})}};`;
-let aiWorker;try{aiWorker=new Worker(URL.createObjectURL(new Blob([workerSource],{type:'text/javascript'})),{type:'module'})}catch(e){console.warn('Worker unavailable',e)}
-function saveStats(){localStorage.setItem('kmate-position-v6',JSON.stringify(stats));renderStats()}
-function renderStats(){$('#statSessions').textContent=stats.sessions;$('#statWins').textContent=stats.wins;$('#statDraws').textContent=stats.draws;$('#statBest').textContent=stats.best?stats.best:'—'}
-function descriptor(r){if(r<=1200)return'Casual developing-player resistance.';if(r<=1400)return'Club-level resistance with visible mistakes.';if(r<=1600)return'Strong club-level resistance.';if(r<=1800)return'Advanced club and expert-level resistance.';if(r<=2000)return'Highly accurate tactical and positional resistance.';return'Master-style calculation with very few deliberate errors.'}
-function updateControls(){positionRating=+$('#positionRating').value;opponentRating=+$('#opponentRating').value;$('#positionValue').textContent=positionRating;$('#opponentValue').textContent=opponentRating;$('#positionBand').textContent='Draws positions rated roughly '+Math.max(1200,positionRating-100)+'–'+Math.min(2000,positionRating+100)+'.';$('#opponentLabel').textContent=descriptor(opponentRating)}
-function setView(id){$('#setupView').hidden=id!=='setup';$('#playView').hidden=id!=='play';window.scrollTo({top:0,behavior:'smooth'})}
-function pickPosition(){let base=validPositions.filter(p=>phase==='mixed'||p.phase===phase);let pool=base.filter(p=>Math.abs(p.rating-positionRating)<=100);if(!pool.length){let min=Math.min(...base.map(p=>Math.abs(p.rating-positionRating)));pool=base.filter(p=>Math.abs(p.rating-positionRating)===min)}if(current&&pool.length>1)pool=pool.filter(p=>p.id!==current.id);return pool[Math.floor(Math.random()*pool.length)]}
-function startPosition(){requestId++;thinking=false;current=pickPosition();game=new Chess(current.fen);userColor=game.turn();engineColor=userColor==='w'?'b':'w';orientation=userColor;selected=null;legal=[];lastMove=null;resultRecorded=false;startTurn=game.turn();startFullmove=+current.fen.split(/\s+/)[5]||1;$('#positionTitle').textContent=current.title;$('#phaseLabel').textContent=(current.phase==='middlegame'?'Middlegame':'Endgame')+' position';$('#positionBadge').textContent=current.rating+' level';$('#themeTitle').textContent=current.theme;$('#positionDescription').textContent=current.description;$('#engineName').textContent='K-Mate '+opponentRating;$('#engineSub').textContent='Approx. rapid strength';$('#userSide').textContent=userColor==='w'?'White':'Black';$('#userAvatar').textContent=PIECE.k;$('#engineAvatar').textContent=PIECE.k;setView('play');setStatus('Choose a piece, then a legal destination.','');renderAll()}
-function orderedSquares(){let fs=orientation==='w'?FILES:[...FILES].reverse().join(''),rs=orientation==='w'?'87654321':'12345678';return[...rs].flatMap(r=>[...fs].map(f=>f+r))}
-function kingInCheckSquare(){if(!game||!game.isCheck())return null;for(let r=1;r<=8;r++)for(let f of FILES){let s=f+r,p=game.get(s);if(p&&p.type==='k'&&p.color===game.turn())return s}return null}
-function renderBoard(){let board=$('#board');board.innerHTML='';let checkSq=kingInCheckSquare(),squares=orderedSquares();for(let i=0;i<squares.length;i++){let s=squares[i],p=game.get(s),b=document.createElement('button');b.type='button';b.className='sq '+(((FILES.indexOf(s[0])+Number(s[1]))%2)?'light':'dark');if(selected===s)b.classList.add('selected');if(lastMove&&(lastMove.from===s||lastMove.to===s))b.classList.add('last');let lm=legal.find(m=>m.to===s);if(lm)b.classList.add(p?'capture':'legal');if(checkSq===s)b.classList.add('check');b.dataset.square=s;b.setAttribute('aria-label',s+(p?' '+(p.color==='w'?'white ':'black ')+p.type:' empty'));if(p){let z=document.createElement('span');z.className='piece '+(p.color==='w'?'white':'black');z.textContent=PIECE[p.type];b.append(z)}if(i%8===0){let z=document.createElement('span');z.className='coord rank';z.textContent=s[1];b.append(z)}if(i>=56){let z=document.createElement('span');z.className='coord file';z.textContent=s[0];b.append(z)}b.addEventListener('click',()=>tapSquare(s));board.append(b)}}
-function renderTurns(){let userLive=!thinking&&game.turn()===userColor&&!game.isGameOver(),engineLive=thinking||game.turn()===engineColor;$('#userTurn').textContent=userLive?'Your move':game.isGameOver()?'Finished':'Waiting';$('#userTurn').classList.toggle('live',userLive);$('#engineTurn').textContent=thinking?'Thinking…':engineLive?'To move':'Waiting';$('#engineTurn').classList.toggle('live',engineLive)}
-function renderMoves(){let h=game.history({verbose:true}),rows=[],num=startFullmove,row=null;for(let idx=0;idx<h.length;idx++){let m=h[idx];if(m.color==='w'){row={n:num,w:m.san,b:''};rows.push(row)}else{if(!row||row.b){row={n:num,w:'…',b:m.san};rows.push(row)}else row.b=m.san;num++}}let el=$('#moveList');el.innerHTML=rows.length?rows.map(r=>'<div class="moverow"><span>'+r.n+'.</span><b>'+r.w+'</b><b>'+r.b+'</b></div>').join(''):'<div class="emptyMoves">The move list will appear here.</div>';el.scrollTop=el.scrollHeight;let plies=h.length;$('#sessionNote').textContent=plies>=40?'You have played '+Math.floor(plies/2)+' moves from this position. Continue, resign, or draw a new position.':'The position continues until mate, draw, resignation, or you choose a new position.'}
-function renderAll(){renderBoard();renderTurns();renderMoves();$('#takebackBtn').disabled=thinking||!game.history().length}
-function setStatus(text,type){$('#statusText').textContent=text;$('#status').className='status '+(type||'')}
-function tapSquare(s){if(!game||thinking||game.isGameOver()||game.turn()!==userColor)return;let p=game.get(s);if(!selected){if(p&&p.color===userColor){selected=s;legal=game.moves({square:s,verbose:true});renderBoard()}return}if(p&&p.color===userColor){selected=s;legal=game.moves({square:s,verbose:true});renderBoard();return}let candidates=legal.filter(m=>m.to===s);if(!candidates.length){selected=null;legal=[];renderBoard();return}if(candidates.some(m=>m.promotion)){promotionBase={from:selected,to:s};openPromotion();return}makeUserMove({from:selected,to:s,promotion:'q'})}
-function openPromotion(){let box=$('#promotionChoices');box.innerHTML='';for(let t of['q','r','b','n']){let b=document.createElement('button');b.type='button';b.dataset.promo=t;let z=document.createElement('span');z.className='piece '+(userColor==='w'?'white':'black');z.textContent=PIECE[t];b.append(z);b.addEventListener('click',()=>{try{$('#promotionDialog').close()}catch{}makeUserMove({...promotionBase,promotion:t})});box.append(b)}$('#promotionDialog').showModal()}
-function makeUserMove(obj){let m;try{m=game.move(obj)}catch{return}selected=null;legal=[];lastMove={from:m.from,to:m.to};setStatus((game.isCheck()?'Check. ':'')+'Opponent is considering the position.','thinking');renderAll();if(finishIfNeeded())return;askEngine()}
-function fallbackMove(){let ms=game.moves({verbose:true});if(!ms.length)return null;ms.sort((a,b)=>(b.captured?1:0)-(a.captured?1:0));let top=Math.max(1,Math.min(ms.length,opponentRating>=1800?2:opponentRating>=1500?4:7));return ms[Math.floor(Math.random()*top)]}
-function askEngine(){thinking=true;renderTurns();let id=++requestId,fen=game.fen();if(!aiWorker){setTimeout(()=>applyEngineReply(id,{move:null}),260);return}let timer=setTimeout(()=>applyEngineReply(id,{timeout:true}),5000);let handler=e=>{if(e.data.id!==id)return;clearTimeout(timer);aiWorker.removeEventListener('message',handler);applyEngineReply(id,e.data)};aiWorker.addEventListener('message',handler);aiWorker.postMessage({id,fen,rating:opponentRating,phase:current.phase,engine:engineColor})}
-function applyEngineReply(id,data){if(id!==requestId||!game||game.isGameOver())return;thinking=false;let m=null;if(data.move){let from=data.move.slice(0,2),to=data.move.slice(2,4),promotion=data.move[4]||'q';try{m=game.move({from,to,promotion})}catch{m=null}}if(!m){let f=fallbackMove();if(f)try{m=game.move({from:f.from,to:f.to,promotion:f.promotion||'q'})}catch{}}if(!m){finishIfNeeded();return}lastMove={from:m.from,to:m.to};setStatus(game.isCheck()?'Check—your king is under attack.':'Your move. Build the position one decision at a time.','');renderAll();finishIfNeeded()}
-function finishIfNeeded(){if(!game.isGameOver())return false;let title,text,outcome;if(game.isCheckmate()){let winner=game.turn()==='w'?'b':'w';outcome=winner===userColor?'win':'loss';title=outcome==='win'?'You won the position':'The opponent converted';text=outcome==='win'?'Checkmate against the '+opponentRating+' strength setting.':'You were checkmated. Use a new position or lower the opponent strength and replay the ideas.'}else{outcome='draw';title='Draw';text='The position ended in a draw. Holding a difficult position is valuable endgame and middlegame practice.'}recordResult(outcome);showResult(title,text);renderAll();return true}
-function recordResult(outcome){if(resultRecorded)return;resultRecorded=true;stats.sessions++;if(outcome==='win'){stats.wins++;stats.best=Math.max(stats.best,opponentRating)}else if(outcome==='draw')stats.draws++;else stats.losses++;saveStats()}
-function showResult(title,text){$('#resultTitle').textContent=title;$('#resultText').textContent=text;$('#resultDialog').showModal()}
-function resign(){if(!game||game.isGameOver())return;requestId++;thinking=false;recordResult('loss');showResult('Position resigned','This session is recorded as a loss against the '+opponentRating+' setting. Start another position whenever you are ready.');renderTurns()}
-function takeback(){if(!game||thinking)return;requestId++;let h=game.history();if(!h.length)return;if(game.turn()===userColor&&h.length>=2){game.undo();game.undo()}else game.undo();selected=null;legal=[];lastMove=null;setStatus('Moves taken back. Try a different plan.','');renderAll()}
-function copyFen(){navigator.clipboard?.writeText(game.fen()).then(()=>toast('FEN copied')).catch(()=>toast(game.fen()))}
-function toast(x){let e=$('#toast');e.textContent=x;e.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.classList.remove('show'),2300)}
-$$('#phaseSeg button').forEach(b=>b.addEventListener('click',()=>{$$('#phaseSeg button').forEach(x=>x.classList.remove('active'));b.classList.add('active');phase=b.dataset.phase}));
-$('#positionRating').addEventListener('input',updateControls);$('#opponentRating').addEventListener('input',updateControls);
-$$('[data-step]').forEach(b=>b.addEventListener('click',()=>{let el=b.dataset.step==='position'?$('#positionRating'):$('#opponentRating'),v=Math.max(+el.min,Math.min(+el.max,+el.value+(+b.dataset.delta)));el.value=v;updateControls()}));
-$$('[data-preset]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.preset==='personal'){$('#positionRating').value=1500;$('#opponentRating').value=1600}else{$('#positionRating').value=1800;$('#opponentRating').value=2000}updateControls()}));
-$('#startBtn').addEventListener('click',startPosition);$('#newBtn').addEventListener('click',startPosition);$('#flipBtn').addEventListener('click',()=>{orientation=orientation==='w'?'b':'w';renderBoard()});$('#takebackBtn').addEventListener('click',takeback);$('#copyFenBtn').addEventListener('click',copyFen);$('#resignBtn').addEventListener('click',resign);$('#backBtn').addEventListener('click',()=>setView('setup'));$('#setupBtn').addEventListener('click',()=>setView('setup'));$('#brand').addEventListener('click',()=>setView('setup'));$('#resultNext').addEventListener('click',()=>{try{$('#resultDialog').close()}catch{}startPosition()});$('#resultSetup').addEventListener('click',()=>{try{$('#resultDialog').close()}catch{}setView('setup')});
-updateControls();renderStats();$('#startBtn').disabled=false;$('#startBtn').textContent='Start position play';$('#topBadge').textContent='Ready · 1600 default';document.documentElement.dataset.ready='1';window.__KMATE__={version:'6.0',start:startPosition,state:()=>({phase,positionRating,opponentRating,current:current?.id||null,turn:game?.turn()||null,ready:true})};
-</script>
+  <header class="appbar">
+    <button class="brand" id="brandButton" type="button" aria-label="K-Mate setup">
+      <span class="brandmark">♞</span>
+      <span class="brandtext"><b>K-Mate</b><small>Timed position play</small></span>
+    </button>
+    <nav class="topnav" aria-label="App sections">
+      <button class="navbutton active" type="button" data-view="setup">Play</button>
+      <button class="navbutton" type="button" data-view="insights">Insights</button>
+    </nav>
+    <span class="topbadge" id="topBadge">Loading…</span>
+  </header>
+
+  <main class="shell">
+    <section class="view" id="setupView">
+      <div class="hero">
+        <article class="card intro">
+          <div class="eyebrow">Skip the opening moves. Train the decisions.</div>
+          <h1>Play the phase, opening, rating, and clock you choose.</h1>
+          <p>Start in a practical middlegame, late middlegame, or endgame. Play the position out against a locally calculated opponent, then let K-Mate build a profile of your opening results, move quality, themes, and clock habits.</p>
+          <div class="featureline">
+            <span class="chip">Middlegame</span>
+            <span class="chip">Late middlegame</span>
+            <span class="chip">Endgame</span>
+            <span class="chip">Opening filters</span>
+            <span class="chip">Timed clocks</span>
+            <span class="chip">Weakness analysis</span>
+          </div>
+          <div class="summary-grid">
+            <div><strong id="summaryGames">0</strong><span>completed</span></div>
+            <div><strong id="summaryScore">—</strong><span>score</span></div>
+            <div><strong id="summaryAccuracy">—</strong><span>move quality</span></div>
+            <div><strong id="summaryBest">—</strong><span>best win</span></div>
+          </div>
+        </article>
+
+        <aside class="card setup-card">
+          <div class="eyebrow">New training session</div>
+          <h2>Choose your challenge</h2>
+
+          <div class="field">
+            <div class="fieldhead"><label>Position phase</label></div>
+            <div class="seg phase-seg" id="phaseSeg">
+              <button type="button" class="active" data-phase="middlegame"><b>Middlegame</b><small>Development is complete</small></button>
+              <button type="button" data-phase="late-middlegame"><b>Late middlegame</b><small>Fewer pieces, conversion</small></button>
+              <button type="button" data-phase="endgame"><b>Endgame</b><small>Technical play</small></button>
+            </div>
+          </div>
+
+          <div class="field" id="openingField">
+            <div class="fieldhead"><label for="openingSelect">Opening family</label><span class="value" id="openingCount">All</span></div>
+            <select class="select" id="openingSelect" aria-label="Opening family">
+              <option value="all">All popular openings</option>
+            </select>
+            <small class="sub">Includes the London System, Caro-Kann, Italian, Queen’s Gambit, Sicilian, King’s Indian, French, and Ruy Lopez.</small>
+          </div>
+
+          <div class="field">
+            <div class="fieldhead"><label for="positionRating">Position level</label><span class="value" id="positionValue">1600</span></div>
+            <div class="rangeRow">
+              <button class="step" type="button" data-step="position" data-delta="-100" aria-label="Lower position rating">−</button>
+              <input class="range" id="positionRating" type="range" min="1200" max="2100" step="100" value="1600">
+              <button class="step" type="button" data-step="position" data-delta="100" aria-label="Raise position rating">+</button>
+            </div>
+            <small class="sub" id="positionBand">Draws positions near 1600.</small>
+          </div>
+
+          <div class="field">
+            <div class="fieldhead"><label for="opponentRating">Opponent strength</label><span class="value" id="opponentValue">1600</span></div>
+            <div class="rangeRow">
+              <button class="step" type="button" data-step="opponent" data-delta="-100" aria-label="Lower opponent rating">−</button>
+              <input class="range" id="opponentRating" type="range" min="1000" max="2200" step="100" value="1600">
+              <button class="step" type="button" data-step="opponent" data-delta="100" aria-label="Raise opponent rating">+</button>
+            </div>
+            <small class="sub" id="opponentLabel">Strong club-level resistance.</small>
+          </div>
+
+          <div class="field">
+            <div class="fieldhead"><label>Time control</label><span class="value" id="timeValue">3+0</span></div>
+            <div class="time-grid" id="timeControlGrid">
+              <button type="button" data-time="untimed"><b>∞</b><small>Untimed</small></button>
+              <button type="button" data-time="1+0"><b>1+0</b><small>Bullet</small></button>
+              <button type="button" class="active" data-time="3+0"><b>3+0</b><small>Blitz</small></button>
+              <button type="button" data-time="3+2"><b>3+2</b><small>Blitz + increment</small></button>
+              <button type="button" data-time="5+0"><b>5+0</b><small>Fast practice</small></button>
+              <button type="button" data-time="10+0"><b>10+0</b><small>Deep practice</small></button>
+            </div>
+            <small class="sub">Both sides receive the selected time. Increment is added after each completed move.</small>
+          </div>
+
+          <div class="field">
+            <div class="fieldhead"><label>Play as</label></div>
+            <div class="seg side-seg" id="sideSeg">
+              <button type="button" data-side="w">White</button>
+              <button type="button" class="active" data-side="random">Random</button>
+              <button type="button" data-side="b">Black</button>
+            </div>
+          </div>
+
+          <div class="quick-presets">
+            <button type="button" data-preset="current"><b>Your current zone</b><small>1600 position · 1600 opponent · 3+0</small></button>
+            <button type="button" data-preset="stretch"><b>Stretch session</b><small>1800 position · 2000 opponent · 5+0</small></button>
+          </div>
+
+          <div id="loadError" class="error"></div>
+          <button class="btn primary start" id="startButton" type="button" disabled>Loading chess engine…</button>
+          <p class="fineprint">Opponent and position ratings are approximate training levels, not official FIDE or Chess.com ratings. Move-quality analysis is a local estimate.</p>
+        </aside>
+      </div>
+
+      <section class="signal-card card">
+        <div>
+          <div class="eyebrow">Current coaching signal</div>
+          <h2 id="setupSignalTitle">Play a few sessions to build your profile</h2>
+          <p id="setupSignalText">K-Mate will compare results across openings, phases, themes, colors, opponent ratings, and time controls.</p>
+        </div>
+        <button class="btn" type="button" data-view="insights">Open insights</button>
+      </section>
+    </section>
+
+    <section class="view" id="gameView" hidden>
+      <div class="playtop">
+        <div class="left">
+          <button class="roundbtn" id="backButton" type="button" aria-label="Back to setup">←</button>
+          <div>
+            <div class="eyebrow" id="gameMeta">Middlegame · London System</div>
+            <h1 id="positionTitle">Position play</h1>
+          </div>
+        </div>
+        <button class="roundbtn" id="flipButton" type="button" aria-label="Flip board">⇅</button>
+      </div>
+
+      <div class="playgrid">
+        <div class="boardcol">
+          <div class="playerbar top" id="engineBar">
+            <div class="identity">
+              <span class="avatar black-avatar">♟</span>
+              <span><b id="engineName">K-Mate 1600</b><small id="engineSub">Approx. rapid strength</small></span>
+            </div>
+            <div class="clock-wrap">
+              <span class="turnpill" id="engineTurn">Waiting</span>
+              <strong class="clock" id="engineClock">3:00</strong>
+            </div>
+          </div>
+
+          <div class="boardwrap"><div class="board" id="board" aria-label="Interactive chessboard"></div></div>
+
+          <div class="playerbar bottom" id="userBar">
+            <div class="identity">
+              <span class="avatar white-avatar">♙</span>
+              <span><b>You</b><small id="userSide">White</small></span>
+            </div>
+            <div class="clock-wrap">
+              <span class="turnpill live" id="userTurn">Your move</span>
+              <strong class="clock" id="userClock">3:00</strong>
+            </div>
+          </div>
+
+          <div class="status" id="status"><span class="statusdot"></span><span id="statusText">Choose a piece, then a legal destination.</span></div>
+        </div>
+
+        <aside class="card sidepanel">
+          <div class="sidebody">
+            <div class="ratingline"><span class="eyebrow">Position brief</span><span class="ratingbadge" id="positionBadge">1600 level</span></div>
+            <h2 id="themeTitle">Find a plan</h2>
+            <p id="positionDescription">Play the position naturally and respond to the opponent.</p>
+            <div class="tag-row" id="positionTags"></div>
+            <div class="brief">
+              <b>Your assignment</b>
+              <span>Play the position out. There is no single prescribed puzzle move.</span>
+            </div>
+            <div class="live-quality">
+              <div><span>Analyzed moves</span><b id="analyzedMoves">0</b></div>
+              <div><span>Average loss</span><b id="liveCpl">—</b></div>
+              <div><span>Takebacks</span><b id="takebackCount">0</b></div>
+            </div>
+            <div class="moves">
+              <div class="moves-heading"><b>Moves played</b><span id="moveCount">0</span></div>
+              <div class="movelist" id="moveList"><div class="emptyMoves">The move list will appear here.</div></div>
+            </div>
+            <div class="sessionnote" id="sessionNote">The position continues until mate, draw, timeout, resignation, or a new position.</div>
+          </div>
+          <div class="tools">
+            <button class="tool" id="takebackButton" type="button">Take back</button>
+            <button class="tool" id="copyFenButton" type="button">Copy FEN</button>
+            <button class="tool" id="newPositionButton" type="button">New position</button>
+            <button class="tool danger" id="resignButton" type="button">Resign</button>
+            <button class="btn primary tool wide" id="changeSetupButton" type="button">Change setup</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view" id="insightsView" hidden>
+      <div class="insights-head">
+        <div>
+          <div class="eyebrow">Your K-Mate profile</div>
+          <h1>Results, decision quality, and weakness signals</h1>
+          <p>Detailed analysis uses sessions played in this version. Older K-Mate totals are preserved in the overall counters.</p>
+        </div>
+        <div class="insight-actions">
+          <button class="btn" id="exportButton" type="button">Export data</button>
+          <button class="btn danger-outline" id="resetButton" type="button">Reset data</button>
+        </div>
+      </div>
+
+      <div class="analytics-grid">
+        <article class="card metric"><span>Completed games</span><strong id="metricGames">0</strong><small id="metricRecord">0W · 0D · 0L</small></article>
+        <article class="card metric"><span>Score</span><strong id="metricScore">—</strong><small>win = 1, draw = ½</small></article>
+        <article class="card metric"><span>Estimated move loss</span><strong id="metricCpl">—</strong><small>lower is better</small></article>
+        <article class="card metric"><span>Training performance</span><strong id="metricPerformance">—</strong><small>approximate opponent-adjusted rating</small></article>
+      </div>
+
+      <div class="weakness-grid">
+        <article class="card weakness"><span class="weakness-icon">♟</span><div><small>Opening signal</small><h3 id="openingInsightTitle">Not enough data</h3><p id="openingInsightText">Complete at least two games in an opening family.</p></div></article>
+        <article class="card weakness"><span class="weakness-icon">◫</span><div><small>Phase signal</small><h3 id="phaseInsightTitle">Not enough data</h3><p id="phaseInsightText">Middlegame, late-middlegame, and endgame results will be compared.</p></div></article>
+        <article class="card weakness"><span class="weakness-icon">◎</span><div><small>Decision signal</small><h3 id="themeInsightTitle">Not enough analyzed moves</h3><p id="themeInsightText">Move-quality estimates are grouped by the themes of each position.</p></div></article>
+        <article class="card weakness"><span class="weakness-icon">◷</span><div><small>Clock signal</small><h3 id="clockInsightTitle">No timed sessions yet</h3><p id="clockInsightText">K-Mate will look for timeouts, rushed mistakes, and excessive time use.</p></div></article>
+      </div>
+
+      <div class="tables-grid">
+        <article class="card table-card">
+          <div class="table-title"><div><div class="eyebrow">Opening families</div><h2>Performance by opening</h2></div></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Opening</th><th>Games</th><th>Score</th><th>Avg loss</th><th>Color note</th></tr></thead>
+              <tbody id="openingTableBody"><tr><td colspan="5" class="empty-cell">No opening sessions yet.</td></tr></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="card table-card">
+          <div class="table-title"><div><div class="eyebrow">Position phases</div><h2>Performance by phase</h2></div></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Phase</th><th>Games</th><th>Score</th><th>Avg loss</th><th>Timeouts</th></tr></thead>
+              <tbody id="phaseTableBody"><tr><td colspan="5" class="empty-cell">No completed sessions yet.</td></tr></tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <article class="card recent-card">
+        <div class="table-title"><div><div class="eyebrow">History</div><h2>Recent sessions</h2></div><span id="sampleNote">0 detailed sessions</span></div>
+        <div class="recent-list" id="recentList"><div class="empty-cell">Your recent games will appear here.</div></div>
+      </article>
+    </section>
+  </main>
+
+  <dialog id="promotionDialog" class="modal">
+    <div class="modal-card">
+      <div class="eyebrow">Promotion</div>
+      <h2>Choose a piece</h2>
+      <div class="promos" id="promotionChoices"></div>
+      <button class="btn" type="button" data-close="promotionDialog">Cancel</button>
+    </div>
+  </dialog>
+
+  <dialog id="resultDialog" class="modal">
+    <div class="modal-card result-card">
+      <div class="result-symbol" id="resultSymbol">½</div>
+      <div class="eyebrow">Position complete</div>
+      <h2 id="resultTitle">Result</h2>
+      <p id="resultText"></p>
+      <div class="result-grid">
+        <div><span>Opening</span><b id="resultOpening">—</b></div>
+        <div><span>Opponent</span><b id="resultOpponent">—</b></div>
+        <div><span>Move quality</span><b id="resultQuality">—</b></div>
+        <div><span>Clock used</span><b id="resultClock">—</b></div>
+      </div>
+      <div class="result-coach" id="resultCoach">More sessions will sharpen the coaching signal.</div>
+      <div class="dialogactions">
+        <button class="btn" type="button" id="resultInsights">View insights</button>
+        <button class="btn" type="button" id="resultSetup">Change setup</button>
+        <button class="btn primary" type="button" id="resultNext">Play another</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app-v7.js?v=7.0.0"></script>
 </body>
 </html>
