@@ -1,0 +1,4 @@
+Stockfish.js 18.0.8, lite single-threaded WebAssembly build.
+Source: https://github.com/nmrugg/stockfish.js
+Upstream engine: https://github.com/official-stockfish/Stockfish
+License: GNU GPL version 3. See Copying.txt and the source repository.
