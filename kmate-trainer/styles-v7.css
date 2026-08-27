@@ -106,6 +106,8 @@ button{touch-action:manipulation}
 .clock-wrap{display:flex;align-items:center;gap:9px}
 .turnpill{padding:6px 9px;border-radius:99px;background:#ffffff0b;color:var(--muted);font-size:11px}
 .turnpill.live{background:#b9f4741c;color:var(--accent)}
+.materialpill{min-width:42px;padding:5px 8px;border:1px solid #ffffff18;border-radius:99px;background:#ffffff08;color:var(--muted);font-size:11px;font-weight:900;text-align:center;white-space:nowrap}
+.materialpill.ahead{border-color:#b9f47455;background:#b9f47418;color:var(--accent)}
 .clock{min-width:94px;padding:7px 11px;border:1px solid #ffffff17;border-radius:12px;background:#071009;font:800 25px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;text-align:center;letter-spacing:-.04em}
 .clock.active{border-color:#b9f47488;box-shadow:0 0 0 2px #b9f47412}
 .clock.low{color:#ffd071;border-color:#f4cc7066}
@@ -247,6 +249,7 @@ td small{display:block;color:var(--muted)}
   .playerbar{min-height:52px;padding:6px 8px}
   .clock-wrap{gap:5px}
   .turnpill{display:none}
+  .materialpill{min-width:34px;padding:4px 6px;font-size:10px}
   .clock{min-width:72px;padding:6px 8px;font-size:19px}
   .boardwrap{padding:2px}
   .piece{font-size:clamp(27px,8.4vw,40px);transform:translateY(-1%) scale(.94)}
