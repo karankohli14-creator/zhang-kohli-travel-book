@@ -265,6 +265,7 @@ function requestMoveAnalysis(fenBefore, moveRecord) {
     if (currentSession?.id === sessionId) {
       renderLiveQuality();
       updateStoredCurrentSession();
+      if (finalized) renderPostGameReview(currentSession);
     } else {
       saveStore();
     }

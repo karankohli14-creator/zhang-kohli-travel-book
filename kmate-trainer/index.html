@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=11.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=12.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -285,6 +285,24 @@
         <div><span>Clock used</span><b id="resultClock">—</b></div>
       </div>
       <div class="result-coach" id="resultCoach">More sessions will sharpen the coaching signal.</div>
+      <section class="post-review" id="postReview" aria-live="polite">
+        <div class="review-head">
+          <div><small>Automatic session review</small><h3 id="reviewHeadline">Analysis finishing…</h3></div>
+          <span class="review-grade" id="reviewGrade">—</span>
+        </div>
+        <p class="review-self">Before checking the engine details, ask: What was the opponent threatening? Were any pieces loose? Which checks, captures, or threats did I overlook?</p>
+        <div class="review-summary-grid">
+          <div><span>Excellent / good</span><b id="reviewGood">—</b></div>
+          <div><span>Inaccuracies</span><b id="reviewInaccuracies">—</b></div>
+          <div><span>Mistakes</span><b id="reviewMistakes">—</b></div>
+          <div><span>Blunders</span><b id="reviewBlunders">—</b></div>
+        </div>
+        <div class="review-key" id="reviewKeyMoment">K-Mate is preparing the key lesson from this position.</div>
+        <details class="review-details" id="reviewDetails">
+          <summary>Review every decision</summary>
+          <div class="review-moves" id="reviewMoveList"></div>
+        </details>
+      </section>
       <div class="dialogactions">
         <button class="btn" type="button" id="resultInsights">View insights</button>
         <button class="btn" type="button" id="resultSetup">Change setup</button>
@@ -294,6 +312,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=9.0.0"></script>
+  <script type="module" src="./app-v7.js?v=12.0.0"></script>
 </body>
 </html>
