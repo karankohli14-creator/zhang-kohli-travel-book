@@ -1,0 +1,254 @@
+:.23};
+  else if(r<=1600)c={depth:2,ms:440,nodes:15000,beam:14,choices:4,temp:62,blunder:.13};
+  else if(r<=1800)c={depth:3,ms:720,nodes:32000,beam:16,choices:3,temp:31,blunder:.065};
+  else if(r<=2000)c={depth:3,ms:1180,nodes:68000,beam:19,choices:2,temp:14,blunder:.018};
+  else c={depth:4,ms:1850,nodes:130000,beam:21,choices:2,temp:5,blunder:.005};
+  if(Number.isFinite(maxMs))c.ms=Math.max(55,Math.min(c.ms,maxMs));
+  return c;
+}
+function terminal(g,perspective,ply){
+  if(g.isCheckmate())return g.turn()===perspective?-100000+ply:100000-ply;
+  if(g.isDraw())return 0;
+  return null;
+}
+function evaluate(g,perspective,phase){
+  const t=terminal(g,perspective,0);if(t!==null)return t;
+  let score=0,bish={w:0,b:0},mobility=0;
+  const board=g.board();
+  for(let r=0;r<8;r++)for(let f=0;f<8;f++){
+    const p=board[r][f];if(!p)continue;
+    const sign=p.color===perspective?1:-1;
+    let val=V[p.type],cd=Math.abs(3.5-f)+Math.abs(3.5-r);
+    if(p.type==='p'){const adv=p.color==='w'?6-r:r-1;val+=adv*9;if(f>=2&&f<=5)val+=5}
+    else if(p.type==='n')val+=Math.max(0,28-cd*7);
+    else if(p.type==='b'){val+=Math.max(0,18-cd*3);bish[p.color]++}
+    else if(p.type==='r')val+=(r===1||r===6)?4:0;
+    else if(p.type==='q')val+=Math.max(0,8-cd*2);
+    else if(p.type==='k'){
+      if(phase==='endgame')val+=Math.max(0,46-cd*9);
+      else if(phase==='late-middlegame')val+=(f===6||f===2)?18:(f===3||f===4?-8:0);
+      else val+=(f===6||f===2)?34:(f===3||f===4?-20:0);
+    }
+    score+=sign*val;
+  }
+  if(bish[perspective]>=2)score+=24;
+  if(bish[perspective==='w'?'b':'w']>=2)score-=24;
+  if(g.isCheck())score+=g.turn()===perspective?-26:26;
+  try{mobility=g.moves().length;score+=(g.turn()===perspective?1:-1)*Math.min(28,mobility*.7)}catch{}
+  return score;
+}
+function order(moves){
+  return moves.sort((a,b)=>rank(b)-rank(a));
+  function rank(m){
+    let x=(m.captured?V[m.captured]+40:0)+(m.promotion?V[m.promotion]+250:0);
+    if(m.san?.includes('+'))x+=80;
+    if(m.san?.includes('#'))x+=10000;
+    if(m.flags?.includes('k')||m.flags?.includes('q'))x+=30;
+    if(['d4','e4','d5','e5'].includes(m.to))x+=10;
+    return x;
+  }
+}
+function search(g,depth,alpha,beta,perspective,phase,c,ply){
+  nodes++;
+  const t=terminal(g,perspective,ply);if(t!==null)return t;
+  if(depth<=0||Date.now()>deadline||nodes>limit)return evaluate(g,perspective,phase);
+  const moves=order(g.moves({verbose:true})).slice(0,c.beam);
+  const maximizing=g.turn()===perspective;
+  if(maximizing){
+    let best=-1e9;
+    for(const m of moves){
+      g.move({from:m.from,to:m.to,promotion:m.promotion||'q'});
+      const v=search(g,depth-1,alpha,beta,perspective,phase,c,ply+1);
+      g.undo();
+      if(v>best)best=v;if(v>alpha)alpha=v;
+      if(beta<=alpha||Date.now()>deadline||nodes>limit)break;
+    }
+    return best;
+  }
+  let best=1e9;
+  for(const m of moves){
+    g.move({from:m.from,to:m.to,promotion:m.promotion||'q'});
+    const v=search(g,depth-1,alpha,beta,perspective,phase,c,ply+1);
+    g.undo();
+    if(v<best)best=v;if(v<beta)beta=v;
+    if(beta<=alpha||Date.now()>deadline||nodes>limit)break;
+  }
+  return best;
+}
+function scoreMoves(g,perspective,phase,c){
+  const root=order(g.moves({verbose:true}));
+  deadline=Date.now()+c.ms;limit=c.nodes;nodes=0;
+  let final=[];
+  for(let d=1;d<=c.depth;d++){
+    const round=[];let complete=true;
+    for(const m of root){
+      if(Date.now()>deadline||nodes>limit){complete=false;break}
+      g.move({from:m.from,to:m.to,promotion:m.promotion||'q'});
+      const v=search(g,d-1,-1e9,1e9,perspective,phase,c,1);
+      g.undo();
+      round.push({move:m.from+m.to+(m.promotion||''),score:v});
+    }
+    if(complete&&round.length===root.length)final=round;else break;
+  }
+  if(!final.length)final=root.map(m=>({move:m.from+m.to+(m.promotion||''),score:0}));
+  return final.sort((a,b)=>b.score-a.score);
+}
+function choose(scored,c){
+  if(!scored.length)return null;
+  if(scored[0].score>90000)return scored[0];
+  const n=Math.min(c.choices,scored.length);
+  if(Math.random()<c.blunder&&n>2){
+    const lo=Math.min(2,n-1),hi=Math.min(n-1,5);
+    return scored[lo+Math.floor(Math.random()*(hi-lo+1))];
+  }
+  const pool=scored.slice(0,n),best=pool[0].score;
+  const weights=pool.map(x=>Math.exp(Math.max(-12,(x.score-best)/c.temp)));
+  const sum=weights.reduce((a,b)=>a+b,0);let z=Math.random()*sum;
+  for(let i=0;i<pool.length;i++){z-=weights[i];if(z<=0)return pool[i]}
+  return pool[0];
+}
+self.onmessage=(event)=>{
+  const data=event.data;
+  try{
+    const g=new Chess(data.fen);
+    if(data.task==='move'){
+      const c=cfg(data.rating,data.maxMs);
+      const scored=scoreMoves(g,data.perspective,data.phase,c);
+      const pick=choose(scored,c);
+      postMessage({task:'move',id:data.id,move:pick?.move||null,score:pick?.score??0,nodes,depth:c.depth});
+      return;
+    }
+    if(data.task==='analyze'){
+      const c={depth:3,ms:780,nodes:48000,beam:18,choices:1,temp:1,blunder:0};
+      const scored=scoreMoves(g,data.perspective,data.phase,c);
+      const best=scored[0];
+      let selected=scored.find(x=>x.move===data.move);
+      if(!selected){
+        const from=data.move.slice(0,2),to=data.move.slice(2,4),promotion=data.move[4]||'q';
+        try{
+          g.move({from,to,promotion});
+          selected={move:data.move,score:evaluate(g,data.perspective,data.phase)};
+          g.undo();
+        }catch{selected={move:data.move,score:(best?.score??0)-300}}
+      }
+      const cpLoss=Math.min(1000,Math.max(0,Math.round((best?.score??selected.score)-selected.score)));
+      postMessage({task:'analyze',id:data.id,cpLoss,bestMove:best?.move||null,selectedScore:selected.score,bestScore:best?.score??selected.score});
+    }
+  }catch(error){
+    postMessage({task:data.task,id:data.id,error:String(error)});
+  }
+};`;
+
+let moveWorker = null;
+let analysisWorker = null;
+try {
+  const workerUrl = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
+  moveWorker = new Worker(workerUrl, { type: 'module' });
+  analysisWorker = new Worker(workerUrl, { type: 'module' });
+} catch (error) {
+  console.warn('Web workers unavailable; using fallback moves and outcome-based analytics.', error);
+}
+
+function bindControls() {
+  $$('#phaseSeg button').forEach((button) => button.addEventListener('click', () => {
+    settings.phase = button.dataset.phase;
+    if (settings.phase === 'endgame') settings.opening = 'all';
+    $$('#phaseSeg button').forEach((item) => item.classList.toggle('active', item === button));
+    $('#openingSelect').value = settings.opening;
+    updateControls();
+  }));
+
+  $('#openingSelect').addEventListener('change', () => updateControls());
+  $('#positionRating').addEventListener('input', () => updateControls());
+  $('#opponentRating').addEventListener('input', () => updateControls());
+
+  $$('[data-step]').forEach((button) => button.addEventListener('click', () => {
+    const input = button.dataset.step === 'position' ? $('#positionRating') : $('#opponentRating');
+    input.value = Math.max(Number(input.min), Math.min(Number(input.max), Number(input.value) + Number(button.dataset.delta)));
+    updateControls();
+  }));
+
+  $$('#timeControlGrid button').forEach((button) => button.addEventListener('click', () => {
+    settings.timeControl = button.dataset.time;
+    $$('#timeControlGrid button').forEach((item) => item.classList.toggle('active', item === button));
+    updateControls();
+  }));
+
+  $$('#sideSeg button').forEach((button) => button.addEventListener('click', () => {
+    settings.side = button.dataset.side;
+    $$('#sideSeg button').forEach((item) => item.classList.toggle('active', item === button));
+    updateControls();
+  }));
+
+  $$('[data-preset]').forEach((button) => button.addEventListener('click', () => {
+    if (button.dataset.preset === 'current') {
+      settings.phase = 'middlegame';
+      settings.positionRating = 1600;
+      settings.opponentRating = 1600;
+      settings.timeControl = '3+0';
+    } else {
+      settings.phase = 'late-middlegame';
+      settings.positionRating = 1800;
+      settings.opponentRating = 2000;
+      settings.timeControl = '5+0';
+    }
+    $('#positionRating').value = settings.positionRating;
+    $('#opponentRating').value = settings.opponentRating;
+    applySettingsToControls();
+    saveStore();
+  }));
+
+  $$('[data-view]').forEach((button) => button.addEventListener('click', () => navigate(button.dataset.view)));
+  $('#brandButton').addEventListener('click', () => navigate('setup'));
+  $('#startButton').addEventListener('click', () => startPosition());
+  $('#backButton').addEventListener('click', () => navigate('setup'));
+  $('#flipButton').addEventListener('click', () => {
+    orientation = orientation === 'w' ? 'b' : 'w';
+    renderBoard();
+  });
+  $('#takebackButton').addEventListener('click', takeback);
+  $('#copyFenButton').addEventListener('click', copyFen);
+  $('#newPositionButton').addEventListener('click', () => startPosition());
+  $('#resignButton').addEventListener('click', resign);
+  $('#changeSetupButton').addEventListener('click', () => navigate('setup'));
+
+  $('#resultNext').addEventListener('click', () => {
+    closeDialog('resultDialog');
+    startPosition({ preservePrevious: true });
+  });
+  $('#resultSetup').addEventListener('click', () => {
+    closeDialog('resultDialog');
+    showView('setup');
+  });
+  $('#resultInsights').addEventListener('click', () => {
+    closeDialog('resultDialog');
+    showView('insights');
+  });
+
+  $$('[data-close]').forEach((button) => button.addEventListener('click', () => closeDialog(button.dataset.close)));
+  $('#exportButton').addEventListener('click', exportData);
+  $('#resetButton').addEventListener('click', resetData);
+}
+
+populateOpenings();
+applySettingsToControls();
+bindControls();
+renderSummary();
+renderInsights();
+$('#startButton').disabled = false;
+$('#startButton').textContent = 'Start position play';
+document.documentElement.dataset.ready = '1';
+window.__KMATE__ = {
+  version: '7.0',
+  start: startPosition,
+  state: () => ({
+    settings: { ...settings },
+    current: current?.id || null,
+    phase: current?.phase || null,
+    opening: current?.opening || null,
+    userColor,
+    turn: game?.turn() || null,
+    clocks: { ...clocks },
+    ready: true,
+  }),
+};
