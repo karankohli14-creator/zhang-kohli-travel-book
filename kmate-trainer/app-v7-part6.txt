@@ -342,7 +342,10 @@ function bindControls() {
     saveStore();
   }));
 
-  $$('[data-view]').forEach((button) => button.addEventListener('click', () => navigate(button.dataset.view)));
+  $('#soundToggle')?.addEventListener('click', toggleSound);
+updateSoundToggle();
+
+$$('[data-view]').forEach((button) => button.addEventListener('click', () => navigate(button.dataset.view)));
   $('#brandButton').addEventListener('click', () => navigate('setup'));
   $('#startButton').addEventListener('click', () => startPosition());
   $('#backButton').addEventListener('click', () => navigate('setup'));

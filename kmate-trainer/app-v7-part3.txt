@@ -148,6 +148,7 @@ function makeUserMove(moveObject) {
   selected = null;
   legalMoves = [];
   lastMove = { from: move.from, to: move.to };
+  playMoveSound(game.isCheck() ? 'check' : move.captured ? 'capture' : 'move');
   beginNextTurn();
   setStatus(`${game.isCheck() ? 'Check. ' : ''}Opponent is considering the position.`, 'thinking');
   renderAll();
@@ -232,6 +233,7 @@ function applyEngineReply(id, data) {
   }
   applyIncrement(engineColor);
   lastMove = { from: move.from, to: move.to };
+  playMoveSound(game.isCheck() ? 'check' : move.captured ? 'capture' : 'move');
   beginNextTurn();
   setStatus(game.isCheck() ? 'Check—your king is under attack.' : 'Your move. Build the position one decision at a time.');
   renderAll();

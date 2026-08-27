@@ -60,6 +60,7 @@ const defaultSettings = {
   opponentRating: 1600,
   timeControl: '3+0',
   side: 'random',
+  sound: true,
 };
 
 function emptyStore() {
@@ -105,6 +106,58 @@ let currentSession = null;
 let finalized = true;
 let startFullmove = 1;
 let toastTimer = null;
+let audioContext = null;
+
+function soundEnabled() {
+  return settings.sound !== false;
+}
+
+function ensureAudioContext() {
+  if (!soundEnabled()) return null;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return null;
+  if (!audioContext) audioContext = new AudioCtx();
+  if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+  return audioContext;
+}
+
+function playMoveSound(kind = 'move') {
+  if (!soundEnabled()) return;
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const gain = ctx.createGain();
+  const osc = ctx.createOscillator();
+  const isCapture = kind === 'capture';
+  const isCheck = kind === 'check';
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(isCapture ? 190 : isCheck ? 520 : 310, now);
+  osc.frequency.exponentialRampToValueAtTime(isCapture ? 135 : isCheck ? 650 : 245, now + (isCapture ? 0.075 : 0.055));
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(isCapture ? 0.085 : 0.055, now + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + (isCapture ? 0.105 : 0.08));
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + (isCapture ? 0.11 : 0.085));
+}
+
+function updateSoundToggle() {
+  const button = $('#soundToggle');
+  if (!button) return;
+  button.textContent = soundEnabled() ? '🔊' : '🔇';
+  button.setAttribute('aria-label', soundEnabled() ? 'Mute move sounds' : 'Turn on move sounds');
+  button.title = soundEnabled() ? 'Move sounds on' : 'Move sounds off';
+}
+
+function toggleSound() {
+  settings.sound = !soundEnabled();
+  if (settings.sound) ensureAudioContext();
+  saveStore();
+  updateSoundToggle();
+  if (settings.sound) playMoveSound('move');
+}
+
 
 let clocks = { w: 0, b: 0 };
 let clockInterval = null;
