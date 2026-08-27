@@ -19,10 +19,11 @@ function reviewMoveAdvice(move) {
     return 'Rushed error: pause for the opponent’s threat, hanging pieces, checks, captures, and threats.';
   }
   if (move.cpLoss > 220) return 'Blunder: first check forcing moves and whether any piece is undefended.';
-  if (move.cpLoss > 120) return 'Mistake: compare at least two serious candidate moves before committing.';
+  if (move.cpLoss > 110) return 'Miss: a significant opportunity or defensive resource was overlooked. Compare forcing candidates before committing.';
   if (move.cpLoss > 60) return 'Inaccuracy: re-check king safety, the opponent’s plan, and your least active piece.';
   if (move.cpLoss > 25) return 'Good practical move, although a more precise continuation was available.';
-  return 'Accurate decision.';
+  if (move.cpLoss > 10) return 'Excellent move: very close to the engine’s top choice.';
+  return 'Best move: essentially the engine’s top-quality choice.';
 }
 
 function readableEngineMove(uci) {
@@ -48,7 +49,7 @@ function renderPostGameReview(session) {
   const analyzed = moves.filter((move) => Number.isFinite(move.cpLoss));
   const pending = moves.length - analyzed.length;
   const grade = reviewGradeForSession(session);
-  const quality = { excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+  const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, miss: 0, blunder: 0 };
   for (const move of analyzed) {
     const key = qualityForLoss(move.cpLoss).key;
     if (quality[key] !== undefined) quality[key] += 1;
@@ -58,9 +59,9 @@ function renderPostGameReview(session) {
   $('#reviewHeadline').textContent = pending
     ? `${grade.headline} · reviewing ${analyzed.length}/${moves.length} decisions`
     : grade.headline;
-  $('#reviewGood').textContent = quality.excellent + quality.good;
+  $('#reviewGood').textContent = quality.best + quality.excellent + quality.good;
   $('#reviewInaccuracies').textContent = quality.inaccuracy;
-  $('#reviewMistakes').textContent = quality.mistake;
+  $('#reviewMistakes').textContent = quality.miss;
   $('#reviewBlunders').textContent = quality.blunder;
 
   const worst = analyzed.slice().sort((a, b) => b.cpLoss - a.cpLoss)[0];

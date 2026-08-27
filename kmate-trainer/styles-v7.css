@@ -239,9 +239,6 @@ td small{display:block;color:var(--muted)}
 .review-move-main b,.review-move-main small,.review-move-meta b,.review-move-meta small{display:block}
 .review-move-main small,.review-move-meta small{margin-top:2px;color:var(--muted);font-size:10px;overflow-wrap:anywhere}
 .review-move-meta{text-align:right}
-.quality-excellent,.quality-good{border-color:#8ee7a229}
-.quality-inaccuracy{border-color:#f4cc7038}
-.quality-mistake,.quality-blunder{border-color:#ff8e8645}
 .quality-pending{opacity:.72}
 .dialogactions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:18px}
 .toast{position:fixed;left:50%;bottom:20px;z-index:90;transform:translate(-50%,18px);padding:11px 15px;border:1px solid var(--line);border-radius:13px;background:#202d23;box-shadow:0 15px 45px #0008;opacity:0;pointer-events:none;transition:.2s}
@@ -306,3 +303,12 @@ td small{display:block;color:var(--muted)}
   .coord.file{right:2px;bottom:2px}
   .status{min-height:44px;margin-top:7px;padding:8px 10px;font-size:12px}
 }
+
+.move-quality-badge{margin-left:auto;flex:0 0 auto;padding:5px 10px;border:1px solid #ffffff22;border-radius:999px;font-size:11px;font-weight:950;letter-spacing:.02em;text-transform:uppercase;box-shadow:inset 0 1px #fff1}
+.move-quality-badge.quality-best,.review-move-row.quality-best{border-color:#7cf58a66;background:#7cf58a16;color:#a8ffb1}
+.move-quality-badge.quality-excellent,.review-move-row.quality-excellent{border-color:#61e6c566;background:#61e6c516;color:#8af1d7}
+.move-quality-badge.quality-good,.review-move-row.quality-good{border-color:#70b8ff66;background:#70b8ff16;color:#9ccfff}
+.move-quality-badge.quality-inaccuracy,.review-move-row.quality-inaccuracy{border-color:#f4cc7066;background:#f4cc7016;color:#ffe09a}
+.move-quality-badge.quality-miss,.review-move-row.quality-miss{border-color:#ffad596d;background:#ffad5918;color:#ffc787}
+.move-quality-badge.quality-blunder,.review-move-row.quality-blunder{border-color:#ff736f77;background:#ff736f1b;color:#ffaaa6}
+.move-quality-badge.quality-pending{border-color:#ffffff22;background:#ffffff08;color:var(--muted)}

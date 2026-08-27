@@ -18,10 +18,11 @@ const TIME_CONTROLS = {
   '10+0': { label: '10+0', base: 600, increment: 0 },
 };
 const QUALITY_BANDS = [
+  { max: 10, key: 'best', label: 'Best' },
   { max: 25, key: 'excellent', label: 'Excellent' },
   { max: 60, key: 'good', label: 'Good' },
-  { max: 120, key: 'inaccuracy', label: 'Inaccuracy' },
-  { max: 220, key: 'mistake', label: 'Mistake' },
+  { max: 110, key: 'inaccuracy', label: 'Inaccuracy' },
+  { max: 220, key: 'miss', label: 'Miss' },
   { max: Infinity, key: 'blunder', label: 'Blunder' },
 ];
 const THEME_ADVICE = {

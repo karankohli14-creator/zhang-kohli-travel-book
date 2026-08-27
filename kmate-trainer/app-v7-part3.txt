@@ -120,6 +120,23 @@ function uciFromMove(move) {
   return `${move.from}${move.to}${move.promotion || ''}`;
 }
 
+function showMoveQualityBadge(move) {
+  const badge = $('#moveQualityBadge');
+  if (!badge) return;
+  badge.className = 'move-quality-badge';
+  if (!move) {
+    badge.hidden = false;
+    badge.textContent = 'Analyzing…';
+    badge.classList.add('quality-pending');
+    return;
+  }
+  const band = qualityForLoss(move.cpLoss);
+  badge.hidden = false;
+  badge.textContent = band.label;
+  badge.classList.add(`quality-${band.key}`);
+  badge.title = Number.isFinite(move.cpLoss) ? `${Math.round(move.cpLoss)} centipawn estimated loss` : band.label;
+}
+
 function makeUserMove(moveObject) {
   if (!game || finalized || game.turn() !== userColor) return;
   syncClock();
@@ -144,6 +161,7 @@ function makeUserMove(moveObject) {
     quality: 'pending',
   };
   currentSession.userMoves.push(moveRecord);
+  showMoveQualityBadge(null);
   requestMoveAnalysis(fenBefore, moveRecord);
   selected = null;
   legalMoves = [];
@@ -266,6 +284,7 @@ function requestMoveAnalysis(fenBefore, moveRecord) {
     targetMove.quality = qualityForLoss(event.data.cpLoss).key;
     if (currentSession?.id === sessionId) {
       renderLiveQuality();
+      showMoveQualityBadge(targetMove);
       updateStoredCurrentSession();
       if (finalized) renderPostGameReview(currentSession);
     } else {
