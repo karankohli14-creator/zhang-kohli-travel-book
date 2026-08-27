@@ -137,7 +137,11 @@ function ratingDescriptor(rating) {
   if (rating <= 1600) return 'Strong club-level resistance.';
   if (rating <= 1800) return 'Advanced club and expert-level resistance.';
   if (rating <= 2000) return 'Highly accurate tactical and positional resistance.';
-  return 'Master-style calculation with very few deliberate errors.';
+  if (rating <= 2200) return 'Very strong master-style resistance — substantially boosted from the previous calibration.';
+  if (rating <= 2600) return 'Engine-strength play with deep tactical reliability.';
+  if (rating <= 3000) return 'Near-maximal engine resistance.';
+  if (rating < 3500) return 'Elite engine resistance with extended calculation.';
+  return 'MAX Stockfish strength — unrestricted engine play.';
 }
 
 function formatClock(milliseconds) {
@@ -215,7 +219,7 @@ function updateControls(persist = true) {
   settings.opponentRating = Number($('#opponentRating').value);
   settings.opening = $('#openingSelect').value;
   $('#positionValue').textContent = settings.positionRating;
-  $('#opponentValue').textContent = settings.opponentRating;
+  $('#opponentValue').textContent = settings.opponentRating >= 3500 ? '3500 · MAX' : settings.opponentRating;
   $('#timeValue').textContent = timeControl().label;
   $('#opponentLabel').textContent = ratingDescriptor(settings.opponentRating);
 

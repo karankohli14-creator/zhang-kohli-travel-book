@@ -244,16 +244,25 @@ td small{display:block;color:var(--muted)}
   .signal-card{align-items:flex-start;flex-direction:column}
   .playtop{align-items:flex-start}
   .playtop .left{align-items:flex-start}
-  .playerbar{min-height:59px}
+  .playerbar{min-height:52px;padding:6px 8px}
   .clock-wrap{gap:5px}
   .turnpill{display:none}
-  .clock{min-width:82px;font-size:22px}
-  .boardwrap{padding:4px}
-  .piece{font-size:clamp(35px,11.2vw,60px)}
+  .clock{min-width:72px;padding:6px 8px;font-size:19px}
+  .boardwrap{padding:2px}
+  .piece{font-size:clamp(27px,8.4vw,40px);transform:translateY(-1%) scale(.94)}
   .analytics-grid{grid-template-columns:1fr 1fr}
   .metric{padding:16px}
   .metric strong{font-size:29px}
   .insight-actions{width:100%}
   .insight-actions .btn{flex:1}
   .result-grid{grid-template-columns:1fr 1fr}
+  .avatar{width:34px;height:34px;border-radius:10px;font-size:22px}
+  .identity{gap:7px}
+  .identity small{display:none}
+  .playtop h1{font-size:24px}
+  .board{border-radius:6px}
+  .coord{font-size:8px}
+  .coord.rank{left:2px;top:2px}
+  .coord.file{right:2px;bottom:2px}
+  .status{min-height:44px;margin-top:7px;padding:8px 10px;font-size:12px}
 }

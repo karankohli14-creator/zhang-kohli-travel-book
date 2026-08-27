@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=9.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=10.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -83,7 +83,7 @@
             <div class="fieldhead"><label for="opponentRating">Opponent strength</label><span class="value" id="opponentValue">1600</span></div>
             <div class="rangeRow">
               <button class="step" type="button" data-step="opponent" data-delta="-100" aria-label="Lower opponent rating">−</button>
-              <input class="range" id="opponentRating" type="range" min="1000" max="2200" step="100" value="1600">
+              <input class="range" id="opponentRating" type="range" min="1000" max="3500" step="100" value="1600">
               <button class="step" type="button" data-step="opponent" data-delta="100" aria-label="Raise opponent rating">+</button>
             </div>
             <small class="sub" id="opponentLabel">Strong club-level resistance.</small>
@@ -118,7 +118,7 @@
 
           <div id="loadError" class="error"></div>
           <button class="btn primary start" id="startButton" type="button" disabled>Loading Stockfish 18…</button>
-          <p class="fineprint">Opponent play now uses Stockfish 18 with its limited-strength Elo setting from 1320 upward. Ratings remain training approximations rather than official FIDE or Chess.com ratings; move-quality analysis is still a local estimate.</p>
+          <p class="fineprint">Opponent play uses Stockfish 18. The 1000–2200 band is deliberately strength-boosted to better match online rapid feel; 2300–3500 progressively approaches unrestricted engine play. 3500 means MAX engine strength, not an official human Elo.</p>
         </aside>
       </div>
 

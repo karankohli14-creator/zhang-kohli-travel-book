@@ -228,15 +228,15 @@ class StockfishPlayEngine {
   }
 
   async configureRating(rating) {
-    const requested = Math.max(1000, Math.min(2200, Number(rating) || 1600));
-    if (requested >= STOCKFISH_MIN_ELO) {
+    const requested = Math.max(1000, Math.min(3500, Number(rating) || 1600));
+    if (requested <= 2200) {
+      const mapped = Math.round(STOCKFISH_MIN_ELO + ((requested - 1000) / 1200) * (STOCKFISH_MAX_ELO - STOCKFISH_MIN_ELO));
       this.send('setoption name Skill Level value 20');
       this.send('setoption name UCI_LimitStrength value true');
-      this.send(`setoption name UCI_Elo value ${Math.max(STOCKFISH_MIN_ELO, Math.min(STOCKFISH_MAX_ELO, requested))}`);
+      this.send(`setoption name UCI_Elo value ${Math.max(STOCKFISH_MIN_ELO, Math.min(STOCKFISH_MAX_ELO, mapped))}`);
     } else {
-      const skill = Math.max(0, Math.min(4, Math.round((requested - 1000) / 65)));
       this.send('setoption name UCI_LimitStrength value false');
-      this.send(`setoption name Skill Level value ${skill}`);
+      this.send('setoption name Skill Level value 20');
     }
     this.send('setoption name MultiPV value 1');
     const readyOk = this.waitFor((line) => line === 'readyok', 15000);
@@ -250,8 +250,14 @@ class StockfishPlayEngine {
       await this.configureRating(rating);
       this.lastInfo = {};
       this.send(`position fen ${fen}`);
-      const bestMoveLine = this.waitFor((line) => line.startsWith('bestmove '), Math.max(15000, movetime + 12000));
-      this.send(`go movetime ${Math.max(120, Math.round(movetime || 600))}`);
+      const requestedForTimeout = Math.max(1000, Math.min(3500, Number(rating) || 1600));
+      const maxThinkForTimeout = requestedForTimeout > 2200 ? Math.round(500 + (requestedForTimeout - 2200) * 2.7) : (movetime || 600);
+      const bestMoveLine = this.waitFor((line) => line.startsWith('bestmove '), Math.max(18000, maxThinkForTimeout + 12000));
+      const requested = Math.max(1000, Math.min(3500, Number(rating) || 1600));
+      const baseTime = Math.max(120, Math.round(movetime || 600));
+      const maxTierTime = requested > 2200 ? Math.round(500 + (requested - 2200) * 2.7) : baseTime;
+      const thinkTime = Math.max(baseTime, maxTierTime);
+      this.send(`go movetime ${thinkTime}`);
       const line = await bestMoveLine;
       const move = line.split(/\s+/)[1];
       if (!move || move === '(none)' || move === '0000') throw new Error(`Stockfish returned no legal move: ${line}`);
