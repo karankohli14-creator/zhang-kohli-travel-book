@@ -1,0 +1,66 @@
+name: Vendor Stockfish 18 for K-Mate
+
+on:
+  push:
+    paths:
+      - .github/workflows/vendor-stockfish.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  vendor-stockfish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download the published Stockfish package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .stockfish-package
+          mkdir .stockfish-package
+          cd .stockfish-package
+          npm pack stockfish@18.0.8
+          tar -xzf stockfish-18.0.8.tgz
+
+          mkdir -p ../kmate-trainer/stockfish
+          JS_FILE="$(find package -type f -name 'stockfish-18-lite-single.js' -print -quit)"
+          WASM_FILE="$(find package -type f -name 'stockfish-18-lite-single.wasm' -print -quit)"
+          LICENSE_FILE="$(find package -maxdepth 2 -type f \( -iname 'Copying.txt' -o -iname 'LICENSE*' \) -print -quit)"
+
+          test -n "$JS_FILE"
+          test -n "$WASM_FILE"
+          cp "$JS_FILE" ../kmate-trainer/stockfish/stockfish-18-lite-single.js
+          cp "$WASM_FILE" ../kmate-trainer/stockfish/stockfish-18-lite-single.wasm
+          if [ -n "$LICENSE_FILE" ]; then
+            cp "$LICENSE_FILE" ../kmate-trainer/stockfish/Copying.txt
+          fi
+
+          cat > ../kmate-trainer/stockfish/SOURCE.txt <<'EOF'
+          Stockfish.js 18.0.8, lite single-threaded WebAssembly build.
+          Source: https://github.com/nmrugg/stockfish.js
+          Upstream engine: https://github.com/official-stockfish/Stockfish
+          License: GNU GPL version 3. See Copying.txt and the source repository.
+          EOF
+
+      - name: Commit vendored engine files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kmate-trainer/stockfish
+          if git diff --cached --quiet; then
+            echo "Stockfish files are already current."
+            exit 0
+          fi
+          git commit -m "Vendor Stockfish 18 for calibrated K-Mate play"
+          git push
