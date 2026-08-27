@@ -448,5 +448,209 @@ export const POSITIONS = [
     ],
     "fen": "1r3k2/3n3p/6p1/p1ppP3/P1P5/1p5P/1P4P1/3R1BK1 w - - 0 1",
     "description": "The position contains several long forcing lines. Plan around both pawn races and piece exchanges."
+  },
+  {
+    "id": "london-mid-1500-bd3",
+    "phase": "middlegame",
+    "opening": "London System",
+    "rating": 1500,
+    "title": "London: prepare the central confrontation",
+    "theme": "Development before the break",
+    "tags": [
+      "piece activity",
+      "pawn breaks",
+      "king safety"
+    ],
+    "fen": "r1bq1rk1/p4ppp/1pnbpn2/2pp4/3P4/2PBPNB1/PP1N1PPP/R2QK2R w KQ - 0 9",
+    "description": "Both setups are recognizable and the center is ready to change. Complete coordination before choosing e4, Ne5, or a queenside plan.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "london-mid-1700-qb6",
+    "phase": "middlegame",
+    "opening": "London System",
+    "rating": 1700,
+    "title": "London: meet early queenside pressure",
+    "theme": "Queen placement and central stability",
+    "tags": [
+      "prophylaxis",
+      "piece activity",
+      "pawn structure"
+    ],
+    "fen": "r4rk1/pp2bpp1/1qn1pn1p/3p1b2/2pP1B2/2P1PN2/PP1NBPPP/R1Q2RK1 w - - 4 12",
+    "description": "Black has developed actively and pressured the queenside. Find a useful plan without letting the queen become a tactical target.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "london-mid-1800-kingside-fianchetto",
+    "phase": "middlegame",
+    "opening": "London System",
+    "rating": 1800,
+    "title": "London versus a kingside fianchetto",
+    "theme": "Choose the correct wing and break",
+    "tags": [
+      "pawn breaks",
+      "king safety",
+      "calculation"
+    ],
+    "fen": "2rq1rk1/pb2ppbp/1pnp1np1/2p5/3P4/2P1PN1P/PP1NBPPB/R2Q1RK1 w - - 4 11",
+    "description": "The center is flexible and Black is ready for queenside activity. Decide whether to play e4, improve pieces, or restrain ...cxd4.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "london-mid-1800-ne5",
+    "phase": "middlegame",
+    "opening": "London System",
+    "rating": 1800,
+    "title": "London: establish or abandon the e5 outpost",
+    "theme": "Outposts and tactical justification",
+    "tags": [
+      "calculation",
+      "piece activity",
+      "prophylaxis"
+    ],
+    "fen": "r2q1rk1/pb2bppp/1pn1pn2/2ppN3/3P1B2/2PBP2P/PP1N1PP1/R2Q1RK1 b - - 2 10",
+    "description": "White’s knight is centralized, but Black can challenge it in several ways. Calculate whether the outpost is an asset or a target.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "london-mid-1900-isolated-structure",
+    "phase": "middlegame",
+    "opening": "London System",
+    "rating": 1900,
+    "title": "London: isolated-center piece play",
+    "theme": "Dynamic play around an isolated pawn",
+    "tags": [
+      "pawn structure",
+      "piece activity",
+      "calculation"
+    ],
+    "fen": "r3k2r/pp3ppp/2nqpn2/3p1b2/3P1B2/1QP2N2/PP1N1PPP/R3K2R w KQkq - 0 11",
+    "description": "The pawn structure has clarified while both kings remain uncommitted. Use activity before the isolated pawn becomes a long-term target.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "london-late-2000-queenless",
+    "phase": "late-middlegame",
+    "opening": "London System",
+    "rating": 2000,
+    "title": "London: queenless conversion test",
+    "theme": "Rook files and minor-piece quality",
+    "tags": [
+      "conversion",
+      "piece activity",
+      "pawn structure"
+    ],
+    "fen": "2r2rk1/p4ppp/2p1pn2/3p1b2/3P4/P1P2N2/P2N1PPP/R3R1K1 b - - 0 15",
+    "description": "Queens are gone and the opening label matters through the resulting structure. Improve the rooks and identify the favorable exchange.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "caro-mid-1700-advance-qb6",
+    "phase": "middlegame",
+    "opening": "Caro-Kann",
+    "rating": 1700,
+    "title": "Caro-Kann Advance: concrete queenside pressure",
+    "theme": "Tactics beneath the pawn chain",
+    "tags": [
+      "calculation",
+      "pawn breaks",
+      "king safety"
+    ],
+    "fen": "r3kbnr/pp3ppp/2n1p3/1NppPb2/3P4/4BN2/PqP1BPPP/R2Q1RK1 b kq - 1 9",
+    "description": "A sharp Advance structure has produced immediate queenside threats. Calculate before relying on standard strategic plans.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "caro-mid-1800-classical",
+    "phase": "middlegame",
+    "opening": "Caro-Kann",
+    "rating": 1800,
+    "title": "Caro-Kann Classical: complete development",
+    "theme": "King safety and harmonious placement",
+    "tags": [
+      "piece activity",
+      "king safety",
+      "prophylaxis"
+    ],
+    "fen": "r2qk2r/pp1n1pp1/2pbpn1p/7P/2PP4/3Q1NN1/PP3PP1/R1B2RK1 w kq - 1 13",
+    "description": "White has space while Black retains a solid structure. Improve the least active piece without allowing a central break with tempo.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "caro-mid-1700-panov",
+    "phase": "middlegame",
+    "opening": "Caro-Kann",
+    "rating": 1700,
+    "title": "Caro-Kann Panov: play with the isolated pawn",
+    "theme": "Activity versus a structural target",
+    "tags": [
+      "pawn structure",
+      "piece activity",
+      "calculation"
+    ],
+    "fen": "rnbq1rk1/p4ppp/1p2pn2/8/1bBP4/2N2N2/PP3PPP/R1BQ1RK1 w - - 0 10",
+    "description": "White has active pieces and an isolated central pawn. Use the temporary initiative before the structure becomes a weakness.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "caro-mid-1800-exchange",
+    "phase": "middlegame",
+    "opening": "Caro-Kann",
+    "rating": 1800,
+    "title": "Caro-Kann Exchange: find imbalance in symmetry",
+    "theme": "Create useful asymmetry",
+    "tags": [
+      "piece activity",
+      "pawn structure",
+      "prophylaxis"
+    ],
+    "fen": "r3k2r/pp1q1ppp/2nbpn2/3p4/3P1Bb1/1QPB1N2/PP1N1PPP/R3K2R w KQkq - 2 10",
+    "description": "The pawn structure is symmetrical, so piece placement and timing create the imbalance. Avoid exchanges that leave every piece equal.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "caro-mid-1900-fantasy",
+    "phase": "middlegame",
+    "opening": "Caro-Kann",
+    "rating": 1900,
+    "title": "Caro-Kann Fantasy: challenge the expanded center",
+    "theme": "Breaks against a broad pawn center",
+    "tags": [
+      "pawn breaks",
+      "calculation",
+      "king safety"
+    ],
+    "fen": "r1bqk2r/pp1n1ppp/2n1p3/2ppP3/1b1P1P2/2N1BN2/PPP3PP/R2QKB1R w KQkq - 2 9",
+    "description": "White has gained space at the cost of king flexibility. Decide whether to consolidate or use the center before Black undermines it.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
+  },
+  {
+    "id": "caro-late-2000-rooks",
+    "phase": "late-middlegame",
+    "opening": "Caro-Kann",
+    "rating": 2000,
+    "title": "Caro-Kann: coordinate the heavy pieces",
+    "theme": "Prophylaxis before simplification",
+    "tags": [
+      "conversion",
+      "prophylaxis",
+      "piece activity"
+    ],
+    "fen": "3rr1k1/ppqn1pp1/2pbpn1p/7P/2PP4/1P1Q1NN1/PB3PP1/3RR1K1 w - - 7 17",
+    "description": "The structure is stable but every rook move changes the tactical details. Improve coordination before trading into an ending.",
+    "source": "K-Mate curated beta",
+    "quality": "curated"
   }
 ];

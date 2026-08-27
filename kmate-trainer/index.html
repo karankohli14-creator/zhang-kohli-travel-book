@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=15.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=16.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -70,6 +70,20 @@
             <small class="sub">Includes the London System, Caro-Kann, Italian, Queen’s Gambit, Sicilian, King’s Indian, French, and Ruy Lopez.</small>
           </div>
 
+          <div class="field" id="goalField">
+            <div class="fieldhead"><label for="goalSelect">Training goal</label><span class="value" id="goalCount">All themes</span></div>
+            <select class="select" id="goalSelect" aria-label="Training goal">
+              <option value="all">All themes</option>
+              <option value="attack">Attack the king</option>
+              <option value="defend">Defend & neutralize</option>
+              <option value="convert">Convert an edge</option>
+              <option value="structure">Pawn structures</option>
+              <option value="activity">Piece activity</option>
+              <option value="tactics">Calculation</option>
+            </select>
+            <small class="sub" id="goalDescription">Draw from every suitable structure.</small>
+          </div>
+
           <div class="field">
             <div class="fieldhead"><label for="positionRating">Position level</label><span class="value" id="positionValue">1600</span></div>
             <div class="rangeRow">
@@ -117,6 +131,18 @@
             <button type="button" data-preset="stretch"><b>Stretch session</b><small>1800 position · 2000 opponent · 5+0</small></button>
           </div>
 
+          <label class="calibration-toggle">
+            <input id="blindCalibration" type="checkbox">
+            <span><b>Blind Elo calibration</b><small>Hide the opponent setting, estimate it after the position, and help validate K-Mate’s scale.</small></span>
+          </label>
+
+          <div class="beta-tools">
+            <button type="button" id="openPositionImport"><b>Import FEN / PGN</b><small>Train from your own game</small></button>
+            <button type="button" id="openProfileImport"><b>Restore profile</b><small>Move data between devices</small></button>
+            <button type="button" id="aboutBetaButton"><b>Beta & licenses</b><small>What is local vs server-backed</small></button>
+            <input id="profileImportFile" type="file" accept="application/json,.json" hidden>
+          </div>
+
           <div id="loadError" class="error"></div>
           <button class="btn primary start" id="startButton" type="button" disabled>Loading Stockfish 18…</button>
           <p class="fineprint">Opponent play uses Stockfish 18. The 1000–2200 band is deliberately strength-boosted to better match online rapid feel; 2300–3500 progressively approaches unrestricted engine play. 3500 means MAX engine strength, not an official human Elo.</p>
@@ -130,6 +156,20 @@
           <p id="setupSignalText">K-Mate will compare results across openings, phases, themes, colors, opponent ratings, and time controls.</p>
         </div>
         <button class="btn" type="button" data-view="insights">Open insights</button>
+      </section>
+
+      <section class="recommendation-card card" id="recommendationCard">
+        <div class="recommendation-copy">
+          <div class="eyebrow">Adaptive training prescription</div>
+          <h2 id="recommendationTitle">Establish your baseline</h2>
+          <p id="recommendationText">K-Mate will recommend the next opening, phase, theme, strength, and clock from your reviewed sessions.</p>
+          <div class="recommendation-meta" id="recommendationMeta">Middlegame · London System · 1600 · 5+0</div>
+          <small id="calibrationSummary">Blind calibration is available to help validate the rating scale.</small>
+        </div>
+        <div class="recommendation-actions">
+          <button class="btn" id="copyRecommendationButton" type="button">Copy plan</button>
+          <button class="btn primary" id="startRecommendedButton" type="button">Start recommended</button>
+        </div>
       </section>
     </section>
 
@@ -264,6 +304,36 @@
     </section>
   </main>
 
+  <dialog id="positionImportDialog" class="modal beta-modal">
+    <div class="modal-card">
+      <div class="eyebrow">Practice from your own game</div>
+      <h2>Import a position</h2>
+      <p>Paste a FEN, or paste a PGN to use its final non-terminal position. You will play the side to move.</p>
+      <input class="select" id="positionImportTitle" placeholder="Optional title, e.g. My London loss">
+      <textarea id="positionImportText" class="import-textarea" placeholder="Paste FEN or PGN"></textarea>
+      <div class="error-line" id="positionImportError"></div>
+      <div class="dialogactions">
+        <button class="btn" type="button" data-close="positionImportDialog">Cancel</button>
+        <button class="btn primary" type="button" id="confirmPositionImport">Start this position</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="aboutBetaDialog" class="modal beta-modal">
+    <div class="modal-card">
+      <div class="eyebrow">Commercial beta foundation</div>
+      <h2>What this build does—and does not do</h2>
+      <div class="beta-status-grid">
+        <div><b>Working locally</b><span>Stockfish play and review, adaptive prescriptions, calibrated-session collection, custom position import, profile export/import, sounds, and weakness analytics.</span></div>
+        <div><b>Needs a server before sale</b><span>User accounts, automatic cloud sync, subscriptions, payments, coach dashboards, and aggregate anonymous calibration studies.</span></div>
+      </div>
+      <p><b>Privacy:</b> training history stays in this browser unless you export it. Restoring a profile is a manual local transfer.</p>
+      <p><b>Engine license:</b> K-Mate includes Stockfish under GPLv3. A commercial distribution must retain the license and provide the corresponding Stockfish source or an appropriate source offer.</p>
+      <p><b>Position library:</b> current beta positions are K-Mate-curated structures and quality-gated generated continuations. A commercial launch still needs human review and larger licensed datasets.</p>
+      <button class="btn primary" type="button" data-close="aboutBetaDialog">Understood</button>
+    </div>
+  </dialog>
+
   <dialog id="promotionDialog" class="modal">
     <div class="modal-card">
       <div class="eyebrow">Promotion</div>
@@ -285,6 +355,18 @@
         <div><span>Move quality</span><b id="resultQuality">—</b></div>
         <div><span>Clock used</span><b id="resultClock">—</b></div>
       </div>
+      <section class="calibration-result" id="calibrationPanel" hidden>
+        <div><small>Blind rating calibration</small><b>How strong did the opponent feel?</b></div>
+        <div class="calibration-input-row">
+          <select id="calibrationGuess" class="select" aria-label="Estimated opponent strength">
+            <option value="1000">1000</option><option value="1200">1200</option><option value="1400">1400</option>
+            <option value="1600">1600</option><option value="1800">1800</option><option value="2000">2000</option>
+            <option value="2200">2200</option><option value="2600">2600</option><option value="3000">3000</option><option value="3500">3500 MAX</option>
+          </select>
+          <button class="btn" type="button" id="saveCalibrationGuess">Reveal & save estimate</button>
+        </div>
+        <p id="calibrationReveal">Estimate the opponent before revealing the setting.</p>
+      </section>
       <div class="result-coach" id="resultCoach">More sessions will sharpen the coaching signal.</div>
       <section class="post-review" id="postReview" aria-live="polite">
         <div class="review-head">
@@ -313,6 +395,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=15.0.0"></script>
+  <script type="module" src="./app-v7.js?v=16.0.0"></script>
 </body>
 </html>
