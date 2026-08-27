@@ -1,0 +1,266 @@
+const { POSITIONS, Chess, CHESS_URL } = window.__KM_BOOT__;
+
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => [...document.querySelectorAll(selector)];
+const FILES = 'abcdefgh';
+const PIECES = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
+const PHASE_LABELS = {
+  middlegame: 'Middlegame',
+  'late-middlegame': 'Late middlegame',
+  endgame: 'Endgame',
+};
+const TIME_CONTROLS = {
+  untimed: { label: 'Untimed', base: 0, increment: 0 },
+  '1+0': { label: '1+0', base: 60, increment: 0 },
+  '3+0': { label: '3+0', base: 180, increment: 0 },
+  '3+2': { label: '3+2', base: 180, increment: 2 },
+  '5+0': { label: '5+0', base: 300, increment: 0 },
+  '10+0': { label: '10+0', base: 600, increment: 0 },
+};
+const QUALITY_BANDS = [
+  { max: 25, key: 'excellent', label: 'Excellent' },
+  { max: 60, key: 'good', label: 'Good' },
+  { max: 120, key: 'inaccuracy', label: 'Inaccuracy' },
+  { max: 220, key: 'mistake', label: 'Mistake' },
+  { max: Infinity, key: 'blunder', label: 'Blunder' },
+];
+const THEME_ADVICE = {
+  calculation: 'Slow down before forcing positions. Compare checks, captures, and threats before choosing a move.',
+  'king safety': 'Your results suggest that king safety deserves an earlier place in your candidate-move scan.',
+  'pawn breaks': 'Work on recognizing when a pawn break is prepared and what files or diagonals it will open.',
+  'piece activity': 'Look for the least active piece before making a pawn move or beginning an attack.',
+  'pawn structure': 'Spend more time identifying permanent weaknesses before exchanging or advancing pawns.',
+  conversion: 'Practice simplifying only when the resulting ending preserves your advantage.',
+  prophylaxis: 'Ask what the opponent wants on every move, especially before executing a long-term plan.',
+  space: 'Use space to improve pieces; avoid advancing further when it creates targets.',
+  'endgame transition': 'Evaluate the resulting ending before trading queens or minor pieces.',
+  'rook activity': 'Prioritize active files, checking distance, and cutting off the opposing king.',
+  'passed pawns': 'Calculate pawn races and blockading squares before collecting material.',
+  'king activity': 'Activate the king sooner once queens are gone.',
+  opposition: 'Review direct and distant opposition, including side opposition.',
+};
+
+const STORAGE_KEY = 'kmate-position-v7';
+const LEGACY_KEY = 'kmate-position-v6';
+
+const validPositions = POSITIONS.filter((position) => {
+  try {
+    new Chess(position.fen);
+    return true;
+  } catch (error) {
+    console.warn('Invalid position skipped:', position.id, error);
+    return false;
+  }
+});
+
+const defaultSettings = {
+  phase: 'middlegame',
+  opening: 'all',
+  positionRating: 1600,
+  opponentRating: 1600,
+  timeControl: '3+0',
+  side: 'random',
+};
+
+function emptyStore() {
+  let legacy = { sessions: 0, wins: 0, draws: 0, losses: 0, best: 0 };
+  try {
+    const old = JSON.parse(localStorage.getItem(LEGACY_KEY) || '{}');
+    legacy = {
+      sessions: Number(old.sessions) || 0,
+      wins: Number(old.wins) || 0,
+      draws: Number(old.draws) || 0,
+      losses: Number(old.losses) || 0,
+      best: Number(old.best) || 0,
+    };
+  } catch {}
+  return { version: 7, sessions: [], legacy, settings: { ...defaultSettings } };
+}
+
+let store;
+try {
+  const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+  store = parsed && typeof parsed === 'object' ? parsed : emptyStore();
+} catch {
+  store = emptyStore();
+}
+store.sessions = Array.isArray(store.sessions) ? store.sessions : [];
+store.legacy = { ...emptyStore().legacy, ...(store.legacy || {}) };
+store.settings = { ...defaultSettings, ...(store.settings || {}) };
+
+let settings = { ...store.settings };
+let game = null;
+let current = null;
+let userColor = 'w';
+let engineColor = 'b';
+let orientation = 'w';
+let selected = null;
+let legalMoves = [];
+let lastMove = null;
+let thinking = false;
+let promotionBase = null;
+let requestId = 0;
+let analysisRequestId = 0;
+let currentSession = null;
+let finalized = true;
+let startFullmove = 1;
+let toastTimer = null;
+
+let clocks = { w: 0, b: 0 };
+let clockInterval = null;
+let clockLast = 0;
+let clockRunning = false;
+let turnStartRemaining = 0;
+
+function saveStore() {
+  store.settings = { ...settings };
+  store.sessions = store.sessions.slice(0, 150);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  } catch (error) {
+    console.warn('Unable to save K-Mate data', error);
+  }
+  renderSummary();
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function phaseLabel(phase) {
+  return PHASE_LABELS[phase] || phase;
+}
+
+function ratingDescriptor(rating) {
+  if (rating <= 1200) return 'Developing-player resistance with visible tactical misses.';
+  if (rating <= 1400) return 'Club-level resistance with recurring inaccuracies.';
+  if (rating <= 1600) return 'Strong club-level resistance.';
+  if (rating <= 1800) return 'Advanced club and expert-level resistance.';
+  if (rating <= 2000) return 'Highly accurate tactical and positional resistance.';
+  return 'Master-style calculation with very few deliberate errors.';
+}
+
+function formatClock(milliseconds) {
+  if (!clockRunning) return '∞';
+  const safe = Math.max(0, milliseconds);
+  if (safe < 10000) {
+    const seconds = Math.floor(safe / 1000);
+    const tenths = Math.floor((safe % 1000) / 100);
+    return `0:${String(seconds).padStart(2, '0')}.${tenths}`;
+  }
+  const totalSeconds = Math.ceil(safe / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function timeControl() {
+  return TIME_CONTROLS[settings.timeControl] || TIME_CONTROLS['3+0'];
+}
+
+function qualityForLoss(loss) {
+  if (!Number.isFinite(loss)) return { key: 'pending', label: 'Pending' };
+  return QUALITY_BANDS.find((band) => loss <= band.max) || QUALITY_BANDS.at(-1);
+}
+
+function average(values) {
+  const clean = values.filter(Number.isFinite);
+  return clean.length ? clean.reduce((sum, value) => sum + value, 0) / clean.length : null;
+}
+
+function scoreForOutcome(outcome) {
+  if (outcome === 'win') return 1;
+  if (outcome === 'draw') return 0.5;
+  if (outcome === 'loss') return 0;
+  return null;
+}
+
+function percent(value) {
+  return Number.isFinite(value) ? `${Math.round(value * 100)}%` : '—';
+}
+
+function openingOptionsForPhase() {
+  return [...new Set(validPositions
+    .filter((position) => position.phase !== 'endgame')
+    .map((position) => position.opening))]
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function populateOpenings() {
+  const select = $('#openingSelect');
+  const selected = settings.opening;
+  select.innerHTML = '<option value="all">All popular openings</option>';
+  for (const opening of openingOptionsForPhase()) {
+    const option = document.createElement('option');
+    option.value = opening;
+    option.textContent = opening;
+    select.append(option);
+  }
+  select.value = [...select.options].some((option) => option.value === selected) ? selected : 'all';
+  settings.opening = select.value;
+}
+
+function applySettingsToControls() {
+  $$('#phaseSeg button').forEach((button) => button.classList.toggle('active', button.dataset.phase === settings.phase));
+  $$('#sideSeg button').forEach((button) => button.classList.toggle('active', button.dataset.side === settings.side));
+  $$('#timeControlGrid button').forEach((button) => button.classList.toggle('active', button.dataset.time === settings.timeControl));
+  $('#positionRating').value = settings.positionRating;
+  $('#opponentRating').value = settings.opponentRating;
+  $('#openingSelect').value = settings.opening;
+  updateControls(false);
+}
+
+function updateControls(persist = true) {
+  settings.positionRating = Number($('#positionRating').value);
+  settings.opponentRating = Number($('#opponentRating').value);
+  settings.opening = $('#openingSelect').value;
+  $('#positionValue').textContent = settings.positionRating;
+  $('#opponentValue').textContent = settings.opponentRating;
+  $('#timeValue').textContent = timeControl().label;
+  $('#opponentLabel').textContent = ratingDescriptor(settings.opponentRating);
+
+  const openingDisabled = settings.phase === 'endgame';
+  $('#openingSelect').disabled = openingDisabled;
+  $('#openingField').classList.toggle('disabled', openingDisabled);
+  if (openingDisabled) {
+    settings.opening = 'all';
+    $('#openingSelect').value = 'all';
+  }
+
+  const base = validPositions.filter((position) => position.phase === settings.phase);
+  const openingPool = settings.opening === 'all' || openingDisabled
+    ? base
+    : base.filter((position) => position.opening === settings.opening);
+  const count = openingPool.length;
+  $('#openingCount').textContent = openingDisabled ? 'Not used' : `${count} position${count === 1 ? '' : 's'}`;
+
+  if (openingPool.length) {
+    const distances = openingPool.map((position) => Math.abs(position.rating - settings.positionRating));
+    const nearest = Math.min(...distances);
+    const ratings = [...new Set(openingPool
+      .filter((position) => Math.abs(position.rating - settings.positionRating) === nearest)
+      .map((position) => position.rating))]
+      .sort((a, b) => a - b);
+    $('#positionBand').textContent = nearest <= 100
+      ? `Draws ${phaseLabel(settings.phase).toLowerCase()} positions near ${settings.positionRating}.`
+      : `Nearest available ${phaseLabel(settings.phase).toLowerCase()} level: ${ratings.join(' or ')}.`;
+  }
+
+  if (persist) saveStore();
+}
+
+function showView(view) {
+  $('#setupView').hidden = view !== 'setup';
+  $('#gameView').hidden = view !== 'game';
+  $('#insightsView').hidden = view !== 'insights';
+  $$('.navbutton').forEach((button) => button.classList.toggle('active', button.dataset.view === view || (view === 'game' && button.dataset.view === 'setup')));
+  if (view === 'insights') renderInsights();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function navigate(view) {
+  if (view !== 'game' && game && !finalized) {
+    const leave = window.confirm('Leave this position? The partial session will be saved as incomplete for move-quality analysis.');
+    if (!leave) return;
+    finalizeSession('abandoned', 'left position', false);
+  }
