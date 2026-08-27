@@ -30,6 +30,10 @@ if (!Chess) {
 
 window.__KM_BOOT__ = { POSITIONS, Chess, CHESS_URL };
 
+const narrowLayoutFix = document.createElement('style');
+narrowLayoutFix.textContent = `.card,.table-card,.recent-card,.tables-grid,.table-scroll,.recent-row>span{min-width:0}.table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}@media(max-width:700px){.table-card{overflow:hidden}.recent-row{max-width:100%;overflow:hidden}.recent-row>span:nth-child(2){overflow-wrap:anywhere}}`;
+document.head.append(narrowLayoutFix);
+
 const partUrls = [1, 2, 3, 4, 5, 6].map((number) => `./app-v7-part${number}.txt?v=7.0.0`);
 const responses = await Promise.all(partUrls.map(async (url) => {
   const response = await fetch(url, { cache: 'no-store' });
