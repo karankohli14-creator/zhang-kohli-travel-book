@@ -1,0 +1,311 @@
+e {
+        row.black = move.san;
+      }
+      number += 1;
+    }
+  }
+  const list = $('#moveList');
+  list.innerHTML = rows.length
+    ? rows.map((item) => `<div class="moverow"><span>${item.number}.</span><b>${escapeHtml(item.white)}</b><b>${escapeHtml(item.black)}</b></div>`).join('')
+    : '<div class="emptyMoves">The move list will appear here.</div>';
+  list.scrollTop = list.scrollHeight;
+  $('#moveCount').textContent = `${history.length} ${history.length === 1 ? 'ply' : 'plies'}`;
+  $('#sessionNote').textContent = history.length >= 40
+    ? `You have played ${Math.floor(history.length / 2)} moves from this position. Continue, resign, or draw a new position.`
+    : 'The position continues until mate, draw, timeout, resignation, or a new position.';
+}
+
+function renderLiveQuality() {
+  const moves = currentSession?.userMoves || [];
+  const losses = moves.map((move) => move.cpLoss).filter(Number.isFinite);
+  $('#analyzedMoves').textContent = losses.length;
+  $('#liveCpl').textContent = losses.length ? `${Math.round(average(losses))} cp` : '—';
+  $('#takebackCount').textContent = currentSession?.takebacks || 0;
+}
+
+function renderAll() {
+  renderBoard();
+  renderTurns();
+  renderMoveList();
+  renderLiveQuality();
+  renderClocks();
+  $('#takebackButton').disabled = thinking || finalized || !game?.history().length;
+}
+
+function setStatus(text, type = '') {
+  $('#statusText').textContent = text;
+  $('#status').className = `status ${type}`.trim();
+}
+
+function tapSquare(square) {
+  if (!game || thinking || finalized || game.isGameOver() || game.turn() !== userColor) return;
+  const piece = game.get(square);
+  if (!selected) {
+    if (piece?.color === userColor) {
+      selected = square;
+      legalMoves = game.moves({ square, verbose: true });
+      renderBoard();
+    }
+    return;
+  }
+  if (piece?.color === userColor) {
+    selected = square;
+    legalMoves = game.moves({ square, verbose: true });
+    renderBoard();
+    return;
+  }
+  const candidates = legalMoves.filter((move) => move.to === square);
+  if (!candidates.length) {
+    selected = null;
+    legalMoves = [];
+    renderBoard();
+    return;
+  }
+  if (candidates.some((move) => move.promotion)) {
+    promotionBase = { from: selected, to: square };
+    openPromotion();
+    return;
+  }
+  makeUserMove({ from: selected, to: square, promotion: 'q' });
+}
+
+function openPromotion() {
+  const choices = $('#promotionChoices');
+  choices.innerHTML = '';
+  for (const type of ['q', 'r', 'b', 'n']) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    const glyph = document.createElement('span');
+    glyph.className = `piece ${userColor === 'w' ? 'white' : 'black'}`;
+    glyph.textContent = PIECES[type];
+    button.append(glyph);
+    button.addEventListener('click', () => {
+      closeDialog('promotionDialog');
+      makeUserMove({ ...promotionBase, promotion: type });
+    });
+    choices.append(button);
+  }
+  openDialog('promotionDialog');
+}
+
+function uciFromMove(move) {
+  return `${move.from}${move.to}${move.promotion || ''}`;
+}
+
+function makeUserMove(moveObject) {
+  if (!game || finalized || game.turn() !== userColor) return;
+  syncClock();
+  if (finalized) return;
+  const fenBefore = game.fen();
+  const spentMs = spentThisTurn(userColor);
+  let move;
+  try {
+    move = game.move(moveObject);
+  } catch {
+    return;
+  }
+  applyIncrement(userColor);
+  const moveRecord = {
+    id: `${currentSession.id}-m${currentSession.userMoves.length + 1}`,
+    san: move.san,
+    uci: uciFromMove(move),
+    spentMs,
+    remainingMs: clockRunning ? Math.max(0, clocks[userColor]) : null,
+    cpLoss: null,
+    bestMove: null,
+    quality: 'pending',
+  };
+  currentSession.userMoves.push(moveRecord);
+  requestMoveAnalysis(fenBefore, moveRecord);
+  selected = null;
+  legalMoves = [];
+  lastMove = { from: move.from, to: move.to };
+  beginNextTurn();
+  setStatus(`${game.isCheck() ? 'Check. ' : ''}Opponent is considering the position.`, 'thinking');
+  renderAll();
+  if (finishIfNeeded()) return;
+  askEngine();
+}
+
+function fallbackMove() {
+  const moves = game.moves({ verbose: true });
+  if (!moves.length) return null;
+  moves.sort((a, b) => {
+    const score = (move) => (move.captured ? 100 : 0) + (move.promotion ? 500 : 0) + (move.san.includes('+') ? 40 : 0);
+    return score(b) - score(a);
+  });
+  const top = Math.max(1, Math.min(moves.length, settings.opponentRating >= 1900 ? 2 : settings.opponentRating >= 1600 ? 4 : 7));
+  return moves[Math.floor(Math.random() * top)];
+}
+
+function askEngine() {
+  if (!game || finalized || game.turn() !== engineColor) return;
+  thinking = true;
+  renderTurns();
+  const id = ++requestId;
+  const fen = game.fen();
+  const maxMs = clockRunning ? Math.max(60, Math.min(2500, clocks[engineColor] * 0.08)) : 2500;
+  if (!moveWorker) {
+    window.setTimeout(() => applyEngineReply(id, { move: null, fallback: true }), 250);
+    return;
+  }
+  const timeout = window.setTimeout(() => applyEngineReply(id, { timeout: true }), 5500);
+  const handler = (event) => {
+    if (event.data.id !== id || event.data.task !== 'move') return;
+    window.clearTimeout(timeout);
+    moveWorker.removeEventListener('message', handler);
+    applyEngineReply(id, event.data);
+  };
+  moveWorker.addEventListener('message', handler);
+  moveWorker.postMessage({
+    task: 'move',
+    id,
+    fen,
+    rating: settings.opponentRating,
+    phase: current.phase,
+    perspective: engineColor,
+    maxMs,
+  });
+}
+
+function applyEngineReply(id, data) {
+  if (id !== requestId || !game || finalized || game.isGameOver() || game.turn() !== engineColor) return;
+  syncClock();
+  if (finalized) return;
+  let move = null;
+  if (data.move) {
+    try {
+      move = game.move({
+        from: data.move.slice(0, 2),
+        to: data.move.slice(2, 4),
+        promotion: data.move[4] || 'q',
+      });
+    } catch {}
+  }
+  if (!move) {
+    const fallback = fallbackMove();
+    if (fallback) {
+      try {
+        move = game.move({ from: fallback.from, to: fallback.to, promotion: fallback.promotion || 'q' });
+      } catch {}
+    }
+  }
+  thinking = false;
+  if (!move) {
+    finishIfNeeded();
+    return;
+  }
+  applyIncrement(engineColor);
+  lastMove = { from: move.from, to: move.to };
+  beginNextTurn();
+  setStatus(game.isCheck() ? 'Check—your king is under attack.' : 'Your move. Build the position one decision at a time.');
+  renderAll();
+  finishIfNeeded();
+}
+
+function requestMoveAnalysis(fenBefore, moveRecord) {
+  if (!analysisWorker) return;
+  const id = ++analysisRequestId;
+  const sessionId = currentSession.id;
+  const moveId = moveRecord.id;
+  analysisWorker.postMessage({
+    task: 'analyze',
+    id,
+    fen: fenBefore,
+    move: moveRecord.uci,
+    phase: current.phase,
+    perspective: userColor,
+  });
+  const handler = (event) => {
+    if (event.data.task !== 'analyze' || event.data.id !== id) return;
+    analysisWorker.removeEventListener('message', handler);
+    const targetSession = currentSession?.id === sessionId
+      ? currentSession
+      : store.sessions.find((session) => session.id === sessionId);
+    const targetMove = targetSession?.userMoves?.find((move) => move.id === moveId);
+    if (!targetMove || !Number.isFinite(event.data.cpLoss)) return;
+    targetMove.cpLoss = event.data.cpLoss;
+    targetMove.bestMove = event.data.bestMove || null;
+    targetMove.quality = qualityForLoss(event.data.cpLoss).key;
+    if (currentSession?.id === sessionId) {
+      renderLiveQuality();
+      updateStoredCurrentSession();
+    } else {
+      saveStore();
+    }
+  };
+  analysisWorker.addEventListener('message', handler);
+}
+
+function finishIfNeeded() {
+  if (!game?.isGameOver() || finalized) return false;
+  let outcome;
+  let title;
+  let text;
+  let symbol;
+  if (game.isCheckmate()) {
+    const winner = game.turn() === 'w' ? 'b' : 'w';
+    outcome = winner === userColor ? 'win' : 'loss';
+    title = outcome === 'win' ? 'You converted the position' : 'The opponent converted';
+    text = outcome === 'win'
+      ? `Checkmate against the ${settings.opponentRating} strength setting.`
+      : 'You were checkmated. Review the phase, opening, and theme signals before replaying.';
+    symbol = outcome === 'win' ? '1' : '0';
+  } else {
+    outcome = 'draw';
+    title = 'Draw';
+    text = 'The position ended in a draw. Holding a difficult position is valuable practice.';
+    symbol = '½';
+  }
+  finalizeSession(outcome, game.isCheckmate() ? 'checkmate' : 'draw', true);
+  showResult(title, text, symbol);
+  renderAll();
+  return true;
+}
+
+function summarizeSession(session) {
+  const losses = session.userMoves.map((move) => move.cpLoss).filter(Number.isFinite);
+  const quality = { excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+  for (const move of session.userMoves) {
+    if (quality[move.quality] !== undefined) quality[move.quality] += 1;
+  }
+  const control = TIME_CONTROLS[session.timeControl] || TIME_CONTROLS.untimed;
+  const used = control.base
+    ? Math.max(0, Math.min(1.5, (control.base * 1000 - (session.remainingMs ?? 0)) / (control.base * 1000)))
+    : null;
+  return {
+    analyzedMoves: losses.length,
+    avgCpLoss: average(losses),
+    quality,
+    avgMoveTimeMs: average(session.userMoves.map((move) => move.spentMs)),
+    timeUsedPct: used,
+  };
+}
+
+function finalizeSession(outcome, reason, completed) {
+  if (!currentSession || finalized) return;
+  syncClock();
+  finalized = true;
+  thinking = false;
+  requestId += 1;
+  stopClock();
+  currentSession.outcome = outcome;
+  currentSession.reason = reason;
+  currentSession.completed = completed;
+  currentSession.endedAt = new Date().toISOString();
+  currentSession.remainingMs = clockRunning ? Math.max(0, clocks[userColor]) : null;
+  Object.assign(currentSession, summarizeSession(currentSession));
+  if (completed || currentSession.userMoves.length > 0) {
+    store.sessions.unshift(clone(currentSession));
+    saveStore();
+  }
+  renderTurns();
+  renderClocks();
+}
+
+function updateStoredCurrentSession() {
+  if (!currentSession || !finalized) return;
+  Object.assign(currentSession, summarizeSession(currentSession));
+  const index = store.sessions.findIndex((session) => session.id === currentSession.id);
+  if (index >= 0) {
+    store.sessions[ind
