@@ -1,0 +1,286 @@
+ }
+  showView(view);
+}
+
+function candidatePositions() {
+  let pool = validPositions.filter((position) => position.phase === settings.phase);
+  if (settings.phase !== 'endgame' && settings.opening !== 'all') {
+    const openingPool = pool.filter((position) => position.opening === settings.opening);
+    if (openingPool.length) pool = openingPool;
+  }
+  return pool;
+}
+
+function pickPosition() {
+  let base = candidatePositions();
+  if (!base.length) base = validPositions.filter((position) => position.phase === settings.phase);
+  if (!base.length) base = validPositions;
+  const nearest = Math.min(...base.map((position) => Math.abs(position.rating - settings.positionRating)));
+  let pool = base.filter((position) => Math.abs(position.rating - settings.positionRating) === nearest);
+  if (current && pool.length > 1) pool = pool.filter((position) => position.id !== current.id);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function chooseUserColor() {
+  if (settings.side === 'w' || settings.side === 'b') return settings.side;
+  return Math.random() < 0.5 ? 'w' : 'b';
+}
+
+function initClocks() {
+  stopClock();
+  const control = timeControl();
+  clockRunning = control.base > 0;
+  clocks = {
+    w: control.base * 1000,
+    b: control.base * 1000,
+  };
+  clockLast = performance.now();
+  turnStartRemaining = clocks[game.turn()];
+  if (clockRunning) {
+    clockInterval = window.setInterval(tickClock, 100);
+  }
+  renderClocks();
+}
+
+function stopClock() {
+  if (clockInterval) window.clearInterval(clockInterval);
+  clockInterval = null;
+}
+
+function syncClock() {
+  if (!clockRunning || !game || finalized || game.isGameOver()) return;
+  const now = performance.now();
+  const active = game.turn();
+  const elapsed = Math.max(0, now - clockLast);
+  clocks[active] -= elapsed;
+  clockLast = now;
+  if (clocks[active] <= 0) {
+    clocks[active] = 0;
+    handleTimeout(active);
+  }
+}
+
+function tickClock() {
+  syncClock();
+  renderClocks();
+}
+
+function applyIncrement(color) {
+  if (!clockRunning) return;
+  clocks[color] += timeControl().increment * 1000;
+}
+
+function beginNextTurn() {
+  clockLast = performance.now();
+  turnStartRemaining = clocks[game.turn()];
+  renderClocks();
+}
+
+function spentThisTurn(color) {
+  if (!clockRunning || game.turn() !== color) return null;
+  return Math.max(0, turnStartRemaining - clocks[color]);
+}
+
+function renderClocks() {
+  const userMs = clocks[userColor] ?? 0;
+  const engineMs = clocks[engineColor] ?? 0;
+  renderClockElement($('#userClock'), userMs, game && !finalized && game.turn() === userColor);
+  renderClockElement($('#engineClock'), engineMs, game && !finalized && game.turn() === engineColor);
+}
+
+function renderClockElement(element, milliseconds, active) {
+  element.textContent = formatClock(milliseconds);
+  element.classList.toggle('active', Boolean(active));
+  element.classList.toggle('low', clockRunning && milliseconds <= 30000 && milliseconds > 10000);
+  element.classList.toggle('critical', clockRunning && milliseconds <= 10000);
+}
+
+function hasMatingMaterial(color) {
+  if (!game) return true;
+  const pieces = [];
+  for (let rank = 1; rank <= 8; rank += 1) {
+    for (const file of FILES) {
+      const piece = game.get(`${file}${rank}`);
+      if (piece?.color === color && piece.type !== 'k') pieces.push(piece.type);
+    }
+  }
+  if (pieces.some((piece) => ['p', 'r', 'q'].includes(piece))) return true;
+  const bishops = pieces.filter((piece) => piece === 'b').length;
+  const knights = pieces.filter((piece) => piece === 'n').length;
+  return bishops >= 2 || (bishops >= 1 && knights >= 1) || knights >= 2;
+}
+
+function handleTimeout(loser) {
+  if (finalized) return;
+  requestId += 1;
+  thinking = false;
+  stopClock();
+  const winner = loser === 'w' ? 'b' : 'w';
+  const draw = !hasMatingMaterial(winner);
+  if (draw) {
+    finalizeSession('draw', 'timeout with insufficient mating material', true);
+    showResult('Draw on time', 'The flag fell, but the opponent did not have sufficient mating material.', '½');
+  } else {
+    const outcome = loser === userColor ? 'loss' : 'win';
+    finalizeSession(outcome, 'timeout', true);
+    showResult(
+      outcome === 'win' ? 'You won on time' : 'Time expired',
+      outcome === 'win'
+        ? `K-Mate ${settings.opponentRating} ran out of time.`
+        : `Your ${timeControl().label} clock reached zero.`,
+      outcome === 'win' ? '1' : '0',
+    );
+  }
+  renderAll();
+}
+
+function startPosition({ preservePrevious = false } = {}) {
+  if (!preservePrevious && game && !finalized) finalizeSession('abandoned', 'new position', false);
+  requestId += 1;
+  thinking = false;
+  current = pickPosition();
+  game = new Chess(current.fen);
+  userColor = chooseUserColor();
+  engineColor = userColor === 'w' ? 'b' : 'w';
+  orientation = userColor;
+  selected = null;
+  legalMoves = [];
+  lastMove = null;
+  finalized = false;
+  startFullmove = Number(current.fen.split(/\s+/)[5]) || 1;
+  currentSession = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    startedAt: new Date().toISOString(),
+    positionId: current.id,
+    phase: current.phase,
+    opening: current.opening,
+    theme: current.theme,
+    tags: [...current.tags],
+    positionRating: current.rating,
+    requestedPositionRating: settings.positionRating,
+    opponentRating: settings.opponentRating,
+    timeControl: settings.timeControl,
+    userColor,
+    outcome: null,
+    reason: null,
+    completed: false,
+    takebacks: 0,
+    userMoves: [],
+  };
+
+  $('#positionTitle').textContent = current.title;
+  $('#gameMeta').textContent = `${phaseLabel(current.phase)} · ${current.opening}`;
+  $('#positionBadge').textContent = `${current.rating} level`;
+  $('#themeTitle').textContent = current.theme;
+  $('#positionDescription').textContent = current.description;
+  $('#positionTags').innerHTML = current.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join('');
+  $('#engineName').textContent = `K-Mate ${settings.opponentRating}`;
+  $('#engineSub').textContent = `${ratingDescriptor(settings.opponentRating)} · ${timeControl().label}`;
+  $('#userSide').textContent = userColor === 'w' ? 'White' : 'Black';
+  $('#userBar .avatar').textContent = userColor === 'w' ? '♙' : '♟';
+  $('#userBar .avatar').className = `avatar ${userColor === 'w' ? 'white-avatar' : 'black-avatar'}`;
+  $('#engineBar .avatar').textContent = engineColor === 'w' ? '♙' : '♟';
+  $('#engineBar .avatar').className = `avatar ${engineColor === 'w' ? 'white-avatar' : 'black-avatar'}`;
+  $('#takebackCount').textContent = '0';
+  $('#analyzedMoves').textContent = '0';
+  $('#liveCpl').textContent = '—';
+
+  showView('game');
+  initClocks();
+  setStatus(game.turn() === userColor ? 'Choose a piece, then a legal destination.' : 'The opponent moves first.', game.turn() === userColor ? '' : 'thinking');
+  renderAll();
+
+  if (game.isGameOver()) {
+    finishIfNeeded();
+  } else if (game.turn() === engineColor) {
+    askEngine();
+  }
+}
+
+function orderedSquares() {
+  const files = orientation === 'w' ? FILES : [...FILES].reverse().join('');
+  const ranks = orientation === 'w' ? '87654321' : '12345678';
+  return [...ranks].flatMap((rank) => [...files].map((file) => `${file}${rank}`));
+}
+
+function kingInCheckSquare() {
+  if (!game?.isCheck()) return null;
+  for (let rank = 1; rank <= 8; rank += 1) {
+    for (const file of FILES) {
+      const square = `${file}${rank}`;
+      const piece = game.get(square);
+      if (piece?.type === 'k' && piece.color === game.turn()) return square;
+    }
+  }
+  return null;
+}
+
+function renderBoard() {
+  const board = $('#board');
+  board.innerHTML = '';
+  if (!game) return;
+  const checkSquare = kingInCheckSquare();
+  const squares = orderedSquares();
+  squares.forEach((square, index) => {
+    const piece = game.get(square);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `sq ${((FILES.indexOf(square[0]) + Number(square[1])) % 2) ? 'light' : 'dark'}`;
+    if (selected === square) button.classList.add('selected');
+    if (lastMove && (lastMove.from === square || lastMove.to === square)) button.classList.add('last');
+    const legal = legalMoves.find((move) => move.to === square);
+    if (legal) button.classList.add(piece ? 'capture' : 'legal');
+    if (checkSquare === square) button.classList.add('check');
+    button.dataset.square = square;
+    button.setAttribute('aria-label', `${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ' empty'}`);
+
+    if (piece) {
+      const glyph = document.createElement('span');
+      glyph.className = `piece ${piece.color === 'w' ? 'white' : 'black'}`;
+      glyph.textContent = PIECES[piece.type];
+      button.append(glyph);
+    }
+    if (index % 8 === 0) {
+      const rank = document.createElement('span');
+      rank.className = 'coord rank';
+      rank.textContent = square[1];
+      button.append(rank);
+    }
+    if (index >= 56) {
+      const file = document.createElement('span');
+      file.className = 'coord file';
+      file.textContent = square[0];
+      button.append(file);
+    }
+    button.addEventListener('click', () => tapSquare(square));
+    board.append(button);
+  });
+}
+
+function renderTurns() {
+  if (!game) return;
+  const userLive = !thinking && !finalized && game.turn() === userColor;
+  const engineLive = !finalized && game.turn() === engineColor;
+  $('#userTurn').textContent = finalized ? 'Finished' : userLive ? 'Your move' : 'Waiting';
+  $('#userTurn').classList.toggle('live', userLive);
+  $('#engineTurn').textContent = finalized ? 'Finished' : thinking ? 'Thinking…' : engineLive ? 'To move' : 'Waiting';
+  $('#engineTurn').classList.toggle('live', engineLive);
+  $('#userBar').classList.toggle('active', userLive);
+  $('#engineBar').classList.toggle('active', engineLive);
+}
+
+function renderMoveList() {
+  if (!game) return;
+  const history = game.history({ verbose: true });
+  const rows = [];
+  let number = startFullmove;
+  let row = null;
+  for (const move of history) {
+    if (move.color === 'w') {
+      row = { number, white: move.san, black: '' };
+      rows.push(row);
+    } else {
+      if (!row || row.black) {
+        row = { number, white: '…', black: move.san };
+        rows.push(row);
+      } els
