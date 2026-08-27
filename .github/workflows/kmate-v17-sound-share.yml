@@ -1,0 +1,99 @@
+name: K-Mate v17 sound and sharing
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v17-sound-share.yml'
+permissions:
+  contents: write
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply clearer sounds and sharing
+        run: python .github/scripts/kmate_v17_sound_share.py
+      - name: Validate assembled application JavaScript
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{n}.txt').read_text() for n in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v17-combined.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v17-combined.js
+          grep -q 'shareAppButton' kmate-trainer/index.html
+          grep -q 'function shareApp' /tmp/kmate-v17-combined.js
+          grep -q 'scheduleChessKnock' /tmp/kmate-v17-combined.js
+          grep -q "version: '17.0-commercial-beta'" /tmp/kmate-v17-combined.js
+      - name: Install browser test runtime
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          npx playwright install --with-deps chromium
+      - name: Run local app
+        run: |
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v17-server.log 2>&1 &
+          echo $! >/tmp/kmate-v17-server.pid
+      - name: Verify mobile sound and sharing controls
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+            await context.addInitScript(() => {
+              Object.defineProperty(navigator, 'share', {
+                configurable: true,
+                value: async payload => { window.__kmateSharedPayload = payload; },
+              });
+            });
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
+            page.on('console', message => {
+              if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+            });
+
+            await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1', null, { timeout: 120000 });
+
+            assert.strictEqual(await page.locator('#shareAppButton').count(), 1, 'Share button missing');
+            assert.strictEqual(await page.locator('#soundToggle').count(), 1, 'Sound button missing');
+            const noHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+            assert.ok(noHorizontalOverflow, 'Header causes mobile horizontal overflow');
+
+            await page.click('#shareAppButton');
+            const shared = await page.evaluate(() => window.__kmateSharedPayload);
+            assert.ok(shared, 'Web Share API was not invoked');
+            assert.strictEqual(shared.title, 'K-Mate Chess Trainer');
+            assert.ok(shared.url.endsWith('?v=20260827-17'), `Unexpected share URL: ${shared.url}`);
+
+            const initialSound = await page.evaluate(() => window.__KMATE__.state().settings.sound);
+            assert.strictEqual(initialSound, true, 'Sound should default on');
+            await page.click('#soundToggle');
+            assert.strictEqual(await page.evaluate(() => window.__KMATE__.state().settings.sound), false, 'Mute toggle failed');
+            assert.strictEqual((await page.locator('#soundToggle').textContent()).trim(), '🔇');
+            await page.click('#soundToggle');
+            assert.strictEqual(await page.evaluate(() => window.__KMATE__.state().settings.sound), true, 'Unmute toggle failed');
+            assert.strictEqual((await page.locator('#soundToggle').textContent()).trim(), '🔊');
+
+            if (errors.length) throw new Error(errors.join('\n'));
+            console.log(JSON.stringify({ ok: true, shared, initialSound, mobileWidth: 390 }, null, 2));
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+      - name: Commit K-Mate v17
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add kmate-trainer/index.html kmate-trainer/styles-v7.css kmate-trainer/app-v7.js kmate-trainer/app-v7-part1.txt kmate-trainer/app-v7-part2.txt kmate-trainer/app-v7-part3.txt kmate-trainer/app-v7-part4.txt kmate-trainer/app-v7-part5.txt kmate-trainer/app-v7-part6.txt
+          git commit -m 'K-Mate v17: clearer chess sounds and one-tap sharing' || exit 0
+          git push
