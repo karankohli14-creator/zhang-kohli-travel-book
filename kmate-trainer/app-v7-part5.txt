@@ -1,0 +1,191 @@
+}L`;
+  $('#metricScore').textContent = percent(record.score);
+  $('#metricCpl').textContent = Number.isFinite(avgLoss) ? `${Math.round(avgLoss)} cp` : '—';
+  $('#metricPerformance').textContent = performance || '—';
+  $('#sampleNote').textContent = `${detailed.length} detailed session${detailed.length === 1 ? '' : 's'}`;
+
+  renderOpeningInsight(completed);
+  renderPhaseInsight(completed);
+  renderThemeInsight();
+  renderClockInsight(completed);
+  renderOpeningTable(completed);
+  renderPhaseTable(completed);
+  renderRecentSessions(detailed);
+}
+
+function renderOpeningInsight(completed) {
+  const groups = groupSessions(completed.filter((session) => session.opening !== 'Various'), (session) => session.opening);
+  const weakest = weakestGroup(groups);
+  if (!weakest) {
+    $('#openingInsightTitle').textContent = 'Not enough data';
+    $('#openingInsightText').textContent = 'Complete at least two games in an opening family.';
+    return;
+  }
+  const early = weakest.games < 2;
+  $('#openingInsightTitle').textContent = `${early ? 'Early signal: ' : ''}${weakest.name}`;
+  const colorParts = [];
+  if (weakest.whiteGames) colorParts.push(`White ${percent(weakest.whiteScore)}`);
+  if (weakest.blackGames) colorParts.push(`Black ${percent(weakest.blackScore)}`);
+  $('#openingInsightText').textContent = `${weakest.games} game${weakest.games === 1 ? '' : 's'} · ${percent(weakest.score)} score${Number.isFinite(weakest.avgCpLoss) ? ` · ${Math.round(weakest.avgCpLoss)} cp loss` : ''}${colorParts.length ? ` · ${colorParts.join(', ')}` : ''}.`;
+}
+
+function renderPhaseInsight(completed) {
+  const weakest = weakestGroup(groupSessions(completed, (session) => session.phase));
+  if (!weakest) {
+    $('#phaseInsightTitle').textContent = 'Not enough data';
+    $('#phaseInsightText').textContent = 'Middlegame, late-middlegame, and endgame results will be compared.';
+    return;
+  }
+  $('#phaseInsightTitle').textContent = `${weakest.games < 2 ? 'Early signal: ' : ''}${phaseLabel(weakest.name)}`;
+  $('#phaseInsightText').textContent = `${weakest.games} completed session${weakest.games === 1 ? '' : 's'} · ${percent(weakest.score)} score${Number.isFinite(weakest.avgCpLoss) ? ` · ${Math.round(weakest.avgCpLoss)} cp estimated loss` : ''}.`;
+}
+
+function renderThemeInsight() {
+  const groups = [...themeGroups().entries()].map(([name, sessions]) => ({ name, sessions, ...aggregateSessions(sessions) }));
+  const candidates = groups.filter((group) => group.analyzedMoves >= 4);
+  if (!candidates.length) {
+    $('#themeInsightTitle').textContent = 'Not enough analyzed moves';
+    $('#themeInsightText').textContent = 'Move-quality estimates are grouped by the themes of each position.';
+    return;
+  }
+  const weakest = candidates.sort((a, b) => {
+    const weaknessA = (a.avgCpLoss ?? 0) + (1 - (a.score ?? 0.5)) * 100;
+    const weaknessB = (b.avgCpLoss ?? 0) + (1 - (b.score ?? 0.5)) * 100;
+    return weaknessB - weaknessA;
+  })[0];
+  $('#themeInsightTitle').textContent = weakest.name.replace(/\b\w/g, (letter) => letter.toUpperCase());
+  $('#themeInsightText').textContent = `${weakest.analyzedMoves} analyzed moves · ${Math.round(weakest.avgCpLoss)} cp average loss. ${THEME_ADVICE[weakest.name] || 'Repeat this theme at a slower time control and compare candidate moves.'}`;
+}
+
+function renderClockInsight(completed) {
+  const timed = completed.filter((session) => TIME_CONTROLS[session.timeControl]?.base);
+  if (!timed.length) {
+    $('#clockInsightTitle').textContent = 'No timed sessions yet';
+    $('#clockInsightText').textContent = 'K-Mate will look for timeouts, rushed mistakes, and excessive time use.';
+    return;
+  }
+  const timeouts = timed.filter((session) => session.reason === 'timeout').length;
+  const used = average(timed.map((session) => session.timeUsedPct));
+  const analyzedMoves = timed.flatMap((session) => session.userMoves || []).filter((move) => Number.isFinite(move.cpLoss));
+  const rushed = analyzedMoves.filter((move) => Number.isFinite(move.spentMs) && move.spentMs < 4000 && move.cpLoss > 120).length;
+  const rushedRate = analyzedMoves.length ? rushed / analyzedMoves.length : 0;
+  const avgLoss = average(analyzedMoves.map((move) => move.cpLoss));
+
+  if (timeouts / timed.length >= 0.15) {
+    $('#clockInsightTitle').textContent = 'Timeout risk';
+    $('#clockInsightText').textContent = `${timeouts} timeout${timeouts === 1 ? '' : 's'} in ${timed.length} timed games. Use an increment or reserve the final 20% of the clock for conversion.`;
+  } else if (rushedRate >= 0.25) {
+    $('#clockInsightTitle').textContent = 'Rushed decisions';
+    $('#clockInsightText').textContent = `${percent(rushedRate)} of analyzed moves were played in under four seconds and lost more than 120 estimated centipawns.`;
+  } else if (Number.isFinite(used) && used < 0.4 && Number.isFinite(avgLoss) && avgLoss > 100) {
+    $('#clockInsightTitle').textContent = 'Leaving useful time unused';
+    $('#clockInsightText').textContent = `You used ${percent(used)} of the available clock on average while losing ${Math.round(avgLoss)} cp per analyzed move. Spend more time on irreversible decisions.`;
+  } else if (Number.isFinite(used) && used > 0.9) {
+    $('#clockInsightTitle').textContent = 'Late clock pressure';
+    $('#clockInsightText').textContent = `You used ${percent(used)} of the clock on average. Try 3+2 or decide faster on routine recaptures and forced moves.`;
+  } else {
+    $('#clockInsightTitle').textContent = 'Balanced clock use';
+    $('#clockInsightText').textContent = `Average clock use is ${percent(used)} with no strong timeout or rushing signal yet.`;
+  }
+}
+
+function renderOpeningTable(completed) {
+  const groups = [...groupSessions(completed.filter((session) => session.opening !== 'Various'), (session) => session.opening).entries()]
+    .map(([name, sessions]) => ({ name, ...aggregateSessions(sessions) }))
+    .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
+  const body = $('#openingTableBody');
+  if (!groups.length) {
+    body.innerHTML = '<tr><td colspan="5" class="empty-cell">No opening sessions yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = groups.map((group) => {
+    const color = [
+      group.whiteGames ? `W ${percent(group.whiteScore)}` : null,
+      group.blackGames ? `B ${percent(group.blackScore)}` : null,
+    ].filter(Boolean).join(' · ') || '—';
+    return `<tr>
+      <td><b>${escapeHtml(group.name)}</b></td>
+      <td>${group.games}</td>
+      <td>${percent(group.score)}</td>
+      <td>${Number.isFinite(group.avgCpLoss) ? `${Math.round(group.avgCpLoss)} cp` : '—'}</td>
+      <td>${escapeHtml(color)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPhaseTable(completed) {
+  const groups = [...groupSessions(completed, (session) => session.phase).entries()]
+    .map(([name, sessions]) => ({ name, ...aggregateSessions(sessions) }))
+    .sort((a, b) => ['middlegame', 'late-middlegame', 'endgame'].indexOf(a.name) - ['middlegame', 'late-middlegame', 'endgame'].indexOf(b.name));
+  const body = $('#phaseTableBody');
+  if (!groups.length) {
+    body.innerHTML = '<tr><td colspan="5" class="empty-cell">No completed sessions yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = groups.map((group) => `<tr>
+    <td><b>${escapeHtml(phaseLabel(group.name))}</b></td>
+    <td>${group.games}</td>
+    <td>${percent(group.score)}</td>
+    <td>${Number.isFinite(group.avgCpLoss) ? `${Math.round(group.avgCpLoss)} cp` : '—'}</td>
+    <td>${group.timeouts}</td>
+  </tr>`).join('');
+}
+
+function renderRecentSessions(sessions) {
+  const list = $('#recentList');
+  if (!sessions.length) {
+    list.innerHTML = '<div class="empty-cell">Your recent games will appear here.</div>';
+    return;
+  }
+  list.innerHTML = sessions.slice(0, 12).map((session) => {
+    const outcome = session.outcome === 'abandoned' ? 'partial' : session.outcome;
+    const resultClass = outcome === 'win' ? 'win' : outcome === 'draw' ? 'draw' : 'loss';
+    const resultText = outcome === 'win' ? 'WIN' : outcome === 'draw' ? 'DRAW' : outcome === 'partial' ? 'PART' : 'LOSS';
+    return `<div class="recent-row">
+      <span class="result-pill ${resultClass}">${resultText}</span>
+      <span><b>${escapeHtml(session.opening === 'Various' ? phaseLabel(session.phase) : session.opening)}</b><small>${escapeHtml(phaseLabel(session.phase))} · ${escapeHtml(session.theme)}</small></span>
+      <span class="hide-small"><b>${session.opponentRating}</b><small>opponent</small></span>
+      <span class="hide-small"><b>${escapeHtml(TIME_CONTROLS[session.timeControl]?.label || session.timeControl)}</b><small>clock</small></span>
+      <span><b>${Number.isFinite(session.avgCpLoss) ? `${Math.round(session.avgCpLoss)} cp` : '—'}</b><small>${session.userMoves?.length || 0} moves</small></span>
+    </div>`;
+  }).join('');
+}
+
+function exportData() {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    app: 'K-Mate v7',
+    note: 'Ratings and move-quality values are training approximations.',
+    data: store,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `kmate-training-data-${new Date().toISOString().slice(0, 10)}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function resetData() {
+  const confirmed = window.confirm('Reset all K-Mate results, detailed sessions, and legacy totals on this device?');
+  if (!confirmed) return;
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(LEGACY_KEY);
+  store = { version: 7, sessions: [], legacy: { sessions: 0, wins: 0, draws: 0, losses: 0, best: 0 }, settings: { ...defaultSettings } };
+  settings = { ...defaultSettings };
+  populateOpenings();
+  applySettingsToControls();
+  saveStore();
+  renderInsights();
+  toast('K-Mate data reset');
+}
+
+const workerSource = String.raw`
+import { Chess } from '${CHESS_URL}';
+const V={p:100,n:320,b:335,r:510,q:930,k:0};
+let nodes=0,deadline=0,limit=0;
+function cfg(r,maxMs){
+  let c;
+  if(r<=1200)c={depth:1,ms:130,nodes:2400,beam:9,choices:7,temp:170,blunder:.34};
+  else if(r<=1400)c={depth:2,ms:250,nodes:7000,beam:11,choices:5,temp:105,blunder
