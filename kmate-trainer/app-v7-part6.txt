@@ -1,0 +1,84 @@
+('#takebackButton').addEventListener('click', takeback);
+  $('#copyFenButton').addEventListener('click', copyFen);
+  $('#newPositionButton').addEventListener('click', () => startPosition());
+  $('#resignButton').addEventListener('click', resign);
+  $('#changeSetupButton').addEventListener('click', () => navigate('setup'));
+
+  $('#resultNext').addEventListener('click', () => {
+    closeDialog('resultDialog');
+    startPosition({ preservePrevious: true });
+  });
+  $('#resultSetup').addEventListener('click', () => {
+    closeDialog('resultDialog');
+    showView('setup');
+  });
+  $('#resultInsights').addEventListener('click', () => {
+    closeDialog('resultDialog');
+    showView('insights');
+  });
+
+  $$('[data-close]').forEach((button) => button.addEventListener('click', () => closeDialog(button.dataset.close)));
+  $('#exportButton').addEventListener('click', exportData);
+  $('#resetButton').addEventListener('click', resetData);
+  $('#startRecommendedButton')?.addEventListener('click', () => applyRecommendation(true));
+  $('#copyRecommendationButton')?.addEventListener('click', copyRecommendation);
+  $('#openPositionImport')?.addEventListener('click', () => openDialog('positionImportDialog'));
+  $('#confirmPositionImport')?.addEventListener('click', importTrainingPosition);
+  $('#openProfileImport')?.addEventListener('click', () => $('#profileImportFile')?.click());
+  $('#profileImportFile')?.addEventListener('change', importProfileFile);
+  $('#aboutBetaButton')?.addEventListener('click', () => openDialog('aboutBetaDialog'));
+  $('#saveCalibrationGuess')?.addEventListener('click', saveCalibrationGuess);
+
+}
+
+populateOpenings();
+applySettingsToControls();
+bindControls();
+renderSummary();
+renderInsights();
+$('#startButton').disabled = true;
+$('#startButton').textContent = 'Loading Stockfish 18…';
+
+window.__KMATE__ = {
+  version: '17.0-commercial-beta',
+  start: startPosition,
+  state: () => ({
+    settings: { ...settings },
+    current: current?.id || null,
+    generated: Boolean(current?.generated),
+    seedId: current?.seedId || null,
+    variationPlies: current?.variationPlies || 0,
+    recentGenerated: genSeen.length,
+    fen: game?.fen() || null,
+    phase: current?.phase || null,
+    opening: current?.opening || null,
+    userColor,
+    turn: game?.turn() || null,
+    clocks: { ...clocks },
+    engine: 'Stockfish 18 lite single-threaded',
+    reviewEngine: 'Independent Stockfish 18 move review',
+    commercialBeta: true,
+    cloudSync: false,
+    billing: false,
+    engineReady: Boolean(stockfishEngine?.isReady),
+    ready: Boolean(stockfishEngine?.isReady),
+  }),
+};
+
+(async () => {
+  if (!stockfishEngine) throw stockfishLoadError || new Error('Stockfish could not be created');
+  await stockfishEngine.ready;
+  $('#startButton').disabled = false;
+  $('#startButton').textContent = 'Generate & start position';
+  const record = totalRecord();
+  $('#topBadge').textContent = `Stockfish 18 · ${record.games} games`;
+  document.documentElement.dataset.ready = '1';
+})().catch((error) => {
+  console.error('Stockfish failed to load.', error);
+  $('#loadError').textContent = 'Stockfish 18 could not load on this browser. Reload once in Safari or Chrome with an internet connection.';
+  $('#loadError').classList.add('show');
+  $('#startButton').disabled = true;
+  $('#startButton').textContent = 'Stockfish unavailable';
+  $('#topBadge').textContent = 'Engine unavailable';
+  document.documentElement.dataset.ready = 'error';
+});

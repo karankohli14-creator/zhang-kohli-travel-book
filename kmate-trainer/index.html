@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=16.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=17.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -22,8 +22,11 @@
       <button class="navbutton active" type="button" data-view="setup">Play</button>
       <button class="navbutton" type="button" data-view="insights">Insights</button>
     </nav>
-    <span class="topbadge" id="topBadge">Loading…</span>
-    <button class="sound-toggle" id="soundToggle" type="button" aria-label="Mute move sounds" title="Move sounds">🔊</button>
+    <div class="header-actions">
+      <span class="topbadge" id="topBadge">Loading…</span>
+      <button class="share-app-button" id="shareAppButton" type="button" aria-label="Share K-Mate" title="Share K-Mate"><span aria-hidden="true">↗</span><b>Share</b></button>
+      <button class="sound-toggle" id="soundToggle" type="button" aria-label="Mute move sounds" title="Move sounds">🔊</button>
+    </div>
   </header>
 
   <main class="shell">
@@ -395,6 +398,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=16.0.0"></script>
+  <script type="module" src="./app-v7.js?v=17.0.0"></script>
 </body>
 </html>

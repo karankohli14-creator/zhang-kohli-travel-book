@@ -32,6 +32,13 @@ button{touch-action:manipulation}
 .navbutton{min-height:38px;padding:0 16px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-weight:800;cursor:pointer}
 .navbutton.active{background:#b9f47418;color:var(--accent)}
 .topbadge{justify-self:end;padding:7px 11px;border:1px solid var(--line);border-radius:99px;background:#ffffff08;color:var(--muted);font-size:12px}
+.header-actions{justify-self:end;display:flex;align-items:center;gap:7px;min-width:0}
+.header-actions .topbadge{justify-self:auto}
+.share-app-button,.sound-toggle{display:grid;place-items:center;height:36px;border:1px solid var(--line);border-radius:11px;background:#ffffff08;color:var(--text);cursor:pointer}
+.share-app-button{grid-template-columns:auto auto;gap:6px;padding:0 11px;font-size:12px}
+.share-app-button>span{font-size:16px;line-height:1}
+.share-app-button>b{font-size:11px}
+.share-app-button:active,.sound-toggle:active{transform:scale(.96)}
 .shell{width:min(1240px,calc(100% - 28px));margin:auto;padding:34px 0 74px}
 .view[hidden]{display:none!important}
 .card{border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#18241b,#0f1711);box-shadow:0 24px 70px #0005}
@@ -257,8 +264,7 @@ td small{display:block;color:var(--muted)}
 .toast{position:fixed;left:50%;bottom:20px;z-index:90;transform:translate(-50%,18px);padding:11px 15px;border:1px solid var(--line);border-radius:13px;background:#202d23;box-shadow:0 15px 45px #0008;opacity:0;pointer-events:none;transition:.2s}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
-.sound-toggle{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border:1px solid var(--line);border-radius:11px;background:#ffffff08;color:var(--text);font-size:15px;cursor:pointer}
-.sound-toggle:active{transform:scale(.96)}
+.sound-toggle{flex:0 0 36px;width:36px;padding:0;font-size:15px}
 @media(max-width:980px){
   .hero,.playgrid,.tables-grid{grid-template-columns:1fr}
   .sidepanel{position:static}
@@ -270,6 +276,7 @@ td small{display:block;color:var(--muted)}
   .topnav{order:3;grid-column:1/-1;justify-self:stretch}
   .navbutton{flex:1}
   .topbadge{display:none}
+  .header-actions{grid-column:2;grid-row:1}
   .summary-grid{grid-template-columns:repeat(2,1fr)}
   .phase-seg{grid-template-columns:1fr}
   .weakness-grid{grid-template-columns:1fr}
@@ -280,6 +287,8 @@ td small{display:block;color:var(--muted)}
 @media(max-width:560px){
   .shell{width:min(100% - 16px,1240px);padding-top:18px}
   .brandtext small{display:none}
+  .share-app-button{width:36px;padding:0}
+  .share-app-button>b{display:none}
   .intro{padding:29px 21px}
   .intro h1{font-size:45px}
   .setup-card{padding:19px}

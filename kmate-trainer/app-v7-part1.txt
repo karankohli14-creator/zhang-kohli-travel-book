@@ -121,6 +121,7 @@ let finalized = true;
 let startFullmove = 1;
 let toastTimer = null;
 let audioContext = null;
+let audioNoiseBuffer = null;
 let queuedCustomPosition = null;
 let activeOpponentRating = 1600;
 let recommendationState = null;
@@ -138,25 +139,89 @@ function ensureAudioContext() {
   return audioContext;
 }
 
+function getAudioNoiseBuffer(ctx) {
+  if (audioNoiseBuffer && audioNoiseBuffer.sampleRate === ctx.sampleRate) return audioNoiseBuffer;
+  const length = Math.max(1, Math.floor(ctx.sampleRate * 0.12));
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let index = 0; index < length; index += 1) {
+    const envelope = Math.pow(1 - index / length, 2.7);
+    data[index] = (Math.random() * 2 - 1) * envelope;
+  }
+  audioNoiseBuffer = buffer;
+  return buffer;
+}
+
+function scheduleChessTone(ctx, when, startFrequency, endFrequency, volume, duration, type = 'triangle') {
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(Math.max(30, startFrequency), when);
+  oscillator.frequency.exponentialRampToValueAtTime(Math.max(30, endFrequency), when + duration);
+  gain.gain.setValueAtTime(0.0001, when);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), when + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  oscillator.start(when);
+  oscillator.stop(when + duration + 0.01);
+}
+
+function scheduleChessKnock(ctx, when, volume = 0.12, duration = 0.055, cutoff = 1250) {
+  const source = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+  source.buffer = getAudioNoiseBuffer(ctx);
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(cutoff, when);
+  filter.Q.setValueAtTime(0.8, when);
+  gain.gain.setValueAtTime(Math.max(0.001, volume), when);
+  gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  source.start(when);
+  source.stop(when + duration + 0.01);
+}
+
 function playMoveSound(kind = 'move') {
   if (!soundEnabled()) return;
   const ctx = ensureAudioContext();
   if (!ctx) return;
-  const now = ctx.currentTime;
-  const gain = ctx.createGain();
-  const osc = ctx.createOscillator();
-  const isCapture = kind === 'capture';
-  const isCheck = kind === 'check';
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(isCapture ? 190 : isCheck ? 520 : 310, now);
-  osc.frequency.exponentialRampToValueAtTime(isCapture ? 135 : isCheck ? 650 : 245, now + (isCapture ? 0.075 : 0.055));
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(isCapture ? 0.085 : 0.055, now + 0.008);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + (isCapture ? 0.105 : 0.08));
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + (isCapture ? 0.11 : 0.085));
+  const now = ctx.currentTime + 0.006;
+
+  if (kind === 'capture') {
+    scheduleChessKnock(ctx, now, 0.17, 0.082, 850);
+    scheduleChessTone(ctx, now, 215, 105, 0.105, 0.105, 'triangle');
+    scheduleChessTone(ctx, now + 0.018, 145, 82, 0.075, 0.095, 'sine');
+    return;
+  }
+  if (kind === 'check') {
+    scheduleChessKnock(ctx, now, 0.105, 0.052, 1450);
+    scheduleChessTone(ctx, now, 510, 650, 0.075, 0.075, 'sine');
+    scheduleChessTone(ctx, now + 0.075, 660, 810, 0.065, 0.085, 'sine');
+    return;
+  }
+  if (kind === 'win') {
+    scheduleChessTone(ctx, now, 392, 440, 0.07, 0.12, 'sine');
+    scheduleChessTone(ctx, now + 0.105, 523, 587, 0.075, 0.14, 'sine');
+    scheduleChessTone(ctx, now + 0.22, 659, 784, 0.08, 0.19, 'sine');
+    return;
+  }
+  if (kind === 'loss') {
+    scheduleChessTone(ctx, now, 330, 245, 0.065, 0.14, 'triangle');
+    scheduleChessTone(ctx, now + 0.12, 245, 165, 0.06, 0.18, 'triangle');
+    return;
+  }
+  if (kind === 'draw') {
+    scheduleChessTone(ctx, now, 330, 330, 0.055, 0.11, 'sine');
+    scheduleChessTone(ctx, now + 0.1, 294, 294, 0.05, 0.13, 'sine');
+    return;
+  }
+
+  // A short wooden-board click for ordinary moves.
+  scheduleChessKnock(ctx, now, 0.125, 0.055, 1250);
+  scheduleChessTone(ctx, now, 310, 185, 0.075, 0.072, 'triangle');
 }
 
 function updateSoundToggle() {
@@ -173,6 +238,37 @@ function toggleSound() {
   saveStore();
   updateSoundToggle();
   if (settings.sound) playMoveSound('move');
+}
+
+
+function canonicalShareUrl() {
+  const url = new URL(window.location.href);
+  url.search = '?v=20260827-17';
+  url.hash = '';
+  return url.href;
+}
+
+async function shareApp() {
+  const payload = {
+    title: 'K-Mate Chess Trainer',
+    text: 'Practice opening-specific middlegames and endgames against Stockfish, with clocks and move reviews.',
+    url: canonicalShareUrl(),
+  };
+  try {
+    if (typeof navigator.share === 'function') {
+      await navigator.share(payload);
+      return;
+    }
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload.url);
+      toast('K-Mate link copied');
+      return;
+    }
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    console.warn('Native sharing failed; using copy fallback.', error);
+  }
+  window.prompt('Copy this K-Mate link:', payload.url);
 }
 
 
@@ -1338,6 +1434,7 @@ function saveCalibrationGuess() {
 
 function showResult(title, text, symbol) {
   const session = currentSession;
+  window.setTimeout(() => playMoveSound(symbol === '1' ? 'win' : symbol === '0' ? 'loss' : 'draw'), 90);
   $('#resultSymbol').textContent = symbol;
   $('#resultTitle').textContent = title;
   $('#resultText').textContent = text;
@@ -2278,6 +2375,7 @@ function bindControls() {
   }));
 
   $('#soundToggle')?.addEventListener('click', toggleSound);
+  $('#shareAppButton')?.addEventListener('click', shareApp);
 updateSoundToggle();
 
 $$('[data-view]').forEach((button) => button.addEventListener('click', () => navigate(button.dataset.view)));
@@ -2288,87 +2386,4 @@ $$('[data-view]').forEach((button) => button.addEventListener('click', () => nav
     orientation = orientation === 'w' ? 'b' : 'w';
     renderBoard();
   });
-  $('#takebackButton').addEventListener('click', takeback);
-  $('#copyFenButton').addEventListener('click', copyFen);
-  $('#newPositionButton').addEventListener('click', () => startPosition());
-  $('#resignButton').addEventListener('click', resign);
-  $('#changeSetupButton').addEventListener('click', () => navigate('setup'));
-
-  $('#resultNext').addEventListener('click', () => {
-    closeDialog('resultDialog');
-    startPosition({ preservePrevious: true });
-  });
-  $('#resultSetup').addEventListener('click', () => {
-    closeDialog('resultDialog');
-    showView('setup');
-  });
-  $('#resultInsights').addEventListener('click', () => {
-    closeDialog('resultDialog');
-    showView('insights');
-  });
-
-  $$('[data-close]').forEach((button) => button.addEventListener('click', () => closeDialog(button.dataset.close)));
-  $('#exportButton').addEventListener('click', exportData);
-  $('#resetButton').addEventListener('click', resetData);
-  $('#startRecommendedButton')?.addEventListener('click', () => applyRecommendation(true));
-  $('#copyRecommendationButton')?.addEventListener('click', copyRecommendation);
-  $('#openPositionImport')?.addEventListener('click', () => openDialog('positionImportDialog'));
-  $('#confirmPositionImport')?.addEventListener('click', importTrainingPosition);
-  $('#openProfileImport')?.addEventListener('click', () => $('#profileImportFile')?.click());
-  $('#profileImportFile')?.addEventListener('change', importProfileFile);
-  $('#aboutBetaButton')?.addEventListener('click', () => openDialog('aboutBetaDialog'));
-  $('#saveCalibrationGuess')?.addEventListener('click', saveCalibrationGuess);
-
-}
-
-populateOpenings();
-applySettingsToControls();
-bindControls();
-renderSummary();
-renderInsights();
-$('#startButton').disabled = true;
-$('#startButton').textContent = 'Loading Stockfish 18…';
-
-window.__KMATE__ = {
-  version: '16.0-commercial-beta',
-  start: startPosition,
-  state: () => ({
-    settings: { ...settings },
-    current: current?.id || null,
-    generated: Boolean(current?.generated),
-    seedId: current?.seedId || null,
-    variationPlies: current?.variationPlies || 0,
-    recentGenerated: genSeen.length,
-    fen: game?.fen() || null,
-    phase: current?.phase || null,
-    opening: current?.opening || null,
-    userColor,
-    turn: game?.turn() || null,
-    clocks: { ...clocks },
-    engine: 'Stockfish 18 lite single-threaded',
-    reviewEngine: 'Independent Stockfish 18 move review',
-    commercialBeta: true,
-    cloudSync: false,
-    billing: false,
-    engineReady: Boolean(stockfishEngine?.isReady),
-    ready: Boolean(stockfishEngine?.isReady),
-  }),
-};
-
-(async () => {
-  if (!stockfishEngine) throw stockfishLoadError || new Error('Stockfish could not be created');
-  await stockfishEngine.ready;
-  $('#startButton').disabled = false;
-  $('#startButton').textContent = 'Generate & start position';
-  const record = totalRecord();
-  $('#topBadge').textContent = `Stockfish 18 · ${record.games} games`;
-  document.documentElement.dataset.ready = '1';
-})().catch((error) => {
-  console.error('Stockfish failed to load.', error);
-  $('#loadError').textContent = 'Stockfish 18 could not load on this browser. Reload once in Safari or Chrome with an internet connection.';
-  $('#loadError').classList.add('show');
-  $('#startButton').disabled = true;
-  $('#startButton').textContent = 'Stockfish unavailable';
-  $('#topBadge').textContent = 'Engine unavailable';
-  document.documentElement.dataset.ready = 'error';
-});
+  $
