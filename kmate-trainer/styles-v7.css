@@ -158,7 +158,20 @@ button{touch-action:manipulation}
 .moves-heading{display:flex;justify-content:space-between;gap:10px}
 .moves-heading span{color:var(--muted);font-size:12px}
 .movelist{max-height:250px;overflow:auto;margin-top:9px;padding:10px;border:1px solid var(--line);border-radius:14px;background:#0c140e}
-.moverow{display:grid;grid-template-columns:35px 1fr 1fr;gap:5px;min-height:27px;align-items:center}
+.moverow{display:grid;grid-template-columns:31px minmax(0,1fr) minmax(0,1fr);gap:5px;min-height:31px;align-items:center}
+.move-number{color:var(--muted);font-size:11px}
+.move-entry{display:flex;align-items:center;justify-content:space-between;gap:5px;min-width:0;padding:4px 5px;border:1px solid transparent;border-radius:9px}
+.move-entry b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.move-entry.move-empty{color:var(--muted)}
+.move-entry.user-move{border-color:#ffffff10;background:#ffffff04}
+.move-rating{flex:0 0 auto;max-width:64px;padding:3px 5px;border:1px solid #ffffff20;border-radius:999px;font-size:8px;font-weight:950;line-height:1.1;letter-spacing:.015em;text-align:center;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.move-entry.quality-best,.move-rating.quality-best{border-color:#7cf58a66;background:#7cf58a16;color:#a8ffb1}
+.move-entry.quality-excellent,.move-rating.quality-excellent{border-color:#61e6c566;background:#61e6c516;color:#8af1d7}
+.move-entry.quality-good,.move-rating.quality-good{border-color:#70b8ff66;background:#70b8ff16;color:#9ccfff}
+.move-entry.quality-inaccuracy,.move-rating.quality-inaccuracy{border-color:#f4cc7066;background:#f4cc7016;color:#ffe09a}
+.move-entry.quality-miss,.move-rating.quality-miss{border-color:#ffad596d;background:#ffad5918;color:#ffc787}
+.move-entry.quality-blunder,.move-rating.quality-blunder{border-color:#ff736f77;background:#ff736f1b;color:#ffaaa6}
+.move-entry.quality-pending,.move-rating.quality-pending{border-color:#ffffff1b;background:#ffffff07;color:var(--muted)}
 .moverow span:first-child{color:var(--muted)}
 .emptyMoves,.empty-cell{padding:15px;color:var(--muted);text-align:center}
 .sessionnote{margin-top:13px;color:var(--muted);font-size:12px}
@@ -302,6 +315,8 @@ td small{display:block;color:var(--muted)}
   .coord.rank{left:2px;top:2px}
   .coord.file{right:2px;bottom:2px}
   .status{min-height:44px;margin-top:7px;padding:8px 10px;font-size:12px}
+  .move-entry{padding:4px}
+  .move-rating{max-width:59px;padding:3px 4px;font-size:7.5px}
 }
 
 .move-quality-badge{margin-left:auto;flex:0 0 auto;padding:5px 10px;border:1px solid #ffffff22;border-radius:999px;font-size:11px;font-weight:950;letter-spacing:.02em;text-transform:uppercase;box-shadow:inset 0 1px #fff1}

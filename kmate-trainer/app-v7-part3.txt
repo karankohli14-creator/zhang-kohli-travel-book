@@ -1,20 +1,3 @@
-e {
-        row.black = move.san;
-      }
-      number += 1;
-    }
-  }
-  const list = $('#moveList');
-  list.innerHTML = rows.length
-    ? rows.map((item) => `<div class="moverow"><span>${item.number}.</span><b>${escapeHtml(item.white)}</b><b>${escapeHtml(item.black)}</b></div>`).join('')
-    : '<div class="emptyMoves">The move list will appear here.</div>';
-  list.scrollTop = list.scrollHeight;
-  $('#moveCount').textContent = `${history.length} ${history.length === 1 ? 'ply' : 'plies'}`;
-  $('#sessionNote').textContent = history.length >= 40
-    ? `You have played ${Math.floor(history.length / 2)} moves from this position. Continue, resign, or draw a new position.`
-    : 'The position continues until mate, draw, timeout, resignation, or a new position.';
-}
-
 function renderLiveQuality() {
   const moves = currentSession?.userMoves || [];
   const losses = moves.map((move) => move.cpLoss).filter(Number.isFinite);
@@ -284,6 +267,7 @@ function requestMoveAnalysis(fenBefore, moveRecord) {
     targetMove.quality = qualityForLoss(event.data.cpLoss).key;
     if (currentSession?.id === sessionId) {
       renderLiveQuality();
+      renderMoveList();
       showMoveQualityBadge(targetMove);
       updateStoredCurrentSession();
       if (finalized) renderPostGameReview(currentSession);
@@ -322,7 +306,7 @@ function finishIfNeeded() {
 
 function summarizeSession(session) {
   const losses = session.userMoves.map((move) => move.cpLoss).filter(Number.isFinite);
-  const quality = { excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+  const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, miss: 0, blunder: 0 };
   for (const move of session.userMoves) {
     if (quality[move.quality] !== undefined) quality[move.quality] += 1;
   }

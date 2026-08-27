@@ -229,6 +229,7 @@ function handleTimeout(loser) {
 }
 
 function startPosition({ preservePrevious = false } = {}) {
+  ensureAudioContext();
   if (!preservePrevious && game && !finalized) finalizeSession('abandoned', 'new position', false);
   requestId += 1;
   stockfishEngine?.stop();
@@ -368,18 +369,58 @@ function renderTurns() {
   $('#engineBar').classList.toggle('active', engineLive);
 }
 
+function moveRatingForRecord(record) {
+  if (!record || !Number.isFinite(record.cpLoss)) return { key: 'pending', label: 'Analyzing' };
+  return qualityForLoss(record.cpLoss);
+}
+
+function renderMoveCell(cell) {
+  if (!cell) return '<span class="move-entry move-empty">—</span>';
+  if (!cell.isUser) return `<span class="move-entry"><b>${escapeHtml(cell.san)}</b></span>`;
+  const rating = moveRatingForRecord(cell.record);
+  const cpText = Number.isFinite(cell.record?.cpLoss)
+    ? `${Math.round(cell.record.cpLoss)} cp estimated loss`
+    : 'Move analysis in progress';
+  const bestText = cell.record?.bestMove ? ` · preferred ${cell.record.bestMove}` : '';
+  const title = `${rating.label} · ${cpText}${bestText}`;
+  return `<span class="move-entry user-move quality-${rating.key}" title="${escapeHtml(title)}"><b>${escapeHtml(cell.san)}</b><span class="move-rating quality-${rating.key}">${escapeHtml(rating.label)}</span></span>`;
+}
+
 function renderMoveList() {
   if (!game) return;
   const history = game.history({ verbose: true });
+  const userRecords = currentSession?.userMoves || [];
   const rows = [];
+  let userRecordIndex = 0;
   let number = startFullmove;
   let row = null;
+
   for (const move of history) {
+    const isUser = move.color === userColor;
+    const record = isUser ? (userRecords[userRecordIndex++] || null) : null;
+    const cell = { san: move.san, isUser, record };
     if (move.color === 'w') {
-      row = { number, white: move.san, black: '' };
+      row = { number, white: cell, black: null };
       rows.push(row);
     } else {
       if (!row || row.black) {
-        row = { number, white: '…', black: move.san };
+        row = { number, white: { san: '…', isUser: false, record: null }, black: cell };
         rows.push(row);
-      } els
+      } else {
+        row.black = cell;
+      }
+      number += 1;
+    }
+  }
+
+  const list = $('#moveList');
+  list.innerHTML = rows.length
+    ? rows.map((item) => `<div class="moverow"><span class="move-number">${item.number}.</span>${renderMoveCell(item.white)}${renderMoveCell(item.black)}</div>`).join('')
+    : '<div class="emptyMoves">The move list will appear here.</div>';
+  list.scrollTop = list.scrollHeight;
+  $('#moveCount').textContent = `${history.length} ${history.length === 1 ? 'ply' : 'plies'}`;
+  $('#sessionNote').textContent = history.length >= 40
+    ? `You have played ${Math.floor(history.length / 2)} moves from this position. Continue, resign, or draw a new position.`
+    : 'Your move ratings appear beside your moves as soon as analysis finishes.';
+}
+

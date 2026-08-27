@@ -21,7 +21,7 @@ const QUALITY_BANDS = [
   { max: 10, key: 'best', label: 'Best' },
   { max: 25, key: 'excellent', label: 'Excellent' },
   { max: 60, key: 'good', label: 'Good' },
-  { max: 110, key: 'inaccuracy', label: 'Inaccuracy' },
+  { max: 110, key: 'inaccuracy', label: 'Inaccurate' },
   { max: 220, key: 'miss', label: 'Miss' },
   { max: Infinity, key: 'blunder', label: 'Blunder' },
 ];
