@@ -75,6 +75,7 @@ const defaultSettings = {
   sound: true,
   trainingGoal: 'all',
   blindCalibration: false,
+  autoHints: false,
 };
 
 function emptyStore() {
@@ -125,6 +126,9 @@ let audioNoiseBuffer = null;
 let queuedCustomPosition = null;
 let activeOpponentRating = 1600;
 let recommendationState = null;
+let ratedMoveSquare = null;
+let hintRequestId = 0;
+let hintState = { fen: null, status: 'idle', level: 0, strategicText: '', exactText: '', candidate: null, requestedReveal: false, counted: false, revealCounted: false };
 
 function soundEnabled() {
   return settings.sound !== false;
@@ -243,7 +247,7 @@ function toggleSound() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260827-17';
+  url.search = '?v=20260827-18';
   url.hash = '';
   return url.href;
 }
@@ -379,6 +383,7 @@ function applySettingsToControls() {
   $('#openingSelect').value = settings.opening;
   if ($('#goalSelect')) $('#goalSelect').value = settings.trainingGoal || 'all';
   if ($('#blindCalibration')) $('#blindCalibration').checked = Boolean(settings.blindCalibration);
+  if ($('#autoHints')) $('#autoHints').checked = Boolean(settings.autoHints);
   updateControls(false);
 }
 
@@ -388,6 +393,7 @@ function updateControls(persist = true) {
   settings.opening = $('#openingSelect').value;
   settings.trainingGoal = $('#goalSelect')?.value || settings.trainingGoal || 'all';
   settings.blindCalibration = Boolean($('#blindCalibration')?.checked);
+  settings.autoHints = Boolean($('#autoHints')?.checked);
   $('#positionValue').textContent = settings.positionRating;
   $('#opponentValue').textContent = settings.opponentRating >= 3500 ? '3500 · MAX' : settings.opponentRating;
   $('#timeValue').textContent = timeControl().label;
@@ -733,6 +739,8 @@ function startPosition({ preservePrevious = false } = {}) {
   legalMoves = [];
   lastMove = null;
   finalized = false;
+  ratedMoveSquare = null;
+  resetHintState();
   startFullmove = Number(current.fen.split(/\s+/)[5]) || 1;
   currentSession = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -753,6 +761,9 @@ function startPosition({ preservePrevious = false } = {}) {
     timeControl: settings.timeControl,
     trainingGoal: settings.trainingGoal,
     blindCalibration: Boolean(settings.blindCalibration),
+    autoHints: Boolean(settings.autoHints),
+    hintsUsed: 0,
+    candidateReveals: 0,
     perceivedRating: null,
     analysisSource: 'Stockfish 18 review',
     userColor,
@@ -779,11 +790,13 @@ function startPosition({ preservePrevious = false } = {}) {
   $('#takebackCount').textContent = '0';
   $('#analyzedMoves').textContent = '0';
   $('#liveCpl').textContent = '—';
+  if ($('#moveQualityBadge')) $('#moveQualityBadge').hidden = true;
 
   showView('game');
   initClocks();
   setStatus(game.turn() === userColor ? 'Choose a piece, then a legal destination.' : 'The opponent moves first.', game.turn() === userColor ? '' : 'thinking');
   renderAll();
+  prepareHintForTurn();
 
   if (game.isGameOver()) {
     finishIfNeeded();
@@ -823,6 +836,11 @@ function renderBoard() {
     button.className = `sq ${((FILES.indexOf(square[0]) + Number(square[1])) % 2) ? 'light' : 'dark'}`;
     if (selected === square) button.classList.add('selected');
     if (lastMove && (lastMove.from === square || lastMove.to === square)) button.classList.add('last');
+    if (ratedMoveSquare?.square === square) {
+      button.classList.add('move-quality-square', `quality-${ratedMoveSquare.key}`);
+      button.dataset.moveQuality = ratedMoveSquare.label || ratedMoveSquare.key;
+      button.title = `${ratedMoveSquare.label || 'Analyzing'} move destination`;
+    }
     const legal = legalMoves.find((move) => move.to === square);
     if (legal) button.classList.add(piece ? 'capture' : 'legal');
     if (checkSquare === square) button.classList.add('check');
@@ -960,6 +978,7 @@ function renderAll() {
   renderMoveList();
   renderLiveQuality();
   renderMaterialAdvantage();
+  renderHintPanel();
   renderClocks();
   $('#takebackButton').disabled = thinking || finalized || !game?.history().length;
 }
@@ -1041,12 +1060,254 @@ function showMoveQualityBadge(move) {
   badge.title = Number.isFinite(move.cpLoss) ? `${Math.round(move.cpLoss)} centipawn estimated loss` : band.label;
 }
 
+
+function blankHintState(status = 'hidden') {
+  return {
+    fen: game?.fen() || null,
+    status,
+    level: 0,
+    strategicText: '',
+    exactText: '',
+    candidate: null,
+    requestedReveal: false,
+    counted: false,
+    revealCounted: false,
+  };
+}
+
+function resetHintState(status = null) {
+  hintRequestId += 1;
+  const userTurn = Boolean(game && !finalized && game.turn() === userColor);
+  hintState = blankHintState(status || (userTurn ? 'hidden' : 'waiting'));
+  renderHintPanel();
+}
+
+function pieceName(type) {
+  return ({ p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' })[type] || 'piece';
+}
+
+function compactThemeHint() {
+  const tag = current?.tags?.[0];
+  const advice = {
+    calculation: 'Calculate checks, captures, and threats before choosing a quiet move.',
+    'king safety': 'Compare both kings and look for forcing moves near the less secure one.',
+    'pawn breaks': 'Identify which pawn break changes the files and diagonals in your favor.',
+    'piece activity': 'Find your least active piece and compare its most forcing improvements.',
+    'pawn structure': 'Separate permanent weaknesses from temporary tactical opportunities.',
+    conversion: 'Prefer simplification only when the resulting position keeps your advantage.',
+    prophylaxis: 'Name the opponent’s strongest idea before beginning your own plan.',
+    space: 'Use your space to improve pieces rather than pushing another pawn automatically.',
+    'endgame transition': 'Evaluate the resulting ending before exchanging major pieces.',
+    'rook activity': 'Look for active files, checks, and ways to cut off the king.',
+    'passed pawns': 'Calculate the pawn race and the best blockading square.',
+    'king activity': 'Treat the king as an active piece and approach the critical squares.',
+    opposition: 'Check direct, distant, and side opposition before moving the king.',
+  };
+  return advice[tag] || 'Start with the opponent’s threat, then compare checks, captures, and forcing threats.';
+}
+
+function buildProgressiveHint(move) {
+  const piece = pieceName(move?.piece);
+  const source = move?.from || 'its current square';
+  let lead;
+  if (move?.san?.includes('#')) {
+    lead = `There is a mating idea. Begin by examining forcing moves with the ${piece} on ${source}.`;
+  } else if (move?.san?.includes('+')) {
+    lead = `A forcing check is the key candidate. Focus on the ${piece} on ${source}.`;
+  } else if (move?.captured) {
+    lead = `A concrete capture changes the position. Calculate with the ${piece} on ${source}, including every recapture.`;
+  } else if (move?.flags?.includes('k') || move?.flags?.includes('q')) {
+    lead = 'King safety is the priority. Compare castling with immediate tactical alternatives.';
+  } else if (move?.piece === 'p') {
+    lead = `A pawn move changes the structure. Focus on the pawn on ${source} and calculate what opens afterward.`;
+  } else {
+    lead = `The strongest candidate improves or activates the ${piece} on ${source}.`;
+  }
+  return {
+    strategicText: `${lead} ${compactThemeHint()}`,
+    exactText: move?.san
+      ? `Candidate: ${move.san} (${move.from}→${move.to}). Verify the opponent’s strongest reply before playing it.`
+      : 'No exact candidate is available; use the strategic hint and compare two serious moves.',
+  };
+}
+
+function renderHintPanel() {
+  const card = $('#hintCard');
+  const title = $('#hintTitle');
+  const text = $('#hintText');
+  const button = $('#showHintButton');
+  const mode = $('#hintModeLabel');
+  if (!card || !title || !text || !button || !mode) return;
+
+  const automatic = Boolean(settings.autoHints);
+  mode.textContent = automatic ? 'Automatic strategic hints' : 'On-demand hints';
+  card.classList.toggle('automatic', automatic);
+  card.classList.toggle('loading', hintState.status === 'loading');
+
+  if (!game || finalized) {
+    title.textContent = 'Hints unavailable';
+    text.textContent = 'Start a position to receive coaching hints.';
+    button.textContent = 'Show Hint';
+    button.disabled = true;
+    return;
+  }
+  if (game.turn() !== userColor || thinking) {
+    title.textContent = 'Waiting for your turn';
+    text.textContent = 'A fresh hint will be prepared when the opponent finishes moving.';
+    button.textContent = 'Show Hint';
+    button.disabled = true;
+    return;
+  }
+  if (hintState.status === 'loading') {
+    title.textContent = 'Analyzing the position…';
+    text.textContent = 'The coach is finding a useful idea without revealing the entire move.';
+    button.textContent = 'Analyzing…';
+    button.disabled = true;
+    return;
+  }
+  if (hintState.level >= 2) {
+    title.textContent = 'Candidate revealed';
+    text.textContent = `${hintState.strategicText} ${hintState.exactText}`.trim();
+    button.textContent = 'Candidate shown';
+    button.disabled = true;
+    return;
+  }
+  if (hintState.level === 1) {
+    title.textContent = 'Strategic hint';
+    text.textContent = hintState.strategicText || compactThemeHint();
+    button.textContent = hintState.candidate ? 'Reveal candidate' : 'Hint shown';
+    button.disabled = !hintState.candidate;
+    return;
+  }
+
+  title.textContent = automatic ? 'Automatic hint preparing' : 'Hidden for this move';
+  text.textContent = automatic
+    ? 'A strategic clue will appear automatically before you move.'
+    : 'Try the position first, or reveal a strategic hint whenever you need one.';
+  button.textContent = 'Show Hint';
+  button.disabled = false;
+}
+
+function countHintUse(level) {
+  if (!currentSession) return;
+  if (level >= 1 && !hintState.counted) {
+    currentSession.hintsUsed = (currentSession.hintsUsed || 0) + 1;
+    hintState.counted = true;
+  }
+  if (level >= 2 && !hintState.revealCounted) {
+    currentSession.candidateReveals = (currentSession.candidateReveals || 0) + 1;
+    hintState.revealCounted = true;
+  }
+}
+
+async function requestHint(revealCandidate = false) {
+  if (!game || finalized || thinking || game.turn() !== userColor) return;
+  const fen = game.fen();
+
+  if (hintState.fen === fen && hintState.status === 'ready') {
+    if (revealCandidate && hintState.level < 2 && hintState.candidate) {
+      hintState.level = 2;
+      countHintUse(2);
+      renderHintPanel();
+    }
+    return;
+  }
+
+  if (hintState.fen === fen && hintState.status === 'loading') {
+    if (revealCandidate) hintState.requestedReveal = true;
+    return;
+  }
+
+  const request = ++hintRequestId;
+  const sessionId = currentSession?.id;
+  hintState = {
+    ...blankHintState('loading'),
+    fen,
+    requestedReveal: revealCandidate,
+  };
+  renderHintPanel();
+
+  try {
+    const result = await getStockfishReviewEngine().evaluate({ fen, movetime: 360 });
+    if (request !== hintRequestId || !game || finalized || game.fen() !== fen || game.turn() !== userColor) return;
+    const hintGame = new Chess(fen);
+    let move = null;
+    if (result.move) {
+      try {
+        move = hintGame.move({
+          from: result.move.slice(0, 2),
+          to: result.move.slice(2, 4),
+          promotion: result.move[4] || 'q',
+        });
+      } catch {}
+    }
+    const copy = buildProgressiveHint(move);
+    const reveal = Boolean(hintState.requestedReveal);
+    hintState = {
+      fen,
+      status: 'ready',
+      level: reveal ? 2 : 1,
+      strategicText: copy.strategicText,
+      exactText: copy.exactText,
+      candidate: result.move || null,
+      requestedReveal: false,
+      counted: false,
+      revealCounted: false,
+    };
+    if (currentSession?.id === sessionId) countHintUse(hintState.level);
+    renderHintPanel();
+  } catch (error) {
+    console.warn('Stockfish hint failed; using a strategic fallback.', error);
+    if (request !== hintRequestId || !game || finalized || game.fen() !== fen || game.turn() !== userColor) return;
+    hintState = {
+      fen,
+      status: 'ready',
+      level: 1,
+      strategicText: compactThemeHint(),
+      exactText: 'No exact candidate is available from the local engine right now.',
+      candidate: null,
+      requestedReveal: false,
+      counted: false,
+      revealCounted: false,
+    };
+    if (currentSession?.id === sessionId) countHintUse(1);
+    renderHintPanel();
+  }
+}
+
+function handleHintButton() {
+  if (hintState.level === 1) requestHint(true);
+  else requestHint(false);
+}
+
+function prepareHintForTurn() {
+  if (!game || finalized) {
+    resetHintState('finished');
+    return;
+  }
+  if (game.turn() !== userColor || thinking) {
+    if (hintState.status !== 'waiting' || hintState.fen !== game.fen()) resetHintState('waiting');
+    else renderHintPanel();
+    return;
+  }
+  const fen = game.fen();
+  if (hintState.fen !== fen || ['waiting', 'finished', 'idle'].includes(hintState.status)) {
+    hintRequestId += 1;
+    hintState = { ...blankHintState('hidden'), fen };
+  }
+  renderHintPanel();
+  if (settings.autoHints && hintState.level === 0 && hintState.status === 'hidden') {
+    requestHint(false);
+  }
+}
+
 function makeUserMove(moveObject) {
   if (!game || finalized || game.turn() !== userColor) return;
   syncClock();
   if (finalized) return;
   const fenBefore = game.fen();
   const spentMs = spentThisTurn(userColor);
+  const hintLevelAtMove = hintState.fen === fenBefore ? hintState.level : 0;
   let move;
   try {
     move = game.move(moveObject);
@@ -1058,6 +1319,10 @@ function makeUserMove(moveObject) {
     id: `${currentSession.id}-m${currentSession.userMoves.length + 1}`,
     san: move.san,
     uci: uciFromMove(move),
+    from: move.from,
+    to: move.to,
+    hintLevel: hintLevelAtMove,
+    hintText: hintLevelAtMove ? hintState.strategicText : null,
     spentMs,
     remainingMs: clockRunning ? Math.max(0, clocks[userColor]) : null,
     cpLoss: null,
@@ -1066,6 +1331,8 @@ function makeUserMove(moveObject) {
     analysisSource: 'pending',
   };
   currentSession.userMoves.push(moveRecord);
+  ratedMoveSquare = { square: move.to, key: 'pending', label: 'Analyzing' };
+  resetHintState('waiting');
   showMoveQualityBadge(null);
   requestMoveAnalysis(fenBefore, moveRecord);
   selected = null;
@@ -1161,7 +1428,8 @@ function applyEngineReply(id, data) {
   beginNextTurn();
   setStatus(game.isCheck() ? 'Check—your king is under attack.' : 'Your move. Build the position one decision at a time.');
   renderAll();
-  finishIfNeeded();
+  const finished = finishIfNeeded();
+  if (!finished) prepareHintForTurn();
 }
 
 async function analyzeMoveWithStockfish(fenBefore, moveUci) {
@@ -1197,6 +1465,12 @@ function applyMoveAnalysisResult(sessionId, moveId, data) {
   targetMove.analysisSource = data.source || 'Local fallback';
   targetMove.quality = qualityForLoss(data.cpLoss).key;
   if (currentSession?.id === sessionId) {
+    const latestMove = currentSession.userMoves[currentSession.userMoves.length - 1];
+    if (latestMove?.id === moveId) {
+      const band = qualityForLoss(data.cpLoss);
+      ratedMoveSquare = { square: targetMove.to || targetMove.uci.slice(2, 4), key: band.key, label: band.label };
+      renderBoard();
+    }
     renderLiveQuality();
     renderMoveList();
     showMoveQualityBadge(targetMove);
@@ -1483,8 +1757,14 @@ function takeback() {
   lastMove = null;
   thinking = false;
   beginNextTurn();
+  const priorRated = currentSession.userMoves[currentSession.userMoves.length - 1];
+  ratedMoveSquare = priorRated
+    ? { square: priorRated.to || priorRated.uci.slice(2, 4), key: priorRated.quality || 'pending', label: qualityForLoss(priorRated.cpLoss).label }
+    : null;
+  resetHintState();
   setStatus('Moves taken back. The clock was not restored; try a different plan.');
   renderAll();
+  prepareHintForTurn();
   if (game.turn() === engineColor) askEngine();
 }
 
@@ -2335,6 +2615,7 @@ function bindControls() {
   $('#openingSelect').addEventListener('change', () => updateControls());
   $('#goalSelect')?.addEventListener('change', () => updateControls());
   $('#blindCalibration')?.addEventListener('change', () => updateControls());
+  $('#autoHints')?.addEventListener('change', () => updateControls());
   $('#positionRating').addEventListener('input', () => updateControls());
   $('#opponentRating').addEventListener('input', () => updateControls());
 

@@ -326,6 +326,10 @@ td small{display:block;color:var(--muted)}
   .status{min-height:44px;margin-top:7px;padding:8px 10px;font-size:12px}
   .move-entry{padding:4px}
   .move-rating{max-width:59px;padding:3px 4px;font-size:7.5px}
+  .hint-card{padding:11px}
+  .hint-head{gap:7px}
+  .hint-action{padding:0 8px;font-size:10px}
+  .sq.move-quality-square::after{box-shadow:inset 0 0 0 4px var(--move-quality-color),inset 0 1px #fff3,inset 0 -1px #0003}
 }
 
 .move-quality-badge{margin-left:auto;flex:0 0 auto;padding:5px 10px;border:1px solid #ffffff22;border-radius:999px;font-size:11px;font-weight:950;letter-spacing:.02em;text-transform:uppercase;box-shadow:inset 0 1px #fff1}
@@ -336,6 +340,30 @@ td small{display:block;color:var(--muted)}
 .move-quality-badge.quality-miss,.review-move-row.quality-miss{border-color:#ffad596d;background:#ffad5918;color:#ffc787}
 .move-quality-badge.quality-blunder,.review-move-row.quality-blunder{border-color:#ff736f77;background:#ff736f1b;color:#ffaaa6}
 .move-quality-badge.quality-pending{border-color:#ffffff22;background:#ffffff08;color:var(--muted)}
+
+
+/* K-Mate v18 progressive hints and destination-square move ratings */
+.sq.move-quality-square::after{z-index:4;box-shadow:inset 0 0 0 5px var(--move-quality-color),inset 0 1px #fff3,inset 0 -1px #0003}
+.sq.move-quality-square.quality-best{--move-quality-color:#7cf58a}
+.sq.move-quality-square.quality-excellent{--move-quality-color:#61e6c5}
+.sq.move-quality-square.quality-good{--move-quality-color:#70b8ff}
+.sq.move-quality-square.quality-inaccuracy{--move-quality-color:#f4cc70}
+.sq.move-quality-square.quality-miss{--move-quality-color:#ffad59}
+.sq.move-quality-square.quality-blunder{--move-quality-color:#ff736f}
+.sq.move-quality-square.quality-pending{--move-quality-color:#d0d7d1;animation:qualitySquarePulse 1s ease-in-out infinite alternate}
+@keyframes qualitySquarePulse{to{filter:brightness(1.13)}}
+.hint-toggle{border-color:#80d8a438;background:#80d8a408}
+.hint-card{margin-top:12px;padding:13px;border:1px solid #80d8a43b;border-radius:15px;background:linear-gradient(145deg,#80d8a40c,#ffffff04)}
+.hint-card.automatic{border-color:#b9f47455;background:linear-gradient(145deg,#b9f4740f,#ffffff04)}
+.hint-card.loading{border-color:#f4cc704c}
+.hint-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.hint-head small,.hint-head b{display:block}
+.hint-head small{color:var(--accent-2);font-size:9px;font-weight:950;letter-spacing:.1em;text-transform:uppercase}
+.hint-head b{margin-top:3px;font-size:14px}
+.hint-action{flex:0 0 auto;min-height:34px;padding:0 10px;border:1px solid #80d8a455;border-radius:10px;background:#80d8a412;color:#b8f0d0;font-size:11px;font-weight:900;cursor:pointer}
+.hint-action:disabled{opacity:.55;cursor:default}
+.hint-card p{margin:9px 0 0!important;color:#d9e4dc!important;font-size:12px;line-height:1.48}
+.hint-mode-label{display:block;margin-top:7px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.06em}
 
 
 /* K-Mate v16 commercial-beta additions */

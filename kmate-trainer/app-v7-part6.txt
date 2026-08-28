@@ -3,6 +3,7 @@
   $('#newPositionButton').addEventListener('click', () => startPosition());
   $('#resignButton').addEventListener('click', resign);
   $('#changeSetupButton').addEventListener('click', () => navigate('setup'));
+  $('#showHintButton')?.addEventListener('click', handleHintButton);
 
   $('#resultNext').addEventListener('click', () => {
     closeDialog('resultDialog');
@@ -40,7 +41,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '17.0-commercial-beta',
+  version: '18.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -55,6 +56,8 @@ window.__KMATE__ = {
     userColor,
     turn: game?.turn() || null,
     clocks: { ...clocks },
+    ratedMoveSquare: ratedMoveSquare ? { ...ratedMoveSquare } : null,
+    hint: { status: hintState.status, level: hintState.level, automatic: Boolean(settings.autoHints), candidate: hintState.level >= 2 ? hintState.candidate : null },
     engine: 'Stockfish 18 lite single-threaded',
     reviewEngine: 'Independent Stockfish 18 move review',
     commercialBeta: true,

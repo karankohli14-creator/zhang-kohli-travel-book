@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=17.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=18.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -139,6 +139,11 @@
             <span><b>Blind Elo calibration</b><small>Hide the opponent setting, estimate it after the position, and help validate K-Mate’s scale.</small></span>
           </label>
 
+          <label class="calibration-toggle hint-toggle">
+            <input id="autoHints" type="checkbox">
+            <span><b>Automatic hints before every move</b><small>Show a strategic idea at the start of each turn. The exact candidate remains hidden unless you reveal it.</small></span>
+          </label>
+
           <div class="beta-tools">
             <button type="button" id="openPositionImport"><b>Import FEN / PGN</b><small>Train from your own game</small></button>
             <button type="button" id="openProfileImport"><b>Restore profile</b><small>Move data between devices</small></button>
@@ -229,6 +234,14 @@
               <b>Your assignment</b>
               <span>Play the position out. There is no single prescribed puzzle move.</span>
             </div>
+            <section class="hint-card" id="hintCard" aria-live="polite">
+              <div class="hint-head">
+                <div><small>Coach hint</small><b id="hintTitle">Hidden for this move</b></div>
+                <button class="hint-action" id="showHintButton" type="button">Show Hint</button>
+              </div>
+              <p id="hintText">Try the position first, or reveal a strategic hint whenever you need one.</p>
+              <span class="hint-mode-label" id="hintModeLabel">On-demand hints</span>
+            </section>
             <div class="live-quality">
               <div><span>Analyzed moves</span><b id="analyzedMoves">0</b></div>
               <div><span>Average loss</span><b id="liveCpl">—</b></div>
@@ -398,6 +411,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=17.0.0"></script>
+  <script type="module" src="./app-v7.js?v=18.0.0"></script>
 </body>
 </html>
