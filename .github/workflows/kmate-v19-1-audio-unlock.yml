@@ -1,0 +1,84 @@
+name: K-Mate v19.1 first-tap audio unlock
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v19-1-audio-unlock.yml'
+permissions:
+  contents: write
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply explicit speaker-unlock fix
+        run: python .github/scripts/kmate_v19_1_audio_unlock_fix.py
+      - name: Validate application JavaScript
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{n}.txt').read_text() for n in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v19-1-combined.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v19-1-combined.js
+      - name: Install browser test runtime
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          npx playwright install --with-deps chromium
+      - name: Run K-Mate locally
+        run: |
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v19-1-server.log 2>&1 &
+          echo $! >/tmp/kmate-v19-1-server.pid
+      - name: Verify one speaker tap enables rather than mutes sound
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+            await context.addInitScript(() => {
+              window.__kmateAudioPlayCalls = 0;
+              const original = HTMLMediaElement.prototype.play;
+              HTMLMediaElement.prototype.play = function (...args) {
+                window.__kmateAudioPlayCalls += 1;
+                return original.apply(this, args);
+              };
+            });
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', error => errors.push(error.message));
+            page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+            await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1', null, { timeout: 120000 });
+
+            const before = await page.evaluate(() => window.__KMATE__.state().sound);
+            assert.strictEqual(before.enabled, true, 'sound should default to enabled');
+            assert.strictEqual(before.unlocked, false, 'fresh page should still need its user gesture');
+            assert.ok(await page.locator('#soundToggle').evaluate(el => el.classList.contains('audio-needs-tap')), 'speaker should signal that one tap is needed');
+
+            await page.click('#soundToggle');
+            await page.waitForFunction(() => window.__KMATE__.state().sound.unlocked === true, null, { timeout: 30000 });
+            const after = await page.evaluate(() => window.__KMATE__.state().sound);
+            assert.strictEqual(after.enabled, true, 'first speaker tap incorrectly muted sound');
+            assert.strictEqual(after.backend, 'html-audio-sprite', 'HTML audio backend did not unlock');
+            assert.strictEqual((await page.locator('#soundToggle').textContent()).trim(), '🔊', 'speaker icon changed to muted');
+            assert.ok((await page.evaluate(() => window.__kmateAudioPlayCalls)) >= 2, 'speaker tap did not unlock and test audio');
+
+            if (errors.length) throw new Error(errors.join('\n'));
+            console.log(JSON.stringify({ ok: true, before, after }, null, 2));
+            await browser.close();
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Commit K-Mate v19.1
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add kmate-trainer/index.html kmate-trainer/styles-v7.css kmate-trainer/app-v7.js kmate-trainer/app-v7-part1.txt kmate-trainer/app-v7-part6.txt
+          git commit -m 'K-Mate v19.1: explicit first-tap audio unlock' || exit 0
+          git push
