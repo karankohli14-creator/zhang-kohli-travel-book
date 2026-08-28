@@ -49,6 +49,16 @@ new_ready = "  button.classList.toggle('audio-ready', soundEnabled() && htmlAudi
 if old_ready not in app:
     raise SystemExit("Sound readiness marker missing")
 app = app.replace(old_ready, new_ready, 1)
+
+old_prime = "const primeSoundFromGesture = () => { unlockMoveAudio(false); };"
+new_prime = """const primeSoundFromGesture = (event) => {
+  // Let the speaker button's click handler perform the explicit unlock itself.
+  if (event?.target?.closest?.('#soundToggle')) return;
+  unlockMoveAudio(false);
+};"""
+if old_prime not in app:
+    raise SystemExit("Global sound-prime marker missing")
+app = app.replace(old_prime, new_prime, 1)
 app = app.replace("url.search = '?v=20260828-19';", "url.search = '?v=20260828-19-1';")
 write(part1_path, app)
 
