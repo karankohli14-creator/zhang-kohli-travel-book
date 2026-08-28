@@ -1,0 +1,20 @@
+name: K-Mate move-evaluation diagnostic
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v25-evaluation-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate Stockfish review implementation
+        run: |
+          echo '=== engine declarations ==='
+          grep -n -C 18 -E 'stockfishEngine|getStockfishReviewEngine|scoreCp|function createStockfish|class .*Stockfish' kmate-trainer/app-v7-part1.txt || true
+          echo '=== analysis function ==='
+          grep -n -A 45 -B 8 'async function analyzeMoveWithStockfish' kmate-trainer/app-v7-part1.txt || true
+          echo '=== replay implementation ==='
+          grep -n -A 180 -B 10 'function replayDisplayPosition' kmate-trainer/app-v7-part1.txt || true
