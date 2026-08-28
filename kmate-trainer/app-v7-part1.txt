@@ -4,25 +4,46 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const FILES = 'abcdefgh';
 const PIECES = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
-const VECTOR_PIECES = {
-  p: `<circle class="piece-shell" cx="50" cy="24" r="11"/><path class="piece-shell" d="M39 38c-3 8-2 15 4 21l-9 12h32l-9-12c6-6 7-13 4-21Z"/><path class="piece-tone" d="M31 69h38l7 12H24Z"/><path class="piece-shell" d="M22 80h56v9H22Z"/><path class="piece-highlight" d="M44 41c-2 6-1 11 3 15"/>`,
-  r: `<path class="piece-shell" d="M24 17h13v10h8V17h10v10h8V17h13v21l-8 7H32l-8-7Z"/><path class="piece-shell" d="M34 44h32l-4 26H38Z"/><path class="piece-tone" d="M31 69h38l7 12H24Z"/><path class="piece-shell" d="M21 80h58v9H21Z"/><path class="piece-highlight" d="M39 49h19M38 74h25"/>`,
-  n: `<path class="piece-shell" d="M25 81c4-13 9-23 18-31-6-6-9-13-8-21 8-1 15-5 21-13 12 10 18 21 16 34-2 10-9 16-16 22h15l7 9Z"/><path class="piece-tone" d="M37 30c9 0 18 5 23 13-7-2-13 0-17 7-5-6-8-13-6-20Z"/><circle class="piece-eye" cx="54" cy="33" r="2.7"/><path class="piece-cut" d="M42 51c7 1 13-1 17-5"/><path class="piece-highlight" d="M31 75c8-18 16-23 25-29"/><path class="piece-shell" d="M22 80h58v9H22Z"/>`,
-  b: `<path class="piece-shell" d="M50 14c-10 8-15 16-13 24 1 5 5 9 10 12-7 6-10 12-11 20h28c-1-8-4-14-11-20 5-3 9-7 10-12 2-8-3-16-13-24Z"/><path class="piece-cut" d="M43 25l14 18"/><path class="piece-tone" d="M31 69h38l7 12H24Z"/><path class="piece-shell" d="M22 80h56v9H22Z"/><path class="piece-highlight" d="M45 53c-4 5-6 10-6 15"/>`,
-  q: `<circle class="piece-shell" cx="24" cy="23" r="5"/><circle class="piece-shell" cx="41" cy="17" r="5"/><circle class="piece-shell" cx="59" cy="17" r="5"/><circle class="piece-shell" cx="76" cy="23" r="5"/><path class="piece-shell" d="M24 28l11 31h30l11-31-17 19-9-24-9 24Z"/><path class="piece-tone" d="M34 58h32l4 12H30Z"/><path class="piece-tone" d="M27 69h46l6 12H21Z"/><path class="piece-shell" d="M19 80h62v9H19Z"/><path class="piece-highlight" d="M36 54h28M34 73h32"/>`,
-  k: `<path class="piece-shell" d="M46 12h8v9h9v8h-9v10h-8V29h-9v-8h9Z"/><path class="piece-shell" d="M50 37c-12 0-19 7-18 16 1 6 6 11 12 14H34l-5 14h42l-5-14H56c6-3 11-8 12-14 1-9-6-16-18-16Z"/><path class="piece-tone" d="M29 70h42l7 11H22Z"/><path class="piece-shell" d="M20 80h60v9H20Z"/><path class="piece-highlight" d="M42 47c-4 5-4 10 1 15M35 73h30"/>`,
+let pieceGraphicSerial = 0;
+const STAUNTON_PIECES = {
+  p: `<ellipse class="piece-ground" cx="50" cy="90" rx="29" ry="4"/><circle class="piece-body" cx="50" cy="21" r="11.5"/><path class="piece-body" d="M39 36Q50 30 61 36L59 43Q65 51 62 62H38Q35 51 41 43Z"/><path class="piece-band" d="M34 61H66L72 73H28Z"/><path class="piece-base" d="M24 72H76L82 84H18Z"/><path class="piece-base" d="M17 83H83V91H17Z"/><path class="piece-glint" d="M43 39Q48 35 53 36M33 75H67"/>`,
+  r: `<ellipse class="piece-ground" cx="50" cy="91" rx="31" ry="4"/><path class="piece-body" d="M22 15H36V27H44V15H56V27H64V15H78V37L69 45H31L22 37Z"/><path class="piece-band" d="M31 44H69L65 54H35Z"/><path class="piece-body" d="M35 53H65L62 71H38Z"/><path class="piece-band" d="M30 69H70L76 81H24Z"/><path class="piece-base" d="M20 80H80L84 91H16Z"/><path class="piece-glint" d="M38 49H62M40 58H57M31 84H69"/>`,
+  n: `<ellipse class="piece-ground" cx="50" cy="91" rx="31" ry="4"/><path class="piece-body" d="M23 81C27 68 34 57 44 48C37 43 34 35 36 24C44 24 51 20 58 13C72 23 79 36 75 50C72 61 63 68 57 74H72L79 82Z"/><path class="piece-shadow" d="M37 26C47 27 57 33 62 43C55 40 48 42 43 49C38 43 35 35 37 26Z"/><path class="piece-mane" d="M57 14C67 28 67 42 59 56C68 50 75 43 75 34C72 26 66 19 57 14Z"/><circle class="piece-eye" cx="57" cy="31" r="2.5"/><path class="piece-detail" d="M45 48Q54 51 61 45M36 70Q45 55 56 48"/><path class="piece-base" d="M21 80H79L84 91H16Z"/>`,
+  b: `<ellipse class="piece-ground" cx="50" cy="91" rx="30" ry="4"/><path class="piece-body" d="M50 12C39 21 34 30 36 39C37 45 42 50 47 53C39 59 36 65 35 71H65C64 65 61 59 53 53C58 50 63 45 64 39C66 30 61 21 50 12Z"/><path class="piece-cut" d="M43 24L57 43"/><path class="piece-band" d="M31 69H69L75 81H25Z"/><path class="piece-base" d="M19 80H81L84 91H16Z"/><path class="piece-glint" d="M43 55Q39 61 39 67M32 84H68"/>`,
+  q: `<ellipse class="piece-ground" cx="50" cy="92" rx="32" ry="4"/><circle class="piece-jewel" cx="20" cy="21" r="5"/><circle class="piece-jewel" cx="35" cy="14" r="5"/><circle class="piece-jewel" cx="50" cy="11" r="5"/><circle class="piece-jewel" cx="65" cy="14" r="5"/><circle class="piece-jewel" cx="80" cy="21" r="5"/><path class="piece-body" d="M20 27L31 58H69L80 27L64 45L58 22L50 45L42 22L36 45Z"/><path class="piece-band" d="M31 56H69L73 68H27Z"/><path class="piece-body" d="M30 67H70L76 81H24Z"/><path class="piece-base" d="M18 80H82L85 92H15Z"/><path class="piece-glint" d="M34 52H66M34 71H66M29 84H71"/>`,
+  k: `<ellipse class="piece-ground" cx="50" cy="92" rx="32" ry="4"/><path class="piece-cross" d="M46 8H54V19H65V27H54V39H46V27H35V19H46Z"/><path class="piece-body" d="M50 36C38 36 31 43 32 53C33 60 39 65 45 68H34L29 80H71L66 68H55C61 65 67 60 68 53C69 43 62 36 50 36Z"/><path class="piece-band" d="M29 70H71L77 82H23Z"/><path class="piece-base" d="M18 81H82L85 92H15Z"/><path class="piece-glint" d="M41 47Q38 55 44 62M32 74H68M28 85H72"/>`,
 };
 
 function renderPieceGraphic(element, type, color) {
-  const markup = VECTOR_PIECES[type];
+  const markup = STAUNTON_PIECES[type];
   if (!markup) {
     element.textContent = PIECES[type] || '';
     return;
   }
-  element.classList.add('vector-piece');
+  const uid = `km-piece-${++pieceGraphicSerial}`;
+  element.classList.add('vector-piece', 'staunton-piece');
   element.dataset.pieceType = type;
   element.dataset.pieceColor = color;
-  element.innerHTML = `<svg viewBox="0 0 100 100" focusable="false" aria-hidden="true">${markup}</svg>`;
+  const painted = markup
+    .replaceAll('class="piece-body"', `class="piece-body" fill="url(#${uid}-body)"`)
+    .replaceAll('class="piece-base"', `class="piece-base" fill="url(#${uid}-base)"`)
+    .replaceAll('class="piece-band"', `class="piece-band" fill="url(#${uid}-band)"`)
+    .replaceAll('class="piece-shadow"', `class="piece-shadow" fill="url(#${uid}-shadow-fill)"`)
+    .replaceAll('class="piece-mane"', `class="piece-mane" fill="url(#${uid}-mane)"`)
+    .replaceAll('class="piece-cross"', `class="piece-cross" fill="url(#${uid}-body)"`)
+    .replaceAll('class="piece-jewel"', `class="piece-jewel" fill="url(#${uid}-jewel)"`);
+  element.innerHTML = `<svg viewBox="0 0 100 100" focusable="false" aria-hidden="true">
+    <defs>
+      <linearGradient id="${uid}-body" x1="18%" y1="8%" x2="82%" y2="94%"><stop offset="0" class="piece-grad-body-hi"/><stop offset="0.48" class="piece-grad-body-mid"/><stop offset="1" class="piece-grad-body-low"/></linearGradient>
+      <linearGradient id="${uid}-base" x1="20%" y1="0" x2="78%" y2="100%"><stop offset="0" class="piece-grad-base-hi"/><stop offset="1" class="piece-grad-base-low"/></linearGradient>
+      <linearGradient id="${uid}-band" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="piece-grad-band-hi"/><stop offset="1" class="piece-grad-band-low"/></linearGradient>
+      <linearGradient id="${uid}-shadow-fill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="piece-grad-shadow-hi"/><stop offset="1" class="piece-grad-shadow-low"/></linearGradient>
+      <linearGradient id="${uid}-mane" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="piece-grad-mane-hi"/><stop offset="1" class="piece-grad-mane-low"/></linearGradient>
+      <radialGradient id="${uid}-jewel" cx="35%" cy="28%" r="70%"><stop offset="0" class="piece-grad-jewel-hi"/><stop offset="1" class="piece-grad-jewel-low"/></radialGradient>
+      <filter id="${uid}-depth" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="2.5" stdDeviation="1.4" flood-opacity=".52"/><feDropShadow dx="0" dy="6" stdDeviation="4" flood-opacity=".28"/></filter>
+    </defs>
+    <g class="piece-art" filter="url(#${uid}-depth)">${painted}</g>
+  </svg>`;
 }
 
 const PHASE_LABELS = {
@@ -157,6 +178,8 @@ let recommendationState = null;
 let ratedMoveSquare = null;
 let hintRequestId = 0;
 let hintState = { fen: null, status: 'idle', level: 0, strategicText: '', exactText: '', candidate: null, requestedReveal: false, counted: false, revealCounted: false };
+let timeoutHandling = false;
+let replayState = { session: null, frames: [], index: 0, timer: null, auto: false, showBest: false };
 
 function soundEnabled() {
   return settings.sound !== false;
@@ -257,146 +280,61 @@ function playSynthMoveSound(kind = 'move') {
 }
 
 const SOUND_SPRITE_SEGMENTS = {
-  move: { start: 0.05, duration: 0.18 },
-  capture: { start: 0.38, duration: 0.24 },
-  check: { start: 0.76, duration: 0.32 },
-  win: { start: 1.20, duration: 0.48 },
-  loss: { start: 1.82, duration: 0.40 },
-  draw: { start: 2.34, duration: 0.34 },
+  move: { start: 0.10, duration: 0.30, volume: 0.94 },
+  capture: { start: 0.55, duration: 0.43, volume: 1.00 },
+  check: { start: 1.15, duration: 0.55, volume: 0.96 },
+  win: { start: 1.95, duration: 0.82, volume: 0.94 },
+  loss: { start: 3.00, duration: 0.72, volume: 0.94 },
+  draw: { start: 4.00, duration: 0.62, volume: 0.92 },
+  timeout: { start: 4.90, duration: 0.78, volume: 1.00 },
 };
-
-function bytesToBase64(bytes) {
-  let binary = '';
-  const chunk = 0x8000;
-  for (let index = 0; index < bytes.length; index += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(index, Math.min(bytes.length, index + chunk)));
-  }
-  return btoa(binary);
-}
-
-function buildSoundSpriteUri() {
-  if (soundSpriteUri) return soundSpriteUri;
-  const sampleRate = 24000;
-  const totalSeconds = 2.82;
-  const samples = new Float32Array(Math.ceil(sampleRate * totalSeconds));
-
-  const mixTone = (start, duration, startFrequency, endFrequency, amplitude, shape = 'sine') => {
-    const first = Math.floor(start * sampleRate);
-    const count = Math.max(1, Math.floor(duration * sampleRate));
-    let phase = 0;
-    for (let offset = 0; offset < count && first + offset < samples.length; offset += 1) {
-      const progress = offset / Math.max(1, count - 1);
-      const frequency = startFrequency + (endFrequency - startFrequency) * progress;
-      phase += (Math.PI * 2 * frequency) / sampleRate;
-      const attack = Math.min(1, progress / 0.05);
-      const release = Math.min(1, (1 - progress) / 0.18);
-      const envelope = Math.max(0, Math.min(attack, release));
-      let wave = Math.sin(phase);
-      if (shape === 'triangle') wave = (2 / Math.PI) * Math.asin(Math.sin(phase));
-      samples[first + offset] += wave * amplitude * envelope;
-    }
-  };
-
-  const mixKnock = (start, duration, amplitude, lowPass = 0.16) => {
-    const first = Math.floor(start * sampleRate);
-    const count = Math.max(1, Math.floor(duration * sampleRate));
-    let filtered = 0;
-    let seed = Math.floor(start * 100000) + 1777;
-    for (let offset = 0; offset < count && first + offset < samples.length; offset += 1) {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      const noise = (seed / 0xffffffff) * 2 - 1;
-      filtered += (noise - filtered) * lowPass;
-      const progress = offset / Math.max(1, count - 1);
-      const envelope = Math.pow(1 - progress, 3.2);
-      samples[first + offset] += filtered * amplitude * envelope;
-    }
-  };
-
-  mixKnock(0.05, 0.075, 0.48, 0.18);
-  mixTone(0.05, 0.13, 330, 190, 0.28, 'triangle');
-
-  mixKnock(0.38, 0.11, 0.66, 0.13);
-  mixTone(0.38, 0.18, 220, 105, 0.36, 'triangle');
-  mixTone(0.405, 0.15, 150, 78, 0.24, 'sine');
-
-  mixKnock(0.76, 0.07, 0.42, 0.22);
-  mixTone(0.76, 0.12, 520, 690, 0.31, 'sine');
-  mixTone(0.90, 0.13, 690, 870, 0.28, 'sine');
-
-  mixTone(1.20, 0.14, 392, 440, 0.29, 'sine');
-  mixTone(1.34, 0.15, 523, 587, 0.31, 'sine');
-  mixTone(1.50, 0.18, 659, 784, 0.34, 'sine');
-
-  mixTone(1.82, 0.18, 340, 245, 0.31, 'triangle');
-  mixTone(2.02, 0.19, 245, 150, 0.28, 'triangle');
-
-  mixTone(2.34, 0.13, 330, 330, 0.26, 'sine');
-  mixTone(2.49, 0.15, 294, 294, 0.24, 'sine');
-
-  const byteLength = 44 + samples.length * 2;
-  const buffer = new ArrayBuffer(byteLength);
-  const view = new DataView(buffer);
-  const writeText = (offset, text) => {
-    for (let index = 0; index < text.length; index += 1) view.setUint8(offset + index, text.charCodeAt(index));
-  };
-  writeText(0, 'RIFF');
-  view.setUint32(4, byteLength - 8, true);
-  writeText(8, 'WAVE');
-  writeText(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeText(36, 'data');
-  view.setUint32(40, samples.length * 2, true);
-  for (let index = 0; index < samples.length; index += 1) {
-    const limited = Math.max(-1, Math.min(1, samples[index]));
-    view.setInt16(44 + index * 2, limited < 0 ? limited * 0x8000 : limited * 0x7fff, true);
-  }
-  soundSpriteUri = `data:audio/wav;base64,${bytesToBase64(new Uint8Array(buffer))}`;
-  return soundSpriteUri;
-}
+const SOUND_SPRITE_URL = new URL('./sounds/kmate-sounds-v20.wav?v=20.0.0', document.baseURI).href;
+let soundAudiblyConfirmed = false;
 
 function ensureHtmlMoveAudio() {
   if (htmlMoveAudio) return htmlMoveAudio;
   const audio = new Audio();
   audio.preload = 'auto';
   audio.playsInline = true;
-  audio.src = buildSoundSpriteUri();
-  audio.volume = 0.92;
+  audio.src = SOUND_SPRITE_URL;
+  audio.volume = 0.94;
   htmlMoveAudio = audio;
+  try { audio.load(); } catch {}
   return audio;
 }
 
 async function unlockMoveAudio(audible = false) {
   if (!soundEnabled()) return false;
   const audio = ensureHtmlMoveAudio();
-  if (htmlAudioUnlocked) return true;
+  if (htmlAudioUnlocked && (!audible || soundAudiblyConfirmed)) return true;
+  const segment = SOUND_SPRITE_SEGMENTS.move;
   try {
+    if (htmlMoveAudioStopTimer) window.clearTimeout(htmlMoveAudioStopTimer);
     audio.pause();
-    audio.currentTime = SOUND_SPRITE_SEGMENTS.move.start;
+    audio.currentTime = segment.start;
     audio.muted = false;
-    audio.volume = audible ? 0.82 : 0.002;
+    audio.volume = audible ? segment.volume : 0.01;
     const promise = audio.play();
     if (promise?.then) await promise;
-    await new Promise((resolve) => window.setTimeout(resolve, 55));
-    audio.pause();
-    audio.currentTime = 0;
-    audio.volume = 0.92;
     htmlAudioUnlocked = true;
-    soundPlaybackBackend = 'html-audio-sprite';
+    soundPlaybackBackend = 'sampled-wav-sprite';
     soundBlockedNoticeShown = false;
+    if (audible) soundAudiblyConfirmed = true;
+    const listenMs = audible ? 235 : 55;
+    htmlMoveAudioStopTimer = window.setTimeout(() => {
+      audio.pause();
+      audio.currentTime = segment.start;
+      audio.volume = 0.94;
+    }, listenMs);
     updateSoundToggle();
     return true;
   } catch (error) {
+    console.warn('Sampled K-Mate audio could not unlock.', error);
     soundPlaybackBackend = 'web-audio-fallback';
     ensureAudioContext();
     if (!soundBlockedNoticeShown) {
       soundBlockedNoticeShown = true;
-      toast('Tap the speaker button once to enable sound');
+      toast('Tap the speaker once, and make sure media volume is up');
     }
     return false;
   }
@@ -408,11 +346,16 @@ function playHtmlMoveSound(kind) {
   if (htmlMoveAudioStopTimer) window.clearTimeout(htmlMoveAudioStopTimer);
   audio.pause();
   audio.currentTime = segment.start;
-  audio.volume = 0.94;
+  audio.volume = segment.volume;
   const promise = audio.play();
-  if (promise?.catch) {
-    promise.catch((error) => {
-      console.warn('HTML move audio was blocked; using synthesizer fallback.', error);
+  if (promise?.then) {
+    promise.then(() => {
+      htmlAudioUnlocked = true;
+      soundAudiblyConfirmed = true;
+      soundPlaybackBackend = 'sampled-wav-sprite';
+      updateSoundToggle();
+    }).catch((error) => {
+      console.warn('Sampled move sound was blocked; using synthesizer fallback.', error);
       soundPlaybackBackend = 'web-audio-fallback';
       playSynthMoveSound(kind);
     });
@@ -427,7 +370,6 @@ function playMoveSound(kind = 'move') {
   if (!soundEnabled()) return;
   lastSoundKind = kind;
   if (htmlAudioUnlocked) {
-    soundPlaybackBackend = 'html-audio-sprite';
     playHtmlMoveSound(kind);
     return;
   }
@@ -438,7 +380,6 @@ function playMoveSound(kind = 'move') {
 }
 
 const primeSoundFromGesture = (event) => {
-  // Let the speaker button's click handler perform the explicit unlock itself.
   if (event?.target?.closest?.('#soundToggle')) return;
   unlockMoveAudio(false);
 };
@@ -450,23 +391,20 @@ function updateSoundToggle() {
   const button = $('#soundToggle');
   if (!button) return;
   button.textContent = soundEnabled() ? '🔊' : '🔇';
-  button.classList.toggle('audio-ready', soundEnabled() && htmlAudioUnlocked);
-  button.classList.toggle('audio-needs-tap', soundEnabled() && !htmlAudioUnlocked);
+  button.classList.toggle('audio-ready', soundEnabled() && soundAudiblyConfirmed);
+  button.classList.toggle('audio-needs-tap', soundEnabled() && !soundAudiblyConfirmed);
   button.setAttribute('aria-label', soundEnabled() ? 'Mute move sounds' : 'Turn on move sounds');
   button.title = soundEnabled()
-    ? (htmlAudioUnlocked ? 'Move sounds on' : 'Move sounds on — tap once to enable audio')
+    ? (soundAudiblyConfirmed ? 'Move sounds on' : 'Tap once to enable and test move sounds')
     : 'Move sounds off';
 }
 
 async function toggleSound() {
-  // On iOS/PWA, the first speaker tap should unlock and test audio—not mute it.
-  if (soundEnabled() && !htmlAudioUnlocked) {
+  // A silent browser unlock must not make the next speaker tap mute the app.
+  if (soundEnabled() && !soundAudiblyConfirmed) {
     const unlocked = await unlockMoveAudio(true);
     updateSoundToggle();
-    if (unlocked) {
-      playMoveSound('move');
-      toast('Move sounds ready');
-    }
+    if (unlocked) toast('Sound ready — test click played');
     return;
   }
 
@@ -474,19 +412,17 @@ async function toggleSound() {
   saveStore();
   updateSoundToggle();
   if (settings.sound) {
-    await unlockMoveAudio(true);
-    playMoveSound('move');
-    toast('Move sounds on');
+    const unlocked = await unlockMoveAudio(true);
+    if (unlocked) toast('Move sounds on');
   } else {
     htmlMoveAudio?.pause();
     toast('Move sounds muted');
   }
 }
 
-
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260827-18';
+  url.search = '?v=20260828-20';
   url.hash = '';
   return url.href;
 }
@@ -939,27 +875,33 @@ function hasMatingMaterial(color) {
 }
 
 function handleTimeout(loser) {
-  if (finalized) return;
+  if (finalized || timeoutHandling) return;
+  timeoutHandling = true;
   requestId += 1;
   thinking = false;
+  stockfishEngine?.stop();
   stopClock();
+  clocks[loser] = 0;
   const winner = loser === 'w' ? 'b' : 'w';
   const draw = !hasMatingMaterial(winner);
   if (draw) {
     finalizeSession('draw', 'timeout with insufficient mating material', true);
+    setStatus('Time expired. The result is a draw because mating material was insufficient.', 'bad');
     showResult('Draw on time', 'The flag fell, but the opponent did not have sufficient mating material.', '½');
   } else {
     const outcome = loser === userColor ? 'loss' : 'win';
     finalizeSession(outcome, 'timeout', true);
+    setStatus(outcome === 'win' ? 'Opponent flagged. Open the review or coach replay.' : 'Time expired. Open the review or coach replay.', 'bad');
     showResult(
       outcome === 'win' ? 'You won on time' : 'Time expired',
       outcome === 'win'
-        ? `K-Mate ${settings.opponentRating} ran out of time.`
-        : `Your ${timeControl().label} clock reached zero.`,
+        ? `K-Mate ${opponentRatingForSession()} ran out of time.`
+        : `Your ${timeControl().label} clock reached zero. The position is now finished and saved for review.`,
       outcome === 'win' ? '1' : '0',
     );
   }
   renderAll();
+  timeoutHandling = false;
 }
 
 function startPosition({ preservePrevious = false } = {}) {
@@ -1561,6 +1503,9 @@ function makeUserMove(moveObject) {
     uci: uciFromMove(move),
     from: move.from,
     to: move.to,
+    color: move.color,
+    ply: game.history().length,
+    fenBefore,
     hintLevel: hintLevelAtMove,
     hintText: hintLevelAtMove ? hintState.strategicText : null,
     spentMs,
@@ -1674,16 +1619,17 @@ function applyEngineReply(id, data) {
 
 async function analyzeMoveWithStockfish(fenBefore, moveUci) {
   const engine = getStockfishReviewEngine();
-  const before = await engine.evaluate({ fen: fenBefore, movetime: 520 });
+  const before = await engine.evaluate({ fen: fenBefore, movetime: 700 });
   const g = new Chess(fenBefore);
   const selected = g.move({ from: moveUci.slice(0, 2), to: moveUci.slice(2, 4), promotion: moveUci[4] || 'q' });
   if (!selected) throw new Error('Unable to reproduce move for review');
-  const after = await engine.evaluate({ fen: g.fen(), movetime: 420 });
+  const after = await engine.evaluate({ fen: g.fen(), movetime: 480 });
   const bestScore = before.scoreCp;
   const selectedScore = -after.scoreCp;
   return {
     cpLoss: Math.min(1000, Math.max(0, Math.round(bestScore - selectedScore))),
     bestMove: before.move,
+    bestLine: Array.isArray(before.pv) && before.pv.length ? before.pv.slice(0, 10) : (before.move ? [before.move] : []),
     bestScore,
     selectedScore,
     depth: Math.max(before.depth || 0, after.depth || 0),
@@ -1703,6 +1649,7 @@ function applyMoveAnalysisResult(sessionId, moveId, data) {
   targetMove.selectedScore = data.selectedScore ?? null;
   targetMove.analysisDepth = data.depth || null;
   targetMove.analysisSource = data.source || 'Local fallback';
+  targetMove.bestLine = Array.isArray(data.bestLine) ? data.bestLine.slice(0, 10) : (data.bestMove ? [data.bestMove] : []);
   targetMove.quality = qualityForLoss(data.cpLoss).key;
   if (currentSession?.id === sessionId) {
     const latestMove = currentSession.userMoves[currentSession.userMoves.length - 1];
@@ -1716,6 +1663,10 @@ function applyMoveAnalysisResult(sessionId, moveId, data) {
     showMoveQualityBadge(targetMove);
     updateStoredCurrentSession();
     if (finalized) renderPostGameReview(currentSession);
+    if (replayState.session?.id === sessionId) {
+      replayState.session = targetSession;
+      renderCoachReplay();
+    }
   } else {
     saveStore();
   }
@@ -1792,18 +1743,41 @@ function summarizeSession(session) {
   };
 }
 
+function serializeMoveSequence() {
+  if (!game) return [];
+  return game.history({ verbose: true }).map((move, index) => ({
+    ply: index + 1,
+    color: move.color,
+    from: move.from,
+    to: move.to,
+    san: move.san,
+    uci: uciFromMove(move),
+    piece: move.piece,
+    captured: move.captured || null,
+    promotion: move.promotion || null,
+    flags: move.flags || '',
+  }));
+}
+
 function finalizeSession(outcome, reason, completed) {
   if (!currentSession || finalized) return;
-  syncClock();
+  const timeoutReason = String(reason || '').startsWith('timeout');
+  if (!timeoutReason) syncClock();
+  // syncClock can itself finish the session when the flag falls between taps.
+  if (finalized) return;
   finalized = true;
   thinking = false;
   requestId += 1;
+  stockfishEngine?.stop();
   stopClock();
   currentSession.outcome = outcome;
   currentSession.reason = reason;
   currentSession.completed = completed;
   currentSession.endedAt = new Date().toISOString();
   currentSession.remainingMs = clockRunning ? Math.max(0, clocks[userColor]) : null;
+  currentSession.clockSnapshot = { w: Math.max(0, clocks.w || 0), b: Math.max(0, clocks.b || 0) };
+  currentSession.moveSequence = serializeMoveSequence();
+  currentSession.finalFen = game?.fen() || null;
   Object.assign(currentSession, summarizeSession(currentSession));
   if (completed || currentSession.userMoves.length > 0) {
     store.sessions.unshift(clone(currentSession));
@@ -1853,7 +1827,7 @@ function readableEngineMove(uci) {
 }
 
 function reviewClockLesson(session, analyzedMoves) {
-  if (session.reason === 'timeout') return 'Clock lesson: the position was decided by time. Reserve the last 20% of the clock for conversion or defense.';
+  if (String(session.reason || '').startsWith('timeout')) return 'Clock lesson: the position was decided by time. Reserve the last 20% of the clock for conversion or defense.';
   const rushed = analyzedMoves.filter((move) => Number.isFinite(move.spentMs) && move.spentMs < 4000 && move.cpLoss > 120);
   if (rushed.length) return `${rushed.length} costly decision${rushed.length === 1 ? '' : 's'} came in under four seconds. Slow down on irreversible moves.`;
   if (Number.isFinite(session.timeUsedPct) && session.timeUsedPct < 0.45 && Number.isFinite(session.avgCpLoss) && session.avgCpLoss > 100) {
@@ -1912,8 +1886,358 @@ function renderPostGameReview(session) {
     : '<div class="emptyMoves">No user moves were recorded.</div>';
 }
 
+function materialForPerspective(g, color) {
+  const values = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+  let score = 0;
+  g.board().forEach((row) => row.forEach((piece) => {
+    if (!piece) return;
+    score += (piece.color === color ? 1 : -1) * (values[piece.type] || 0);
+  }));
+  return score;
+}
+
+function moveObjectFromUci(uci) {
+  if (!uci || uci.length < 4) return null;
+  return { from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || 'q' };
+}
+
+function describeMoveFromFen(fen, uci) {
+  if (!fen || !uci) return { san: readableEngineMove(uci), text: 'No concrete move description is available.', move: null };
+  const g = new Chess(fen);
+  const object = moveObjectFromUci(uci);
+  const piece = object ? g.get(object.from) : null;
+  const beforeMaterial = materialForPerspective(g, piece?.color || g.turn());
+  let move = null;
+  try { move = object ? g.move(object) : null; } catch {}
+  if (!move) return { san: readableEngineMove(uci), text: 'The move could not be reconstructed from this stored position.', move: null };
+  const afterMaterial = materialForPerspective(g, move.color);
+  const features = [];
+  if (move.san.includes('#')) features.push('delivers checkmate');
+  else if (move.san.includes('+')) features.push('forces the opponent to answer a check');
+  if (move.captured) features.push(`captures a ${pieceName(move.captured)}`);
+  if (move.promotion) features.push(`promotes to a ${pieceName(move.promotion)}`);
+  if (move.san.startsWith('O-O')) features.push('secures the king and connects the rooks');
+  if (['n', 'b'].includes(move.piece) && ((move.color === 'w' && move.from[1] === '1') || (move.color === 'b' && move.from[1] === '8'))) features.push(`develops the ${pieceName(move.piece)}`);
+  if (move.piece === 'p' && ['c', 'd', 'e', 'f'].includes(move.to[0])) features.push('changes the central pawn structure');
+  if (['d4', 'e4', 'd5', 'e5'].includes(move.to)) features.push('claims an important central square');
+  if (afterMaterial > beforeMaterial && !move.captured) features.push('improves the immediate material balance');
+  const text = features.length ? `${move.san} ${features.join(', and ')}.` : `${move.san} repositions the ${pieceName(move.piece)} to ${move.to}.`;
+  return { san: move.san, text, move, materialDelta: afterMaterial - beforeMaterial };
+}
+
+function evaluationText(cp) {
+  if (!Number.isFinite(cp)) return 'an unknown evaluation';
+  if (Math.abs(cp) > 90000) return cp > 0 ? 'a forced mating advantage for you' : 'a forced mate against you';
+  const pawns = Math.abs(cp / 100).toFixed(1);
+  if (cp >= 300) return `a winning +${pawns} advantage`;
+  if (cp >= 120) return `a clear +${pawns} advantage`;
+  if (cp >= 40) return `a small +${pawns} edge`;
+  if (cp > -40) return 'an approximately balanced position';
+  if (cp > -120) return `a small −${pawns} disadvantage`;
+  if (cp > -300) return `a clear −${pawns} disadvantage`;
+  return `a difficult −${pawns} position`;
+}
+
+function evaluationBadge(cp) {
+  if (!Number.isFinite(cp)) return 'Eval —';
+  if (Math.abs(cp) > 90000) return cp > 0 ? 'Mate for you' : 'Mate against you';
+  const value = cp / 100;
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}`;
+}
+
+function sanLineFromPv(fen, pv, limit = 8) {
+  if (!fen || !Array.isArray(pv) || !pv.length) return [];
+  const g = new Chess(fen);
+  const san = [];
+  for (const uci of pv.slice(0, limit)) {
+    const object = moveObjectFromUci(uci);
+    if (!object) break;
+    try {
+      const move = g.move(object);
+      if (!move) break;
+      san.push(move.san);
+    } catch { break; }
+  }
+  return san;
+}
+
+function strongestAlternativeAchievement(record, session) {
+  const best = describeMoveFromFen(record.fenBefore, record.bestMove);
+  const selected = describeMoveFromFen(record.fenBefore, record.uci);
+  const bestEval = record.bestScore;
+  const selectedEval = record.selectedScore;
+  let achievement;
+  if (best.move?.san.includes('#')) achievement = 'finished the game with a forced mate';
+  else if (best.move?.san.includes('+') && !selected.move?.san.includes('+')) achievement = 'seized the initiative with a forcing check';
+  else if (best.move?.captured && !selected.move?.captured) achievement = `used a tactical capture of the ${pieceName(best.move.captured)}`;
+  else if (best.move?.san.startsWith('O-O')) achievement = 'secured the king before beginning another plan';
+  else if (Number.isFinite(bestEval) && Number.isFinite(selectedEval) && bestEval >= 120 && selectedEval < 40) achievement = 'preserved a clear advantage instead of letting the position return toward equality';
+  else if (Number.isFinite(bestEval) && Number.isFinite(selectedEval) && bestEval >= -35 && selectedEval <= -120) achievement = 'kept the game defensible instead of conceding a clear disadvantage';
+  else if (Number.isFinite(bestEval) && bestEval < -100) achievement = 'offered the strongest practical resistance in a difficult position';
+  else if ((session.tags || []).includes('king safety')) achievement = 'kept king safety and forcing play as the priority';
+  else if ((session.tags || []).some((tag) => ['conversion', 'endgame transition'].includes(tag))) achievement = 'kept the cleanest route to converting the position';
+  else if ((session.tags || []).some((tag) => ['pawn structure', 'pawn breaks'].includes(tag))) achievement = 'handled the pawn structure without creating a lasting weakness';
+  else achievement = 'kept the pieces coordinated and preserved the position’s best practical chances';
+  return { best, selected, achievement };
+}
+
+function coachNarrationForRecord(record, session, decisionNumber) {
+  if (!record) return { title: `Decision ${decisionNumber}`, text: 'This move was not linked to a stored analysis record.', bestSan: '—', yourSan: '—', bestOutcome: '—', yourOutcome: '—', line: [], band: { key: 'pending', label: 'Pending' } };
+  const band = Number.isFinite(record.cpLoss) ? qualityForLoss(record.cpLoss) : { key: 'pending', label: 'Analyzing' };
+  const comparison = strongestAlternativeAchievement(record, session);
+  const bestSan = comparison.best.san || readableEngineMove(record.bestMove);
+  const line = sanLineFromPv(record.fenBefore, record.bestLine, 8);
+  const assisted = record.hintLevel ? ` You used ${record.hintLevel >= 2 ? 'the exact candidate reveal' : 'a strategic hint'} before moving.` : '';
+  let text;
+  if (!Number.isFinite(record.cpLoss)) {
+    text = `Stockfish is still finishing the review of ${record.san}. The replay will refresh automatically when the evaluation arrives.${assisted}`;
+  } else if (['best', 'excellent'].includes(band.key)) {
+    text = `${comparison.selected.text} This was ${band.label.toLowerCase()} and maintained ${evaluationText(record.selectedScore)}.${record.bestMove && record.bestMove !== record.uci ? ` Stockfish slightly preferred ${bestSan}, but the difference was only ${Math.round(record.cpLoss)} centipawns.` : ' It matched the engine’s principal choice.'}${assisted}`;
+  } else if (band.key === 'good') {
+    text = `${comparison.selected.text} It was a good practical decision, but ${bestSan} was more precise because it would have ${comparison.achievement}. The estimated difference was ${Math.round(record.cpLoss)} centipawns.${assisted}`;
+  } else {
+    const transition = `The evaluation moved from ${evaluationText(record.bestScore)} with best play to ${evaluationText(record.selectedScore)} after your move.`;
+    text = `${comparison.selected.text} The main problem was not merely the destination square: ${transition} ${bestSan} was stronger because it would have ${comparison.achievement}.${assisted}`;
+  }
+  return {
+    title: `Decision ${decisionNumber} · ${band.label}`,
+    text,
+    bestSan,
+    yourSan: record.san,
+    bestOutcome: evaluationText(record.bestScore),
+    yourOutcome: evaluationText(record.selectedScore),
+    line,
+    band,
+  };
+}
+
+function sessionSequence(session) {
+  if (Array.isArray(session?.moveSequence) && session.moveSequence.length) return session.moveSequence;
+  if (currentSession?.id === session?.id && game) return serializeMoveSequence();
+  return [];
+}
+
+function buildReplayFrames(session) {
+  const sequence = sessionSequence(session);
+  if (!session?.startFen || !sequence.length) return [];
+  const replayGame = new Chess(session.startFen);
+  const frames = [{ index: 0, ply: 0, fen: replayGame.fen(), fenBefore: replayGame.fen(), move: null, isUser: false, userRecord: null, decisionNumber: 0 }];
+  let userRecordIndex = 0;
+  for (let index = 0; index < sequence.length; index += 1) {
+    const stored = sequence[index];
+    const fenBefore = replayGame.fen();
+    let applied = null;
+    try { applied = replayGame.move({ from: stored.from, to: stored.to, promotion: stored.promotion || stored.uci?.[4] || 'q' }); } catch {}
+    if (!applied) break;
+    const isUser = applied.color === session.userColor;
+    let userRecord = null;
+    let decisionNumber = 0;
+    if (isUser) {
+      decisionNumber = userRecordIndex + 1;
+      userRecord = (session.userMoves || []).find((record) => Number(record.ply) === index + 1) || (session.userMoves || [])[userRecordIndex] || null;
+      userRecordIndex += 1;
+    }
+    frames.push({
+      index: index + 1,
+      ply: index + 1,
+      fen: replayGame.fen(),
+      fenBefore,
+      move: { ...stored, san: applied.san, color: applied.color, piece: applied.piece, captured: applied.captured || stored.captured || null },
+      isUser,
+      userRecord,
+      decisionNumber,
+    });
+  }
+  return frames;
+}
+
+function replayOrderedSquares(orientationColor) {
+  const files = orientationColor === 'w' ? FILES : [...FILES].reverse().join('');
+  const ranks = orientationColor === 'w' ? '87654321' : '12345678';
+  return [...ranks].flatMap((rank) => [...files].map((file) => `${file}${rank}`));
+}
+
+function replayDisplayPosition(frame) {
+  if (replayState.showBest && frame?.userRecord?.bestMove) {
+    const preview = new Chess(frame.fenBefore);
+    const object = moveObjectFromUci(frame.userRecord.bestMove);
+    let applied = null;
+    try { applied = object ? preview.move(object) : null; } catch {}
+    if (applied) return { game: preview, last: { from: applied.from, to: applied.to }, bestPreview: true };
+  }
+  const replayGame = new Chess(frame.fen);
+  return { game: replayGame, last: frame.move ? { from: frame.move.from, to: frame.move.to } : null, bestPreview: false };
+}
+
+function renderReplayBoard(frame) {
+  const board = $('#replayBoard');
+  if (!board || !frame) return;
+  board.innerHTML = '';
+  const display = replayDisplayPosition(frame);
+  const orientationColor = replayState.session?.userColor || 'w';
+  const rated = frame.userRecord ? qualityForLoss(frame.userRecord.cpLoss) : null;
+  replayOrderedSquares(orientationColor).forEach((square, index) => {
+    const piece = display.game.get(square);
+    const cell = document.createElement('div');
+    cell.className = `sq ${((FILES.indexOf(square[0]) + Number(square[1])) % 2) ? 'light' : 'dark'}`;
+    cell.dataset.square = square;
+    if (display.last && (display.last.from === square || display.last.to === square)) cell.classList.add('last');
+    if (display.bestPreview && display.last?.to === square) cell.classList.add('best-preview-square');
+    else if (frame.userRecord && frame.move?.to === square) cell.classList.add('move-quality-square', `quality-${rated?.key || 'pending'}`);
+    if (piece) {
+      const glyph = document.createElement('span');
+      glyph.className = `piece ${piece.color === 'w' ? 'white' : 'black'}`;
+      renderPieceGraphic(glyph, piece.type, piece.color);
+      cell.append(glyph);
+    }
+    if (index % 8 === 0) {
+      const rank = document.createElement('span'); rank.className = 'coord rank'; rank.textContent = square[1]; cell.append(rank);
+    }
+    if (index >= 56) {
+      const file = document.createElement('span'); file.className = 'coord file'; file.textContent = square[0]; cell.append(file);
+    }
+    board.append(cell);
+  });
+}
+
+function nextUserFrameAfter(index) {
+  return replayState.frames.slice(index + 1).find((frame) => frame.isUser) || null;
+}
+
+function renderCoachReplay() {
+  const session = replayState.session;
+  const frames = replayState.frames;
+  const frame = frames[replayState.index];
+  if (!session || !frame) return;
+  renderReplayBoard(frame);
+  $('#replaySlider').max = Math.max(0, frames.length - 1);
+  $('#replaySlider').value = replayState.index;
+  $('#replayDecisionCount').textContent = `${replayState.index} / ${Math.max(0, frames.length - 1)}`;
+  $('#replayFirst').disabled = replayState.index <= 0;
+  $('#replayPrevious').disabled = replayState.index <= 0;
+  $('#replayNext').disabled = replayState.index >= frames.length - 1;
+  $('#replayLast').disabled = replayState.index >= frames.length - 1;
+  $('#replayAuto').textContent = replayState.auto ? '❚❚ Pause' : '▶ Auto';
+  $('#replaySubtitle').textContent = `${session.opening === 'Various' ? phaseLabel(session.phase) : session.opening} · ${phaseLabel(session.phase)} · ${TIME_CONTROLS[session.timeControl]?.label || session.timeControl}`;
+
+  const rating = $('#replayRating');
+  rating.className = 'move-quality-badge';
+  const comparison = $('#replayComparison');
+  const lineBox = $('#replayLine');
+  const bestButton = $('#replayBestButton');
+
+  if (frame.index === 0) {
+    rating.textContent = 'Start'; rating.classList.add('quality-pending');
+    $('#replayPlyLabel').textContent = 'Starting position';
+    $('#replayEval').textContent = 'Before the first played move';
+    $('#replayCoachTitle').textContent = 'Orient yourself before replaying';
+    $('#replayCoachText').textContent = `This ${phaseLabel(session.phase).toLowerCase()} began from “${session.opening}.” First identify material, king safety, pawn breaks, and the least active piece.`;
+    comparison.hidden = true; lineBox.hidden = true; bestButton.hidden = true;
+    return;
+  }
+
+  const moveNumber = Math.floor((Number(session.startFen?.split(/\s+/)[5]) || 1) + (frame.ply - 1) / 2);
+  $('#replayPlyLabel').textContent = `${moveNumber}${frame.move.color === 'w' ? '.' : '…'} ${frame.move.san}`;
+
+  if (frame.isUser) {
+    const narration = coachNarrationForRecord(frame.userRecord, session, frame.decisionNumber);
+    rating.textContent = narration.band.label;
+    rating.classList.add(`quality-${narration.band.key}`);
+    $('#replayEval').textContent = evaluationBadge(frame.userRecord?.selectedScore);
+    $('#replayCoachTitle').textContent = narration.title;
+    $('#replayCoachText').textContent = narration.text;
+    comparison.hidden = false;
+    $('#replayYourMove').textContent = narration.yourSan;
+    $('#replayYourOutcome').textContent = narration.yourOutcome;
+    $('#replayBestMove').textContent = narration.bestSan;
+    $('#replayBestOutcome').textContent = narration.bestOutcome;
+    lineBox.hidden = !narration.line.length;
+    $('#replayLineMoves').textContent = narration.line.length ? narration.line.join(' ') : 'No principal variation stored';
+    bestButton.hidden = !frame.userRecord?.bestMove;
+    bestButton.textContent = replayState.showBest ? 'Return to played move' : 'Show best move on board';
+  } else {
+    const description = describeMoveFromFen(frame.fenBefore, frame.move.uci || `${frame.move.from}${frame.move.to}${frame.move.promotion || ''}`);
+    const nextDecision = nextUserFrameAfter(replayState.index);
+    rating.textContent = 'Opponent'; rating.classList.add('quality-pending');
+    $('#replayEval').textContent = 'Your next decision';
+    $('#replayCoachTitle').textContent = `Opponent played ${frame.move.san}`;
+    $('#replayCoachText').textContent = `${description.text} This is the moment to ask what changed and what the opponent is threatening.${nextDecision?.userRecord?.bestMove ? ` In the resulting position, Stockfish’s leading response was ${describeMoveFromFen(nextDecision.userRecord.fenBefore, nextDecision.userRecord.bestMove).san}.` : ''}`;
+    comparison.hidden = true; lineBox.hidden = true; bestButton.hidden = true;
+  }
+}
+
+function replayMoveSound(frame) {
+  if (!frame?.move) return;
+  const kind = frame.move.san?.includes('+') || frame.move.san?.includes('#') ? 'check' : frame.move.captured ? 'capture' : 'move';
+  playMoveSound(kind);
+}
+
+function setReplayIndex(index, playSound = true) {
+  if (!replayState.frames.length) return;
+  const previous = replayState.index;
+  replayState.index = Math.max(0, Math.min(replayState.frames.length - 1, Number(index) || 0));
+  replayState.showBest = false;
+  if (playSound && replayState.index === previous + 1) replayMoveSound(replayState.frames[replayState.index]);
+  renderCoachReplay();
+}
+
+function stopReplayAuto() {
+  if (replayState.timer) window.clearTimeout(replayState.timer);
+  replayState.timer = null;
+  replayState.auto = false;
+  const button = $('#replayAuto');
+  if (button) button.textContent = '▶ Auto';
+}
+
+function scheduleReplayStep() {
+  if (!replayState.auto) return;
+  if (replayState.index >= replayState.frames.length - 1) {
+    stopReplayAuto();
+    return;
+  }
+  setReplayIndex(replayState.index + 1, true);
+  const frame = replayState.frames[replayState.index];
+  const delay = frame?.isUser ? 4300 : 2400;
+  replayState.timer = window.setTimeout(scheduleReplayStep, delay);
+}
+
+function toggleReplayAuto() {
+  if (replayState.auto) {
+    stopReplayAuto();
+    return;
+  }
+  if (replayState.index >= replayState.frames.length - 1) setReplayIndex(0, false);
+  replayState.auto = true;
+  renderCoachReplay();
+  replayState.timer = window.setTimeout(scheduleReplayStep, 700);
+}
+
+function openCoachReplay(session = currentSession) {
+  if (!session?.startFen) {
+    toast('This older session does not contain a replayable starting position');
+    return;
+  }
+  const frames = buildReplayFrames(session);
+  if (!frames.length) {
+    toast('No played moves are available for this replay');
+    return;
+  }
+  stopReplayAuto();
+  replayState = { session, frames, index: 0, timer: null, auto: false, showBest: false };
+  $('#replayTitle').textContent = `${session.opening === 'Various' ? phaseLabel(session.phase) : session.opening} coach replay`;
+  renderCoachReplay();
+  openDialog('replayDialog');
+}
+
+function toggleReplayBestMove() {
+  const frame = replayState.frames[replayState.index];
+  if (!frame?.userRecord?.bestMove) return;
+  replayState.showBest = !replayState.showBest;
+  renderCoachReplay();
+}
+
 function sessionCoach(session) {
-  if (session.reason === 'timeout') return 'Clock management was the decisive issue. Consider 3+2 or 5+0 while building a repeatable thinking rhythm.';
+  if (String(session.reason || '').startsWith('timeout')) return 'Clock management was the decisive issue. Consider 3+2 or 5+0 while building a repeatable thinking rhythm.';
   if ((session.takebacks || 0) >= 2) return 'Frequent takebacks suggest candidate-move uncertainty. Compare two serious candidates before touching a piece.';
   if (Number.isFinite(session.avgCpLoss) && session.avgCpLoss > 180) return `The largest signal is decision quality in ${session.tags[0] || 'this position'}. Slow the candidate-move scan before forcing moves.`;
   if (Number.isFinite(session.avgCpLoss) && session.avgCpLoss > 100) return `This was an inconsistent session. Focus on ${session.tags[0] || 'the main positional theme'} and use more of the clock on irreversible moves.`;
@@ -1948,7 +2272,8 @@ function saveCalibrationGuess() {
 
 function showResult(title, text, symbol) {
   const session = currentSession;
-  window.setTimeout(() => playMoveSound(symbol === '1' ? 'win' : symbol === '0' ? 'loss' : 'draw'), 90);
+  const resultSound = String(session.reason || '').startsWith('timeout') ? 'timeout' : symbol === '1' ? 'win' : symbol === '0' ? 'loss' : 'draw';
+  window.setTimeout(() => playMoveSound(resultSound), 90);
   $('#resultSymbol').textContent = symbol;
   $('#resultTitle').textContent = title;
   $('#resultText').textContent = text;
@@ -1959,6 +2284,11 @@ function showResult(title, text, symbol) {
   $('#resultCoach').textContent = sessionCoach(session);
   renderPostGameReview(session);
   renderCalibrationPanel(session);
+  const replayButton = $('#resultReplay');
+  if (replayButton) {
+    replayButton.disabled = !session.startFen || !(session.moveSequence?.length);
+    replayButton.textContent = session.moveSequence?.length ? 'Coach replay' : 'Replay unavailable';
+  }
   openDialog('resultDialog');
 }
 
@@ -2022,6 +2352,7 @@ function openDialog(id) {
 }
 
 function closeDialog(id) {
+  if (id === 'replayDialog') stopReplayAuto();
   const dialog = $(`#${id}`);
   if (typeof dialog.close === 'function') dialog.close();
   else dialog.removeAttribute('open');
@@ -2088,7 +2419,7 @@ function buildRecommendation() {
   const performance = trainingPerformance(completed) || settings.positionRating;
   const target = Math.max(1200, Math.min(2200, Math.round((performance + 75) / 100) * 100));
   const timed = completed.filter((session) => TIME_CONTROLS[session.timeControl]?.base);
-  const timeoutRate = timed.length ? timed.filter((session) => session.reason === 'timeout').length / timed.length : 0;
+  const timeoutRate = timed.length ? timed.filter((session) => String(session.reason || '').startsWith('timeout')).length / timed.length : 0;
   return {
     phase: phaseWeakness?.name || settings.phase,
     opening: openingWeakness?.name || settings.opening || 'all',
@@ -2175,7 +2506,7 @@ function aggregateSessions(sessions) {
     score: completed.length ? points / completed.length : null,
     avgCpLoss: average(moves.map((move) => move.cpLoss)),
     analyzedMoves: moves.length,
-    timeouts: completed.filter((session) => session.reason === 'timeout').length,
+    timeouts: completed.filter((session) => String(session.reason || '').startsWith('timeout')).length,
     whiteGames: white.length,
     blackGames: black.length,
     whiteScore: colorScore(white),
@@ -2311,7 +2642,7 @@ function renderClockInsight(completed) {
     $('#clockInsightText').textContent = 'K-Mate will look for timeouts, rushed mistakes, and excessive time use.';
     return;
   }
-  const timeouts = timed.filter((session) => session.reason === 'timeout').length;
+  const timeouts = timed.filter((session) => String(session.reason || '').startsWith('timeout')).length;
   const used = average(timed.map((session) => session.timeUsedPct));
   const analyzedMoves = timed.flatMap((session) => session.userMoves || []).filter((move) => Number.isFinite(move.cpLoss));
   const rushed = analyzedMoves.filter((move) => Number.isFinite(move.spentMs) && move.spentMs < 4000 && move.cpLoss > 120).length;
@@ -2388,12 +2719,14 @@ function renderRecentSessions(sessions) {
     const outcome = session.outcome === 'abandoned' ? 'partial' : session.outcome;
     const resultClass = outcome === 'win' ? 'win' : outcome === 'draw' ? 'draw' : 'loss';
     const resultText = outcome === 'win' ? 'WIN' : outcome === 'draw' ? 'DRAW' : outcome === 'partial' ? 'PART' : 'LOSS';
+    const replayable = Boolean(session.startFen && session.moveSequence?.length);
     return `<div class="recent-row">
       <span class="result-pill ${resultClass}">${resultText}</span>
       <span><b>${escapeHtml(session.opening === 'Various' ? phaseLabel(session.phase) : session.opening)}</b><small>${escapeHtml(phaseLabel(session.phase))} · ${escapeHtml(session.theme)}</small></span>
       <span class="hide-small"><b>${session.opponentRating}</b><small>opponent</small></span>
       <span class="hide-small"><b>${escapeHtml(TIME_CONTROLS[session.timeControl]?.label || session.timeControl)}</b><small>clock</small></span>
       <span><b>${Number.isFinite(session.avgCpLoss) ? `${Math.round(session.avgCpLoss)} cp` : '—'}</b><small>${session.userMoves?.length || 0} moves</small></span>
+      ${replayable ? `<button class="recent-replay" type="button" data-replay-session="${escapeHtml(session.id)}">Replay</button>` : '<span class="recent-no-replay">—</span>'}
     </div>`;
   }).join('');
 }
@@ -2478,7 +2811,7 @@ async function importProfileFile(event) {
 function exportData() {
   const payload = {
     exportedAt: new Date().toISOString(),
-    app: 'K-Mate commercial beta v16',
+    app: 'K-Mate commercial beta v20',
     note: 'Includes local training history, calibration guesses, settings, and Stockfish-backed move reviews. No account data is included.',
     data: store,
   };
@@ -2683,10 +3016,12 @@ class StockfishPlayEngine {
         const nodes = line.match(/\bnodes\s+(\d+)/)?.[1];
         const cp = line.match(/\bscore\s+cp\s+(-?\d+)/)?.[1];
         const mate = line.match(/\bscore\s+mate\s+(-?\d+)/)?.[1];
+        const pv = line.match(/\bpv\s+(.+)$/)?.[1];
         if (depth) this.lastInfo.depth = Number(depth);
         if (nodes) this.lastInfo.nodes = Number(nodes);
         if (cp) this.lastInfo.scoreCp = Number(cp);
         if (mate) this.lastInfo.mate = Number(mate);
+        if (pv) this.lastInfo.pv = pv.trim().split(/\s+/).filter(Boolean).slice(0, 16);
       }
       for (const waiter of [...this.waiters]) {
         let matched = false;

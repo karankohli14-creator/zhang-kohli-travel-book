@@ -440,3 +440,64 @@ td small{display:block;color:var(--muted)}
 
 .sound-toggle.audio-needs-tap{border-color:#f4cc7066;color:#ffe09a;animation:soundReadyPulse 1.15s ease-in-out infinite alternate}
 @keyframes soundReadyPulse{to{box-shadow:0 0 0 4px #f4cc7012;filter:brightness(1.12)}}
+
+
+/* K-Mate v20 — polished Staunton pieces, coached replay, and timeout review */
+.piece.staunton-piece{display:grid;place-items:center;width:77%;height:77%;font-size:0;line-height:1;transform:none;filter:none;color:inherit}
+.piece.staunton-piece svg{display:block;width:100%;height:100%;overflow:visible}
+.staunton-piece .piece-art>*:not(.piece-ground){stroke:var(--piece-edge);stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round;paint-order:stroke fill}
+.staunton-piece .piece-ground{fill:#000;opacity:.22;filter:blur(1.2px);stroke:none}
+.staunton-piece .piece-glint{fill:none;stroke:var(--piece-glint)!important;stroke-width:2.05!important;opacity:.72}
+.staunton-piece .piece-detail{fill:none;stroke:var(--piece-detail)!important;stroke-width:2.5!important}
+.staunton-piece .piece-cut{fill:none;stroke:var(--piece-cut)!important;stroke-width:4.2!important}
+.staunton-piece .piece-eye{fill:var(--piece-eye);stroke:var(--piece-edge)!important;stroke-width:1.6!important}
+.staunton-piece.white{--piece-edge:#514838;--piece-glint:#fffdf7;--piece-detail:#8b7658;--piece-cut:#594d3d;--piece-eye:#25231e}
+.staunton-piece.white .piece-grad-body-hi{stop-color:#fffdf4}.staunton-piece.white .piece-grad-body-mid{stop-color:#ead9b7}.staunton-piece.white .piece-grad-body-low{stop-color:#b99e74}
+.staunton-piece.white .piece-grad-base-hi{stop-color:#f7ebd2}.staunton-piece.white .piece-grad-base-low{stop-color:#a98c64}.staunton-piece.white .piece-grad-band-hi{stop-color:#fff3d8}.staunton-piece.white .piece-grad-band-low{stop-color:#c4a77b}
+.staunton-piece.white .piece-grad-shadow-hi{stop-color:#d5bd94}.staunton-piece.white .piece-grad-shadow-low{stop-color:#8f7657}.staunton-piece.white .piece-grad-mane-hi{stop-color:#dbc49c}.staunton-piece.white .piece-grad-mane-low{stop-color:#967b5a}
+.staunton-piece.white .piece-grad-jewel-hi{stop-color:#fffef8}.staunton-piece.white .piece-grad-jewel-low{stop-color:#b99a6d}
+.staunton-piece.black{--piece-edge:#020504;--piece-glint:#a8beb0;--piece-detail:#111b16;--piece-cut:#06100a;--piece-eye:#d8eadf}
+.staunton-piece.black .piece-grad-body-hi{stop-color:#5e7465}.staunton-piece.black .piece-grad-body-mid{stop-color:#26372d}.staunton-piece.black .piece-grad-body-low{stop-color:#0b120e}
+.staunton-piece.black .piece-grad-base-hi{stop-color:#465a4c}.staunton-piece.black .piece-grad-base-low{stop-color:#080d0a}.staunton-piece.black .piece-grad-band-hi{stop-color:#667b6c}.staunton-piece.black .piece-grad-band-low{stop-color:#18261e}
+.staunton-piece.black .piece-grad-shadow-hi{stop-color:#31483a}.staunton-piece.black .piece-grad-shadow-low{stop-color:#060a07}.staunton-piece.black .piece-grad-mane-hi{stop-color:#405747}.staunton-piece.black .piece-grad-mane-low{stop-color:#0a100c}
+.staunton-piece.black .piece-grad-jewel-hi{stop-color:#82988a}.staunton-piece.black .piece-grad-jewel-low{stop-color:#111c15}
+.sq.light{background:radial-gradient(circle at 34% 25%,#eadfc5 0 18%,transparent 55%),linear-gradient(145deg,#e1cfaa,#c2aa7e)}
+.sq.dark{background:radial-gradient(circle at 35% 24%,#8fa07b 0 12%,transparent 54%),linear-gradient(145deg,#788c68,#586d4d)}
+.replay-primary{border-color:#80d8a477;background:#80d8a417;color:#baf2d1}
+.result-actions{flex-wrap:wrap}
+.replay-modal{width:min(1120px,calc(100% - 18px));max-width:none;max-height:96dvh;padding:0;overflow:hidden}
+.replay-shell{max-height:96dvh;overflow:auto;padding:20px;background:radial-gradient(circle at 0 0,#80d8a414,transparent 28rem),#0b120d}
+.replay-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:15px}
+.replay-header h2{margin:4px 0 3px;font-size:clamp(23px,3vw,34px)}
+.replay-header p{margin:0;color:var(--muted)}
+.replay-header-actions{display:flex;align-items:center;gap:8px}
+.replay-layout{display:grid;grid-template-columns:minmax(0,650px) minmax(300px,1fr);gap:18px;align-items:start}
+.replay-board-column{min-width:0}
+.replay-position-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:9px 12px;border:1px solid var(--line);border-radius:14px 14px 0 0;background:#101a13}
+.replay-position-bar span{font-weight:850}.replay-position-bar b{color:var(--accent)}
+.replay-boardwrap{padding:5px;border-bottom:1px solid var(--line)}
+.replay-board .sq{cursor:default}
+.replay-board .sq.best-preview-square::after{z-index:5;box-shadow:inset 0 0 0 5px #7cf58a,inset 0 0 18px #7cf58a45}
+.replay-slider{width:100%;margin:13px 0 8px;accent-color:var(--accent)}
+.replay-controls{display:grid;grid-template-columns:48px 48px minmax(100px,1fr) 48px 48px;gap:7px}
+.replay-controls button{min-height:43px;border:1px solid var(--line);border-radius:12px;background:#202d23;font-weight:900;cursor:pointer}
+.replay-controls button:disabled{opacity:.35;cursor:default}.replay-controls .replay-auto{color:var(--accent)}
+.replay-coach-card{position:sticky;top:0;padding:19px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#18241b,#0f1711);box-shadow:0 18px 50px #0005}
+.replay-rating-row{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted);font-size:12px}
+.replay-coach-card h2{margin:15px 0 8px;font-size:24px}.replay-coach-card>p{margin:0;color:#dbe4dc;line-height:1.55}
+.replay-comparison{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.replay-comparison article{padding:12px;border:1px solid #ffffff14;border-radius:14px;background:#ffffff05}
+.replay-comparison small,.replay-comparison b,.replay-comparison span{display:block}.replay-comparison small{color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-size:9px}.replay-comparison b{margin-top:5px;font-size:18px}.replay-comparison span{margin-top:4px;color:#cdd8cf;font-size:11px;line-height:1.4}
+.replay-line{margin-top:10px;padding:12px;border-left:3px solid var(--gold);border-radius:10px;background:#f4cc700b}.replay-line small,.replay-line b{display:block}.replay-line small{color:var(--gold);text-transform:uppercase;letter-spacing:.07em;font-size:9px}.replay-line b{margin-top:5px;font:700 12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}
+.replay-best-button{width:100%;margin-top:12px}.replay-footnote{margin-top:12px!important;color:var(--muted)!important;font-size:10px!important}
+.recent-row{grid-template-columns:54px minmax(150px,1.4fr) minmax(62px,.45fr) minmax(62px,.45fr) minmax(72px,.55fr) 68px}
+.recent-replay{min-height:34px;border:1px solid #80d8a455;border-radius:10px;background:#80d8a411;color:#baf2d1;font-size:10px;font-weight:900;cursor:pointer}.recent-no-replay{color:var(--muted);text-align:center}
+.sound-toggle.audio-ready{border-color:#80d8a477;background:#80d8a41b;color:#c9f9da}
+.sound-toggle.audio-needs-tap{border-color:#f4cc7080;color:#ffe3a2;animation:soundReadyPulse 1.05s ease-in-out infinite alternate}
+@keyframes soundReadyPulse{to{box-shadow:0 0 0 5px #f4cc7015;filter:brightness(1.18)}}
+@media(max-width:760px){
+  .replay-shell{padding:10px}.replay-header{align-items:center}.replay-header-actions{gap:5px}.replay-header-actions .btn{min-height:36px;padding:0 9px;font-size:10px;white-space:nowrap}.replay-layout{grid-template-columns:1fr}.replay-coach-card{position:static;padding:15px}.replay-comparison{grid-template-columns:1fr 1fr}.replay-boardwrap{padding:2px}.piece.staunton-piece{width:73%;height:73%}.replay-controls{grid-template-columns:42px 42px minmax(90px,1fr) 42px 42px}.recent-row{grid-template-columns:48px minmax(0,1fr) 68px}.recent-row .hide-small,.recent-row>span:nth-of-type(5){display:none}.recent-replay{display:block}
+}
+@media(max-width:430px){
+  .replay-header h2{font-size:21px}.replay-header p{font-size:10px}.replay-comparison{grid-template-columns:1fr}.replay-coach-card h2{font-size:20px}.piece.staunton-piece{width:71%;height:71%}.replay-position-bar{font-size:11px}.replay-controls{gap:4px}.replay-controls button{min-height:40px}.result-actions .btn{flex:1 1 45%}
+}
