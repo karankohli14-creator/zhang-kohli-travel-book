@@ -71,7 +71,7 @@ css = read(css_path)
 if ".sound-toggle.audio-needs-tap" not in css:
     css += """
 .sound-toggle.audio-needs-tap{border-color:#f4cc7066;color:#ffe09a;animation:soundReadyPulse 1.15s ease-in-out infinite alternate}
-@keyframes soundReadyPulse{to{box-shadow:0 0 0 4px #f4cc7012;transform:scale(1.04)}}
+@keyframes soundReadyPulse{to{box-shadow:0 0 0 4px #f4cc7012;filter:brightness(1.12)}}
 """
 write(css_path, css)
 
