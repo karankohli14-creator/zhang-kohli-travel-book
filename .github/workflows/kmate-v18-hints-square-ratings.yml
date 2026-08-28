@@ -1,0 +1,144 @@
+name: K-Mate v18 hints and square ratings
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v18-hints-square-ratings.yml'
+permissions:
+  contents: write
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply K-Mate v18 patch
+        run: python .github/scripts/kmate_v18_hints_square_ratings.py
+      - name: Validate assembled application JavaScript
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{n}.txt').read_text() for n in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v18-combined.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v18-combined.js
+      - name: Validate feature markers
+        run: |
+          grep -q 'id="autoHints"' kmate-trainer/index.html
+          grep -q 'id="hintCard"' kmate-trainer/index.html
+          grep -q 'id="showHintButton"' kmate-trainer/index.html
+          grep -q 'move-quality-square' kmate-trainer/styles-v7.css
+          grep -q 'prepareHintForTurn' kmate-trainer/app-v7-part1.txt
+          grep -q 'ratedMoveSquare' kmate-trainer/app-v7-part1.txt
+          grep -q 'playMoveSound' kmate-trainer/app-v7-part1.txt
+      - name: Install browser test runtime
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          npx playwright install --with-deps chromium
+      - name: Run K-Mate locally
+        run: |
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v18-server.log 2>&1 &
+          echo $! >/tmp/kmate-v18-server.pid
+      - name: Verify hints and rated destination square on mobile
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+
+          async function waitForUserTurn(page) {
+            await page.waitForFunction(() => {
+              const state = window.__KMATE__?.state?.();
+              return state && state.turn === state.userColor;
+            }, null, { timeout: 90000 });
+          }
+
+          async function makeFirstLegalMove(page) {
+            return page.evaluate(() => {
+              const state = window.__KMATE__.state();
+              const className = state.userColor === 'w' ? 'white' : 'black';
+              for (const square of document.querySelectorAll('#board .sq')) {
+                if (!square.querySelector(`.piece.${className}`)) continue;
+                square.click();
+                const target = document.querySelector('#board .sq.legal, #board .sq.capture');
+                if (target) {
+                  const destination = target.dataset.square;
+                  target.click();
+                  return destination;
+                }
+              }
+              return null;
+            });
+          }
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
+            page.on('console', message => {
+              if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+            });
+
+            await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1', null, { timeout: 120000 });
+            assert.strictEqual(await page.locator('#autoHints').count(), 1, 'automatic-hints option missing');
+            assert.strictEqual(await page.locator('#soundToggle').count(), 1, 'sound toggle missing');
+            assert.strictEqual(await page.locator('#shareAppButton').count(), 1, 'share control missing');
+
+            // Manual mode: request a hint, then make a move and verify its landing square is rated.
+            assert.strictEqual(await page.locator('#autoHints').isChecked(), false, 'manual hints should be the default');
+            await page.click('#startButton');
+            await page.waitForSelector('#gameView:not([hidden])', { timeout: 30000 });
+            await waitForUserTurn(page);
+            await page.click('#showHintButton');
+            await page.waitForFunction(() => {
+              const state = window.__KMATE__?.state?.();
+              return state?.hint?.level >= 1;
+            }, null, { timeout: 120000 });
+            assert.strictEqual((await page.locator('#showHintButton').textContent()).trim(), 'Reveal candidate');
+            assert.ok((await page.locator('#hintText').textContent()).trim().length > 30, 'hint text is too short');
+
+            const destination = await makeFirstLegalMove(page);
+            assert.ok(destination, 'could not make a legal user move');
+            await page.waitForFunction(() => {
+              const state = window.__KMATE__?.state?.();
+              return state?.ratedMoveSquare && state.ratedMoveSquare.key !== 'pending';
+            }, null, { timeout: 120000 });
+            const rated = await page.evaluate(() => window.__KMATE__.state().ratedMoveSquare);
+            assert.strictEqual(rated.square, destination, 'rated square is not the move destination');
+            const squareClasses = await page.locator(`#board .sq[data-square="${destination}"]`).getAttribute('class');
+            assert.ok(squareClasses.includes('move-quality-square'), 'destination square lacks rating border');
+            assert.ok(squareClasses.includes(`quality-${rated.key}`), 'destination square color does not match rating');
+
+            // Automatic mode: reload setup, enable it, and confirm a hint appears without pressing the button.
+            await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1', null, { timeout: 120000 });
+            await page.check('#autoHints');
+            await page.click('#startButton');
+            await page.waitForSelector('#gameView:not([hidden])', { timeout: 30000 });
+            await waitForUserTurn(page);
+            await page.waitForFunction(() => window.__KMATE__?.state?.()?.hint?.level >= 1, null, { timeout: 120000 });
+            const autoState = await page.evaluate(() => window.__KMATE__.state());
+            assert.strictEqual(autoState.hint.automatic, true, 'automatic hint mode not active');
+            assert.ok(['Reveal candidate', 'Hint shown'].includes((await page.locator('#showHintButton').textContent()).trim()), 'automatic hint did not render');
+
+            if (errors.length) throw new Error(errors.join('\n'));
+            console.log(JSON.stringify({ ok: true, rated, autoHint: autoState.hint }, null, 2));
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+      - name: Commit K-Mate v18
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add kmate-trainer/index.html kmate-trainer/styles-v7.css kmate-trainer/app-v7.js kmate-trainer/app-v7-part1.txt kmate-trainer/app-v7-part6.txt
+          git commit -m 'K-Mate v18: progressive hints and rated landing squares' || exit 0
+          git push
