@@ -594,3 +594,29 @@ td small{display:block;color:var(--muted)}
 }
 
 .replay-comparison[hidden],.replay-line[hidden],.replay-best-button[hidden]{display:none!important}
+
+
+/* K-Mate v22 — natural voice selection and desktop piece dragging */
+.coach-voice-settings{display:grid;grid-template-columns:minmax(0,1fr) 102px;gap:7px;margin-top:7px}
+.coach-voice-select-wrap,.coach-rate-wrap{display:grid;gap:3px;min-width:0;color:var(--muted);font-size:8px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
+.coach-voice-select{width:100%;min-width:0;height:31px;padding:0 7px;border:1px solid #ffffff1b;border-radius:9px;background:#101a13;color:var(--text);font-size:9px;text-transform:none;letter-spacing:0}
+.coach-rate-wrap span{display:flex;justify-content:space-between;gap:6px}.coach-rate-wrap b{color:var(--accent);font-size:8px}
+.coach-rate-wrap input{width:100%;height:20px;margin:0;accent-color:var(--accent)}
+.coach-own-voice{border-color:#f4cc7040;color:#f7db9a}
+.voice-clone-modal p{color:#d5ddd6}
+#board .piece[draggable="true"]{cursor:grab}
+#board .piece[draggable="true"]:active{cursor:grabbing}
+#board .piece.dragging{opacity:.32;filter:saturate(.65)}
+body.dragging-piece #board .sq.drag-target{cursor:copy}
+#board .sq.drag-over{z-index:4;box-shadow:inset 0 0 0 6px #b9f474,inset 0 0 22px #b9f47455!important}
+#board .sq.drag-source{box-shadow:inset 0 0 0 5px #f4cc70!important}
+@media(max-width:760px){
+  .coach-voice-settings{grid-template-columns:minmax(0,1fr) 78px;gap:4px;margin-top:4px}
+  .coach-voice-select{height:25px;padding:0 5px;font-size:7px}
+  .coach-voice-select-wrap,.coach-rate-wrap{font-size:6.5px}
+  .coach-rate-wrap b{font-size:6.5px}
+  .coach-rate-wrap input{height:15px}
+  .coach-own-voice{display:none}
+}
+
+#board .piece[draggable="true"]{pointer-events:auto!important;cursor:grab}

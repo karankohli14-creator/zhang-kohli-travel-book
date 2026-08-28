@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=21.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=22.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -494,6 +494,11 @@
               <div class="coach-voice-row">
                 <button class="coach-voice-button active" id="coachVoiceToggle" type="button">🔊 Voice on</button>
                 <button class="coach-voice-button" id="coachSpeakButton" type="button">▶ Speak</button>
+                <button class="coach-voice-button coach-own-voice" id="coachMyVoiceInfo" type="button">My voice?</button>
+              </div>
+              <div class="coach-voice-settings">
+                <label class="coach-voice-select-wrap" for="coachVoiceSelect"><span>Voice</span><select id="coachVoiceSelect" class="coach-voice-select"><option value="auto">Natural — best available</option></select></label>
+                <label class="coach-rate-wrap" for="coachRateRange"><span>Pace <b id="coachRateValue">0.92×</b></span><input id="coachRateRange" type="range" min="0.82" max="1.06" step="0.02" value="0.92"></label>
               </div>
               <h2 id="replayCoachTitle">Start with the original position</h2>
               <p class="coach-transcript" id="replayCoachText">Coach K will explain each move and compare your decision with Stockfish’s preferred continuation.</p>
@@ -523,7 +528,19 @@
     </div>
   </dialog>
 
+
+  <dialog id="voiceCloneDialog" class="modal beta-modal voice-clone-modal">
+    <div class="modal-card">
+      <div class="eyebrow">Using your own voice</div>
+      <h2>A real voice clone needs a secure speech service</h2>
+      <p>K-Mate can now choose the most natural voice exposed by your phone or computer, and you can select any available English voice. That remains device-generated speech.</p>
+      <p>Using your actual voice for new, unscripted chess explanations requires a consented voice recording plus a secure server-based text-to-speech provider. This static beta does not record, upload, or imitate your voice.</p>
+      <p>The interface is prepared for a verified personal-voice profile when K-Mate gains accounts and a backend.</p>
+      <button class="btn primary" type="button" data-close="voiceCloneDialog">Understood</button>
+    </div>
+  </dialog>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=21.0.0"></script>
+  <script type="module" src="./app-v7.js?v=22.0.0"></script>
 </body>
 </html>

@@ -119,6 +119,8 @@ const defaultSettings = {
   blindCalibration: false,
   autoHints: false,
   coachVoice: true,
+  coachVoiceURI: 'auto',
+  coachVoiceRate: 0.92,
 };
 
 function emptyStore() {
@@ -185,6 +187,11 @@ let coachSpeechUtterance = null;
 let coachSpeechTimer = null;
 let coachVoiceCache = null;
 let coachSpeechSerial = 0;
+let coachSpeechQueue = [];
+let coachSpeechQueueIndex = 0;
+let dragSourceSquare = null;
+let dragMoveCommitted = false;
+let dragSuppressClickUntil = 0;
 
 function soundEnabled() {
   return settings.sound !== false;
@@ -427,7 +434,7 @@ async function toggleSound() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260828-21';
+  url.search = '?v=20260828-22';
   url.hash = '';
   return url.href;
 }
@@ -1010,6 +1017,82 @@ function kingInCheckSquare() {
   return null;
 }
 
+function clearBoardDragVisuals() {
+  document.body.classList.remove('dragging-piece');
+  $$('#board .sq.drag-target, #board .sq.drag-over, #board .sq.drag-source').forEach((square) => {
+    square.classList.remove('drag-target', 'drag-over', 'drag-source', 'legal', 'capture', 'selected');
+  });
+  $$('#board .piece.dragging').forEach((piece) => piece.classList.remove('dragging'));
+}
+
+function beginBoardDrag(event, square) {
+  if (!game || thinking || finalized || game.isGameOver() || game.turn() !== userColor || game.get(square)?.color !== userColor) {
+    event.preventDefault();
+    return;
+  }
+  const moves = game.moves({ square, verbose: true });
+  if (!moves.length) {
+    event.preventDefault();
+    return;
+  }
+  dragSourceSquare = square;
+  dragMoveCommitted = false;
+  selected = square;
+  legalMoves = moves;
+  event.dataTransfer?.setData('text/plain', square);
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  event.currentTarget.classList.add('dragging');
+  document.body.classList.add('dragging-piece');
+  const sourceCell = $(`#board .sq[data-square="${square}"]`);
+  sourceCell?.classList.add('selected', 'drag-source');
+  for (const move of moves) {
+    const target = $(`#board .sq[data-square="${move.to}"]`);
+    if (!target) continue;
+    target.classList.add('drag-target', game.get(move.to) ? 'capture' : 'legal');
+  }
+}
+
+function dragOverBoardSquare(event, square) {
+  if (!dragSourceSquare || !legalMoves.some((move) => move.to === square)) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  $$('#board .sq.drag-over').forEach((cell) => cell.classList.remove('drag-over'));
+  event.currentTarget.classList.add('drag-over');
+}
+
+function leaveBoardDragSquare(event) {
+  event.currentTarget.classList.remove('drag-over');
+}
+
+function dropBoardPiece(event, square) {
+  if (!dragSourceSquare) return;
+  const candidates = legalMoves.filter((move) => move.to === square);
+  if (!candidates.length) return;
+  event.preventDefault();
+  dragMoveCommitted = true;
+  dragSuppressClickUntil = performance.now() + 650;
+  const from = dragSourceSquare;
+  clearBoardDragVisuals();
+  if (candidates.some((move) => move.promotion)) {
+    promotionBase = { from, to: square };
+    openPromotion();
+    return;
+  }
+  makeUserMove({ from, to: square, promotion: 'q' });
+}
+
+function endBoardDrag() {
+  const committed = dragMoveCommitted;
+  clearBoardDragVisuals();
+  dragSourceSquare = null;
+  dragMoveCommitted = false;
+  if (!committed) {
+    selected = null;
+    legalMoves = [];
+    renderBoard();
+  }
+}
+
 function renderBoard() {
   const board = $('#board');
   board.innerHTML = '';
@@ -1038,6 +1121,12 @@ function renderBoard() {
       const glyph = document.createElement('span');
       glyph.className = `piece ${piece.color === 'w' ? 'white' : 'black'}`;
       renderPieceGraphic(glyph, piece.type, piece.color);
+      glyph.draggable = piece.color === userColor;
+      if (piece.color === userColor) {
+        glyph.title = 'Drag this piece or click it';
+        glyph.addEventListener('dragstart', (event) => beginBoardDrag(event, square));
+        glyph.addEventListener('dragend', endBoardDrag);
+      }
       button.append(glyph);
     }
     if (index % 8 === 0) {
@@ -1052,7 +1141,14 @@ function renderBoard() {
       file.textContent = square[0];
       button.append(file);
     }
-    button.addEventListener('click', () => tapSquare(square));
+    button.addEventListener('dragover', (event) => dragOverBoardSquare(event, square));
+    button.addEventListener('dragenter', (event) => dragOverBoardSquare(event, square));
+    button.addEventListener('dragleave', leaveBoardDragSquare);
+    button.addEventListener('drop', (event) => dropBoardPiece(event, square));
+    button.addEventListener('click', () => {
+      if (performance.now() < dragSuppressClickUntil) return;
+      tapSquare(square);
+    });
     board.append(button);
   });
 }
@@ -1899,32 +1995,107 @@ function coachVoiceAvailable() {
   return Boolean(window.speechSynthesis && window.SpeechSynthesisUtterance);
 }
 
-function chooseCoachVoice() {
-  if (!coachVoiceAvailable()) return null;
+function coachVoiceScore(voice) {
+  const name = `${voice?.name || ''} ${voice?.voiceURI || ''}`.toLowerCase();
+  const lang = String(voice?.lang || '').toLowerCase();
+  let score = /^en([_-]|$)/.test(lang) ? 100 : -1000;
+  if (/premium|enhanced|natural|neural|high quality|hq/.test(name)) score += 220;
+  if (/ava|samantha|serena|daniel|karen|moira|aria|jenny|sonia|olivia|aaron|allison|tom|victoria/.test(name)) score += 90;
+  if (/en-us/.test(lang)) score += 25;
+  else if (/en-gb|en-au|en-ie|en-ca/.test(lang)) score += 18;
+  if (voice?.localService) score += 8;
+  if (/compact|robot|espeak|fred|zarvox|whisper|bad news|bubbles|cellos/.test(name)) score -= 180;
+  return score;
+}
+
+function englishCoachVoices() {
+  if (!coachVoiceAvailable()) return [];
   const voices = window.speechSynthesis.getVoices?.() || [];
-  if (coachVoiceCache && voices.includes(coachVoiceCache)) return coachVoiceCache;
-  const english = voices.filter((voice) => /^en([_-]|$)/i.test(voice.lang || ''));
-  const preferredNames = ['Samantha', 'Daniel', 'Karen', 'Moira', 'Microsoft Aria', 'Google US English', 'Google UK English Female'];
-  coachVoiceCache = preferredNames.map((name) => english.find((voice) => voice.name.includes(name))).find(Boolean)
-    || english.find((voice) => voice.localService)
-    || english[0]
-    || voices[0]
-    || null;
+  const seen = new Set();
+  return voices.filter((voice) => {
+    if (!/^en([_-]|$)/i.test(voice.lang || '')) return false;
+    const key = voice.voiceURI || `${voice.name}-${voice.lang}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function chooseCoachVoice() {
+  const voices = englishCoachVoices();
+  if (!voices.length) return null;
+  const selected = settings.coachVoiceURI || 'auto';
+  if (selected !== 'auto') {
+    const exact = voices.find((voice) => (voice.voiceURI || `${voice.name}-${voice.lang}`) === selected);
+    if (exact) {
+      coachVoiceCache = exact;
+      return exact;
+    }
+  }
+  coachVoiceCache = voices.slice().sort((a, b) => coachVoiceScore(b) - coachVoiceScore(a) || a.name.localeCompare(b.name))[0] || null;
   return coachVoiceCache;
+}
+
+function populateCoachVoiceSelect() {
+  const select = $('#coachVoiceSelect');
+  if (!select) return;
+  const voices = englishCoachVoices();
+  const resolved = chooseCoachVoice();
+  const requested = settings.coachVoiceURI || 'auto';
+  select.innerHTML = '';
+  const auto = document.createElement('option');
+  auto.value = 'auto';
+  auto.textContent = resolved ? `Natural — ${resolved.name}` : 'Natural — best available';
+  select.append(auto);
+  for (const voice of voices.slice().sort((a, b) => coachVoiceScore(b) - coachVoiceScore(a) || a.name.localeCompare(b.name))) {
+    const option = document.createElement('option');
+    option.value = voice.voiceURI || `${voice.name}-${voice.lang}`;
+    const quality = coachVoiceScore(voice) >= 250 ? 'Natural' : 'System';
+    option.textContent = `${quality} — ${voice.name} (${voice.lang})`;
+    select.append(option);
+  }
+  select.value = [...select.options].some((option) => option.value === requested) ? requested : 'auto';
+  if (select.value !== requested) settings.coachVoiceURI = 'auto';
 }
 
 function updateCoachVoiceControls() {
   const toggle = $('#coachVoiceToggle');
   const speak = $('#coachSpeakButton');
+  const select = $('#coachVoiceSelect');
+  const rate = $('#coachRateRange');
   if (!toggle || !speak) return;
   const available = coachVoiceAvailable();
   const enabled = settings.coachVoice !== false;
+  populateCoachVoiceSelect();
   toggle.disabled = !available;
   speak.disabled = !available;
+  if (select) select.disabled = !available;
+  if (rate) {
+    rate.disabled = !available;
+    rate.value = String(Number(settings.coachVoiceRate) || 0.92);
+  }
+  const rateValue = $('#coachRateValue');
+  if (rateValue) rateValue.textContent = `${(Number(settings.coachVoiceRate) || 0.92).toFixed(2)}×`;
   toggle.classList.toggle('active', available && enabled);
   toggle.textContent = !available ? 'Text only' : enabled ? '🔊 Voice on' : '🔇 Voice off';
   toggle.title = !available ? 'Speech is unavailable in this browser' : enabled ? 'Turn Coach K voice off' : 'Turn Coach K voice on';
-  speak.textContent = window.speechSynthesis?.speaking ? '■ Stop' : '▶ Speak';
+  speak.textContent = coachSpeechUtterance || window.speechSynthesis?.speaking ? '■ Stop' : '▶ Speak';
+}
+
+function handleCoachVoiceSelect(event) {
+  settings.coachVoiceURI = event?.target?.value || 'auto';
+  coachVoiceCache = null;
+  saveStore();
+  updateCoachVoiceControls();
+  if ($('#replayDialog')?.open && settings.coachVoice !== false) scheduleCoachSpeech(70, true);
+}
+
+function handleCoachRateChange(event) {
+  const value = Math.max(0.82, Math.min(1.06, Number(event?.target?.value) || 0.92));
+  settings.coachVoiceRate = value;
+  saveStore();
+  const label = $('#coachRateValue');
+  if (label) label.textContent = `${value.toFixed(2)}×`;
 }
 
 function setCoachSpeaking(active) {
@@ -1941,6 +2112,8 @@ function stopCoachSpeech() {
   coachSpeechSerial += 1;
   if (coachSpeechTimer) window.clearTimeout(coachSpeechTimer);
   coachSpeechTimer = null;
+  coachSpeechQueue = [];
+  coachSpeechQueueIndex = 0;
   try { window.speechSynthesis?.cancel(); } catch {}
   coachSpeechUtterance = null;
   setCoachSpeaking(false);
@@ -1959,21 +2132,59 @@ function coachSpeechTextForCurrentFrame() {
     .trim();
 }
 
-function speakCoachFrame(force = false) {
-  if (!coachVoiceAvailable()) {
-    if (force) toast('Voice narration is not available in this browser');
-    updateCoachVoiceControls();
-    return false;
+function speechFriendlyText(text) {
+  const names = { K: 'king', Q: 'queen', R: 'rook', B: 'bishop', N: 'knight' };
+  const suffix = (mark) => mark === '#' ? ', checkmate' : mark === '+' ? ', check' : '';
+  return String(text || '')
+    .replace(/\bO-O-O\b/g, 'castle queenside')
+    .replace(/\bO-O\b/g, 'castle kingside')
+    .replace(/\b([KQRBN])x([a-h])([1-8])([+#])?/g, (_all, piece, file, rank, mark) => `${names[piece]} takes ${file.toUpperCase()} ${rank}${suffix(mark)}`)
+    .replace(/\b([KQRBN])([a-h])([1-8])([+#])?/g, (_all, piece, file, rank, mark) => `${names[piece]} to ${file.toUpperCase()} ${rank}${suffix(mark)}`)
+    .replace(/\b([a-h])x([a-h])([1-8])([+#])?/g, (_all, from, file, rank, mark) => `pawn from ${from.toUpperCase()} takes on ${file.toUpperCase()} ${rank}${suffix(mark)}`)
+    .replace(/\b([a-h])([1-8])([+#])?/g, (_all, file, rank, mark) => `${file.toUpperCase()} ${rank}${suffix(mark)}`)
+    .replace(/\bcp\b/gi, 'centipawns')
+    .replace(/−/g, ' minus ')
+    .replace(/\+/g, ' plus ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function coachSpeechSegmentsForCurrentFrame() {
+  const title = $('#replayCoachTitle')?.textContent?.trim() || '';
+  const text = $('#replayCoachText')?.textContent?.trim() || '';
+  const comparison = $('#replayComparison');
+  const visibleComparison = comparison && !comparison.hidden;
+  const why = visibleComparison ? $('#replayWhyText')?.textContent?.trim() || '' : '';
+  const best = visibleComparison ? $('#replayBestText')?.textContent?.trim() || '' : '';
+  return [
+    { text: title, pause: 110 },
+    { text, pause: 230 },
+    { text: why ? `About your move. ${why}` : '', pause: 250 },
+    { text: best ? `The stronger move. ${best}` : '', pause: 0 },
+  ].filter((segment) => segment.text);
+}
+
+function finishCoachSpeech(serial) {
+  if (serial !== coachSpeechSerial) return;
+  coachSpeechUtterance = null;
+  coachSpeechQueue = [];
+  coachSpeechQueueIndex = 0;
+  setCoachSpeaking(false);
+  updateCoachVoiceControls();
+  updateCoachAvatarMood(replayState.frames[replayState.index]);
+}
+
+function speakCoachQueueSegment(serial) {
+  if (serial !== coachSpeechSerial) return;
+  const segment = coachSpeechQueue[coachSpeechQueueIndex];
+  if (!segment) {
+    finishCoachSpeech(serial);
+    return;
   }
-  if (!force && settings.coachVoice === false) return false;
-  const text = coachSpeechTextForCurrentFrame();
-  if (!text) return false;
-  stopCoachSpeech();
-  const serial = ++coachSpeechSerial;
-  const utterance = new SpeechSynthesisUtterance(text);
+  const utterance = new SpeechSynthesisUtterance(speechFriendlyText(segment.text));
   utterance.lang = 'en-US';
-  utterance.rate = 0.94;
-  utterance.pitch = 1.02;
+  utterance.rate = Math.max(0.82, Math.min(1.06, Number(settings.coachVoiceRate) || 0.92));
+  utterance.pitch = 1.0;
   utterance.volume = 1;
   const voice = chooseCoachVoice();
   if (voice) utterance.voice = voice;
@@ -1983,24 +2194,38 @@ function speakCoachFrame(force = false) {
     setCoachSpeaking(true);
     updateCoachVoiceControls();
   };
-  const finish = () => {
+  utterance.onend = () => {
     if (serial !== coachSpeechSerial) return;
     coachSpeechUtterance = null;
-    setCoachSpeaking(false);
-    updateCoachAvatarMood(replayState.frames[replayState.index]);
+    coachSpeechQueueIndex += 1;
+    coachSpeechTimer = window.setTimeout(() => speakCoachQueueSegment(serial), segment.pause || 0);
   };
-  utterance.onend = finish;
-  utterance.onerror = finish;
+  utterance.onerror = () => finishCoachSpeech(serial);
   coachSpeechUtterance = utterance;
   try {
     window.speechSynthesis.speak(utterance);
     updateCoachVoiceControls();
-    return true;
   } catch (error) {
     console.warn('Coach voice could not start.', error);
-    finish();
+    finishCoachSpeech(serial);
+  }
+}
+
+function speakCoachFrame(force = false) {
+  if (!coachVoiceAvailable()) {
+    if (force) toast('Voice narration is not available in this browser');
+    updateCoachVoiceControls();
     return false;
   }
+  if (!force && settings.coachVoice === false) return false;
+  const segments = coachSpeechSegmentsForCurrentFrame();
+  if (!segments.length) return false;
+  stopCoachSpeech();
+  const serial = ++coachSpeechSerial;
+  coachSpeechQueue = segments;
+  coachSpeechQueueIndex = 0;
+  speakCoachQueueSegment(serial);
+  return true;
 }
 
 function scheduleCoachSpeech(delay = 180, force = false) {
@@ -2063,7 +2288,7 @@ function updateCoachAvatarMood(frame) {
 
 window.speechSynthesis?.addEventListener?.('voiceschanged', () => {
   coachVoiceCache = null;
-  chooseCoachVoice();
+  populateCoachVoiceSelect();
   updateCoachVoiceControls();
 });
 
