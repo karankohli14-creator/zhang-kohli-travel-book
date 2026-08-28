@@ -655,3 +655,26 @@ body.dragging-piece #board .sq.drag-target{cursor:copy}
   .engine-last-marker{right:2px;top:2px;min-width:18px;height:15px;padding:0 3px;font-size:6.5px}
   .sq.last.last-engine.last-to{box-shadow:inset 0 0 0 4px #5bd4ff,inset 0 0 0 999px #168ec655,0 0 12px #43cfff88!important}
 }
+
+
+/* K-Mate v25 — consistent review and animated best continuation */
+.replay-best-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}
+.replay-best-actions .btn{width:100%;min-height:40px;padding:0 10px;font-size:11px}
+.replay-best-line-button{border-color:#75d6ff55;background:#168ec617;color:#aeeaff}
+.replay-best-line-button:hover{border-color:#75d6ffaa;background:#168ec62c}
+.replay-best-line-status{display:grid;gap:3px;margin-top:8px;padding:10px 11px;border:1px solid #75d6ff38;border-radius:12px;background:#0a70931a;text-align:left}
+.replay-best-line-status b{color:#bdeeff;font-size:12px}
+.replay-best-line-status span{color:#cbdadf;font-size:10px;line-height:1.35}
+.best-line-token{display:inline-block;margin:2px 1px;padding:3px 5px;border-radius:7px;background:#ffffff08;color:var(--muted);font-size:10px}
+.best-line-token.active{background:#168ec64a;color:#d9f7ff;box-shadow:inset 0 0 0 1px #75d6ff77}
+.replay-board .sq.best-line-preview-square{box-shadow:inset 0 0 0 5px #5bd4ff,inset 0 0 0 999px #168ec64d!important}
+.replay-board .sq.best-line-preview-square.best-preview-square{animation:bestLinePulseV25 .55s ease-out}
+@keyframes bestLinePulseV25{0%{filter:brightness(1.55)}100%{filter:none}}
+@media(max-width:760px){
+  .replay-best-actions{gap:4px;margin-top:5px}
+  .replay-best-actions .btn{min-height:31px;padding:0 6px;font-size:8px}
+  .replay-best-line-status{margin-top:4px;padding:6px 7px}
+  .replay-best-line-status b{font-size:8.5px}.replay-best-line-status span{font-size:7px}
+  .best-line-token{padding:2px 3px;font-size:7px}
+  .replay-board .sq.best-line-preview-square{box-shadow:inset 0 0 0 3px #5bd4ff,inset 0 0 0 999px #168ec64d!important}
+}

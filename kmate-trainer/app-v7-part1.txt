@@ -78,6 +78,100 @@ const QUALITY_BANDS = [
   { max: 220, key: 'miss', label: 'Miss' },
   { max: Infinity, key: 'blunder', label: 'Blunder' },
 ];
+
+function normalizeUciMove(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-h1-8qrbn]/g, '').slice(0, 5);
+}
+
+function sameUciMove(first, second) {
+  const a = normalizeUciMove(first);
+  const b = normalizeUciMove(second);
+  return Boolean(a && b && a === b);
+}
+
+function pvWithRootMove(rootMove, pv) {
+  const root = normalizeUciMove(rootMove);
+  const line = Array.isArray(pv) ? pv.map(normalizeUciMove).filter(Boolean) : [];
+  if (!root) return line.slice(0, 12);
+  return sameUciMove(line[0], root) ? line.slice(0, 12) : [root, ...line.filter((move) => !sameUciMove(move, root))].slice(0, 12);
+}
+
+function effectiveMoveLoss(record) {
+  if (!record) return null;
+  if (sameUciMove(record.uci, record.bestMove)) return 0;
+  return Number.isFinite(record.cpLoss) ? Math.max(0, Number(record.cpLoss)) : null;
+}
+
+function qualityBandFromLoss(loss) {
+  if (!Number.isFinite(loss)) return { key: 'pending', label: 'Pending' };
+  return QUALITY_BANDS.find((band) => loss <= band.max) || QUALITY_BANDS.at(-1);
+}
+
+function qualityForMoveRecord(record) {
+  return qualityBandFromLoss(effectiveMoveLoss(record));
+}
+
+function reconcileMoveAnalysisRecord(record) {
+  if (!record || typeof record !== 'object') return false;
+  let changed = false;
+  record.uci = normalizeUciMove(record.uci) || record.uci;
+  record.bestMove = normalizeUciMove(record.bestMove) || record.bestMove || null;
+  if (record.bestMove) {
+    const line = pvWithRootMove(record.bestMove, record.bestLine);
+    if (JSON.stringify(line) !== JSON.stringify(record.bestLine || [])) {
+      record.bestLine = line;
+      changed = true;
+    }
+  }
+  if (record.uci) {
+    const selectedLine = pvWithRootMove(record.uci, record.selectedLine);
+    if (Array.isArray(record.selectedLine) && JSON.stringify(selectedLine) !== JSON.stringify(record.selectedLine)) {
+      record.selectedLine = selectedLine;
+      changed = true;
+    }
+  }
+  if (sameUciMove(record.uci, record.bestMove)) {
+    if (record.cpLoss !== 0) { record.cpLoss = 0; changed = true; }
+    if (record.quality !== 'best') { record.quality = 'best'; changed = true; }
+    if (Number.isFinite(record.bestScore) && record.selectedScore !== record.bestScore) {
+      record.selectedScore = record.bestScore;
+      changed = true;
+    }
+    if (record.exactBest !== true) { record.exactBest = true; changed = true; }
+    if (record.analysisConsistency !== 'exact-engine-match') {
+      record.analysisConsistency = 'exact-engine-match';
+      changed = true;
+    }
+  } else if (Number.isFinite(record.cpLoss)) {
+    const key = qualityBandFromLoss(record.cpLoss).key;
+    if (record.quality !== key) { record.quality = key; changed = true; }
+  }
+  return changed;
+}
+
+function reconcileSessionAnalysis(session) {
+  if (!session || !Array.isArray(session.userMoves)) return false;
+  let changed = false;
+  for (const move of session.userMoves) changed = reconcileMoveAnalysisRecord(move) || changed;
+  const losses = session.userMoves.map(effectiveMoveLoss).filter(Number.isFinite);
+  const nextAverage = losses.length ? losses.reduce((sum, value) => sum + value, 0) / losses.length : null;
+  if ((Number.isFinite(nextAverage) && session.avgCpLoss !== nextAverage) || (!Number.isFinite(nextAverage) && session.avgCpLoss != null)) {
+    session.avgCpLoss = nextAverage;
+    changed = true;
+  }
+  const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, miss: 0, blunder: 0 };
+  for (const move of session.userMoves) {
+    const key = qualityForMoveRecord(move).key;
+    if (quality[key] !== undefined) quality[key] += 1;
+  }
+  if (JSON.stringify(session.quality || {}) !== JSON.stringify(quality)) {
+    session.quality = quality;
+    changed = true;
+  }
+  session.analyzedMoves = losses.length;
+  return changed;
+}
+
 const THEME_ADVICE = {
   calculation: 'Slow down before forcing positions. Compare checks, captures, and threats before choosing a move.',
   'king safety': 'Your results suggest that king safety deserves an earlier place in your candidate-move scan.',
@@ -156,6 +250,12 @@ if (!store.settings.coachVoiceURI || store.settings.coachVoiceURI === 'auto') {
   store.settings.coachVoiceURI = 'british-woman';
 }
 
+let repairedStoredMoveRatings = false;
+for (const session of store.sessions) repairedStoredMoveRatings = reconcileSessionAnalysis(session) || repairedStoredMoveRatings;
+if (repairedStoredMoveRatings) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch {}
+}
+
 let settings = { ...store.settings };
 let game = null;
 let current = null;
@@ -190,7 +290,7 @@ let ratedMoveSquare = null;
 let hintRequestId = 0;
 let hintState = { fen: null, status: 'idle', level: 0, strategicText: '', exactText: '', candidate: null, requestedReveal: false, counted: false, revealCounted: false };
 let timeoutHandling = false;
-let replayState = { session: null, frames: [], index: 0, timer: null, auto: false, showBest: false };
+let replayState = { session: null, frames: [], index: 0, timer: null, auto: false, showBest: false, bestLineKey: null, bestLineFrames: [], bestLineIndex: -1, bestLineTimer: null, bestLinePlaying: false };
 let coachSpeechUtterance = null;
 let coachSpeechTimer = null;
 let coachVoiceCache = null;
@@ -485,7 +585,7 @@ function previewSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260828-24';
+  url.search = '?v=20260828-25';
   url.hash = '';
   return url.href;
 }
@@ -571,8 +671,7 @@ function timeControl() {
 }
 
 function qualityForLoss(loss) {
-  if (!Number.isFinite(loss)) return { key: 'pending', label: 'Pending' };
-  return QUALITY_BANDS.find((band) => loss <= band.max) || QUALITY_BANDS.at(-1);
+  return qualityBandFromLoss(loss);
 }
 
 function average(values) {
@@ -1434,8 +1533,8 @@ function renderTurns() {
 }
 
 function moveRatingForRecord(record) {
-  if (!record || !Number.isFinite(record.cpLoss)) return { key: 'pending', label: 'Analyzing' };
-  return qualityForLoss(record.cpLoss);
+  if (!record || !Number.isFinite(effectiveMoveLoss(record))) return { key: 'pending', label: 'Analyzing' };
+  return qualityForMoveRecord(record);
 }
 
 function renderMoveCell(cell) {
@@ -1490,7 +1589,7 @@ function renderMoveList() {
 
 function renderLiveQuality() {
   const moves = currentSession?.userMoves || [];
-  const losses = moves.map((move) => move.cpLoss).filter(Number.isFinite);
+  const losses = moves.map(effectiveMoveLoss).filter(Number.isFinite);
   $('#analyzedMoves').textContent = losses.length;
   $('#liveCpl').textContent = losses.length ? `${Math.round(average(losses))} cp` : '—';
   $('#takebackCount').textContent = currentSession?.takebacks || 0;
@@ -1604,11 +1703,12 @@ function showMoveQualityBadge(move) {
     badge.classList.add('quality-pending');
     return;
   }
-  const band = qualityForLoss(move.cpLoss);
+  const band = qualityForMoveRecord(move);
+  const loss = effectiveMoveLoss(move);
   badge.hidden = false;
   badge.textContent = band.label;
   badge.classList.add(`quality-${band.key}`);
-  badge.title = Number.isFinite(move.cpLoss) ? `${Math.round(move.cpLoss)} centipawn estimated loss` : band.label;
+  badge.title = Number.isFinite(loss) ? `${Math.round(loss)} centipawn estimated loss` : band.label;
 }
 
 
@@ -1988,21 +2088,68 @@ function applyEngineReply(id, data) {
 
 async function analyzeMoveWithStockfish(fenBefore, moveUci) {
   const engine = getStockfishReviewEngine();
-  const before = await engine.evaluate({ fen: fenBefore, movetime: 700 });
-  const g = new Chess(fenBefore);
-  const selected = g.move({ from: moveUci.slice(0, 2), to: moveUci.slice(2, 4), promotion: moveUci[4] || 'q' });
-  if (!selected) throw new Error('Unable to reproduce move for review');
-  const after = await engine.evaluate({ fen: g.fen(), movetime: 480 });
-  const bestScore = before.scoreCp;
-  const selectedScore = -after.scoreCp;
+  const selectedMove = normalizeUciMove(moveUci);
+  if (!selectedMove) throw new Error('Move review received an invalid UCI move');
+
+  // First identify Stockfish's preferred root move. The actual loss comparison
+  // below is then run from the SAME FEN, with the SAME time budget, and each
+  // candidate forced via UCI searchmoves. This avoids perspective/sign drift and
+  // unequal-search contradictions such as “Re5: Blunder / Best move: Re5”.
+  const discovery = await engine.evaluate({ fen: fenBefore, movetime: 760 });
+  let bestMove = normalizeUciMove(discovery.move);
+  if (!bestMove) bestMove = selectedMove;
+
+  if (sameUciMove(selectedMove, bestMove)) {
+    const bestLine = pvWithRootMove(bestMove, discovery.pv);
+    return {
+      cpLoss: 0,
+      bestMove,
+      bestLine,
+      selectedLine: bestLine,
+      bestScore: discovery.scoreCp,
+      selectedScore: discovery.scoreCp,
+      depth: discovery.depth || 0,
+      exactBest: true,
+      analysisConsistency: 'exact-engine-match',
+      source: 'Stockfish 18 equal-root review',
+    };
+  }
+
+  const comparisonTime = 620;
+  const bestRoot = await engine.evaluate({ fen: fenBefore, movetime: comparisonTime, searchMoves: [bestMove] });
+  const selectedRoot = await engine.evaluate({ fen: fenBefore, movetime: comparisonTime, searchMoves: [selectedMove] });
+  let bestScore = Number(bestRoot.scoreCp);
+  let selectedScore = Number(selectedRoot.scoreCp);
+  if (!Number.isFinite(bestScore)) bestScore = Number(discovery.scoreCp) || 0;
+  if (!Number.isFinite(selectedScore)) selectedScore = bestScore;
+  let bestLine = pvWithRootMove(bestMove, bestRoot.pv || discovery.pv);
+  const selectedLine = pvWithRootMove(selectedMove, selectedRoot.pv);
+
+  // If the forced search now scores the user's move higher than the discovery
+  // move, search variance has shown that the user's move is at least co-best.
+  let exactBest = false;
+  let cpLoss = Math.max(0, Math.round(bestScore - selectedScore));
+  if (selectedScore >= bestScore - 8) {
+    cpLoss = 0;
+    exactBest = true;
+    if (selectedScore > bestScore + 8) {
+      bestMove = selectedMove;
+      bestScore = selectedScore;
+      bestLine = selectedLine;
+    }
+  }
+
   return {
-    cpLoss: Math.min(1000, Math.max(0, Math.round(bestScore - selectedScore))),
-    bestMove: before.move,
-    bestLine: Array.isArray(before.pv) && before.pv.length ? before.pv.slice(0, 10) : (before.move ? [before.move] : []),
+    cpLoss: Math.min(1000, cpLoss),
+    bestMove,
+    bestLine,
+    selectedLine,
     bestScore,
     selectedScore,
-    depth: Math.max(before.depth || 0, after.depth || 0),
-    source: 'Stockfish 18',
+    depth: Math.max(discovery.depth || 0, bestRoot.depth || 0, selectedRoot.depth || 0),
+    exactBest,
+    analysisConsistency: 'equal-time-root-restricted',
+    source: 'Stockfish 18 equal-root review',
   };
 }
 
@@ -2012,18 +2159,22 @@ function applyMoveAnalysisResult(sessionId, moveId, data) {
     : store.sessions.find((session) => session.id === sessionId);
   const targetMove = targetSession?.userMoves?.find((move) => move.id === moveId);
   if (!targetMove || !Number.isFinite(data.cpLoss)) return;
-  targetMove.cpLoss = data.cpLoss;
-  targetMove.bestMove = data.bestMove || null;
+  targetMove.cpLoss = Math.max(0, Number(data.cpLoss) || 0);
+  targetMove.bestMove = normalizeUciMove(data.bestMove) || null;
   targetMove.bestScore = data.bestScore ?? null;
   targetMove.selectedScore = data.selectedScore ?? null;
   targetMove.analysisDepth = data.depth || null;
   targetMove.analysisSource = data.source || 'Local fallback';
-  targetMove.bestLine = Array.isArray(data.bestLine) ? data.bestLine.slice(0, 10) : (data.bestMove ? [data.bestMove] : []);
-  targetMove.quality = qualityForLoss(data.cpLoss).key;
+  targetMove.bestLine = pvWithRootMove(targetMove.bestMove, data.bestLine);
+  targetMove.selectedLine = pvWithRootMove(targetMove.uci, data.selectedLine);
+  targetMove.exactBest = Boolean(data.exactBest);
+  targetMove.analysisConsistency = data.analysisConsistency || null;
+  reconcileMoveAnalysisRecord(targetMove);
+  targetMove.quality = qualityForMoveRecord(targetMove).key;
   if (currentSession?.id === sessionId) {
     const latestMove = currentSession.userMoves[currentSession.userMoves.length - 1];
     if (latestMove?.id === moveId) {
-      const band = qualityForLoss(data.cpLoss);
+      const band = qualityForMoveRecord(targetMove);
       ratedMoveSquare = { square: targetMove.to || targetMove.uci.slice(2, 4), key: band.key, label: band.label };
       renderBoard();
     }
@@ -2097,10 +2248,12 @@ function finishIfNeeded() {
 }
 
 function summarizeSession(session) {
-  const losses = session.userMoves.map((move) => move.cpLoss).filter(Number.isFinite);
+  reconcileSessionAnalysis(session);
+  const losses = session.userMoves.map(effectiveMoveLoss).filter(Number.isFinite);
   const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, miss: 0, blunder: 0 };
   for (const move of session.userMoves) {
-    if (quality[move.quality] !== undefined) quality[move.quality] += 1;
+    const key = qualityForMoveRecord(move).key;
+    if (quality[key] !== undefined) quality[key] += 1;
   }
   const control = TIME_CONTROLS[session.timeControl] || TIME_CONTROLS.untimed;
   const used = control.base
@@ -2180,15 +2333,16 @@ function reviewGradeForSession(session) {
 }
 
 function reviewMoveAdvice(move) {
-  if (!Number.isFinite(move.cpLoss)) return 'Analysis pending.';
-  if (Number.isFinite(move.spentMs) && move.spentMs < 4000 && move.cpLoss > 120) {
+  const loss = effectiveMoveLoss(move);
+  if (!Number.isFinite(loss)) return 'Analysis pending.';
+  if (Number.isFinite(move.spentMs) && move.spentMs < 4000 && loss > 110) {
     return 'Rushed error: pause for the opponent’s threat, hanging pieces, checks, captures, and threats.';
   }
-  if (move.cpLoss > 220) return 'Blunder: first check forcing moves and whether any piece is undefended.';
-  if (move.cpLoss > 110) return 'Miss: a significant opportunity or defensive resource was overlooked. Compare forcing candidates before committing.';
-  if (move.cpLoss > 60) return 'Inaccuracy: re-check king safety, the opponent’s plan, and your least active piece.';
-  if (move.cpLoss > 25) return 'Good practical move, although a more precise continuation was available.';
-  if (move.cpLoss > 10) return 'Excellent move: very close to the engine’s top choice.';
+  if (loss > 220) return 'Blunder: first check forcing moves and whether any piece is undefended.';
+  if (loss > 110) return 'Miss: a significant opportunity or defensive resource was overlooked. Compare forcing candidates before committing.';
+  if (loss > 60) return 'Inaccuracy: re-check king safety, the opponent’s plan, and your least active piece.';
+  if (loss > 25) return 'Good practical move, although a more precise continuation was available.';
+  if (loss > 10) return 'Excellent move: very close to the engine’s top choice.';
   return 'Best move: essentially the engine’s top-quality choice.';
 }
 
@@ -2212,12 +2366,12 @@ function reviewClockLesson(session, analyzedMoves) {
 function renderPostGameReview(session) {
   if (!session) return;
   const moves = session.userMoves || [];
-  const analyzed = moves.filter((move) => Number.isFinite(move.cpLoss));
+  const analyzed = moves.filter((move) => Number.isFinite(effectiveMoveLoss(move)));
   const pending = moves.length - analyzed.length;
   const grade = reviewGradeForSession(session);
   const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, miss: 0, blunder: 0 };
   for (const move of analyzed) {
-    const key = qualityForLoss(move.cpLoss).key;
+    const key = qualityForMoveRecord(move).key;
     if (quality[key] !== undefined) quality[key] += 1;
   }
 
@@ -2230,12 +2384,12 @@ function renderPostGameReview(session) {
   $('#reviewMistakes').textContent = quality.miss;
   $('#reviewBlunders').textContent = quality.blunder;
 
-  const worst = analyzed.slice().sort((a, b) => b.cpLoss - a.cpLoss)[0];
+  const worst = analyzed.slice().sort((a, b) => effectiveMoveLoss(b) - effectiveMoveLoss(a))[0];
   const clockLesson = reviewClockLesson(session, analyzed);
   if (worst) {
     const index = moves.findIndex((move) => move.id === worst.id) + 1;
     const preferred = worst.bestMove ? ` The engine preferred ${readableEngineMove(worst.bestMove)}.` : '';
-    $('#reviewKeyMoment').innerHTML = `<b>Key moment — decision ${index}: ${escapeHtml(worst.san)}</b><span>Estimated loss: ${Math.round(worst.cpLoss)} cp.${escapeHtml(preferred)} ${escapeHtml(reviewMoveAdvice(worst))}</span><small>${escapeHtml(clockLesson)}</small>`;
+    $('#reviewKeyMoment').innerHTML = `<b>Key moment — decision ${index}: ${escapeHtml(worst.san)}</b><span>Estimated loss: ${Math.round(effectiveMoveLoss(worst))} cp.${escapeHtml(preferred)} ${escapeHtml(reviewMoveAdvice(worst))}</span><small>${escapeHtml(clockLesson)}</small>`;
   } else if (moves.length) {
     $('#reviewKeyMoment').innerHTML = `<b>Move analysis is still running</b><span>The result, clock use, and ${escapeHtml(session.theme.toLowerCase())} theme are already recorded. Detailed grades will fill in automatically.</span><small>${escapeHtml(clockLesson)}</small>`;
   } else {
@@ -2245,8 +2399,9 @@ function renderPostGameReview(session) {
   const list = $('#reviewMoveList');
   list.innerHTML = moves.length
     ? moves.map((move, index) => {
-        const band = Number.isFinite(move.cpLoss) ? qualityForLoss(move.cpLoss) : { key: 'pending', label: 'Pending' };
-        const loss = Number.isFinite(move.cpLoss) ? `${Math.round(move.cpLoss)} cp` : 'Analyzing…';
+        const band = Number.isFinite(effectiveMoveLoss(move)) ? qualityForMoveRecord(move) : { key: 'pending', label: 'Pending' };
+        const effectiveLoss = effectiveMoveLoss(move);
+        const loss = Number.isFinite(effectiveLoss) ? `${Math.round(effectiveLoss)} cp` : 'Analyzing…';
         const best = move.bestMove ? `Best: ${readableEngineMove(move.bestMove)}` : 'Best move pending';
         const time = Number.isFinite(move.spentMs) ? `${Math.max(0.1, move.spentMs / 1000).toFixed(1)}s` : 'untimed';
         return `<div class="review-move-row quality-${band.key}">
@@ -2518,6 +2673,11 @@ function speechFriendlyText(text) {
 }
 
 function coachSpeechSegmentsForCurrentFrame() {
+  const continuation = currentBestContinuationFrame();
+  if (continuation?.index > 0) {
+    const status = $('#replayBestLineStatus')?.textContent?.trim() || `Best continuation: ${continuation.san}`;
+    return [{ text: status, pause: 0 }];
+  }
   const title = $('#replayCoachTitle')?.textContent?.trim() || '';
   const text = $('#replayCoachText')?.textContent?.trim() || '';
   const comparison = $('#replayComparison');
@@ -2641,7 +2801,7 @@ function updateCoachAvatarMood(frame) {
     avatar.classList.add('mood-watch');
     return;
   }
-  const key = qualityForLoss(frame.userRecord?.cpLoss).key;
+  const key = qualityForMoveRecord(frame.userRecord).key;
   if (['best', 'excellent'].includes(key)) {
     mood.textContent = 'Impressed';
     avatar.classList.add('mood-happy');
@@ -2865,16 +3025,94 @@ function replayOrderedSquares(orientationColor) {
   return [...ranks].flatMap((rank) => [...files].map((file) => `${file}${rank}`));
 }
 
+
+function bestContinuationMoves(record) {
+  if (!record?.bestMove) return [];
+  return pvWithRootMove(record.bestMove, record.bestLine).slice(0, 10);
+}
+
+function buildBestContinuationFrames(frame) {
+  if (!frame?.fenBefore || !frame?.userRecord?.bestMove) return [];
+  const line = bestContinuationMoves(frame.userRecord);
+  const variation = new Chess(frame.fenBefore);
+  const frames = [{ index: 0, fen: variation.fen(), fenBefore: variation.fen(), move: null, san: 'Starting position', uci: null }];
+  for (const uci of line) {
+    const fenBefore = variation.fen();
+    const object = moveObjectFromUci(uci);
+    let applied = null;
+    try { applied = object ? variation.move(object) : null; } catch {}
+    if (!applied) break;
+    frames.push({
+      index: frames.length,
+      fen: variation.fen(),
+      fenBefore,
+      uci,
+      san: applied.san,
+      move: { from: applied.from, to: applied.to, san: applied.san, color: applied.color, piece: applied.piece, captured: applied.captured || null, promotion: applied.promotion || null },
+    });
+  }
+  return frames;
+}
+
+function ensureBestContinuationFrames(frame) {
+  const key = frame?.userRecord?.id || null;
+  if (!key) return [];
+  if (replayState.bestLineKey !== key) {
+    replayState.bestLineKey = key;
+    replayState.bestLineFrames = buildBestContinuationFrames(frame);
+    replayState.bestLineIndex = -1;
+    replayState.bestLinePlaying = false;
+    if (replayState.bestLineTimer) window.clearTimeout(replayState.bestLineTimer);
+    replayState.bestLineTimer = null;
+  }
+  return replayState.bestLineFrames;
+}
+
+function stopBestLinePlayback({ reset = true, render = false } = {}) {
+  if (replayState.bestLineTimer) window.clearTimeout(replayState.bestLineTimer);
+  replayState.bestLineTimer = null;
+  replayState.bestLinePlaying = false;
+  if (reset) {
+    replayState.bestLineKey = null;
+    replayState.bestLineFrames = [];
+    replayState.bestLineIndex = -1;
+    replayState.showBest = false;
+  }
+  if (render && $('#replayDialog')?.open) renderCoachReplay();
+}
+
+function currentBestContinuationFrame() {
+  if (replayState.bestLineIndex < 0 || !replayState.bestLineFrames.length) return null;
+  return replayState.bestLineFrames[Math.min(replayState.bestLineIndex, replayState.bestLineFrames.length - 1)] || null;
+}
+
+function bestLineTokenMarkup(frames, currentIndex) {
+  return frames.slice(1).map((item, index) => {
+    const active = index + 1 === currentIndex ? ' active' : '';
+    return `<span class="best-line-token${active}">${escapeHtml(item.san)}</span>`;
+  }).join(' ');
+}
+
 function replayDisplayPosition(frame) {
+  const continuation = currentBestContinuationFrame();
+  if (continuation) {
+    return {
+      game: new Chess(continuation.fen),
+      last: continuation.move ? { from: continuation.move.from, to: continuation.move.to } : null,
+      bestPreview: true,
+      bestLinePreview: true,
+      continuation,
+    };
+  }
   if (replayState.showBest && frame?.userRecord?.bestMove) {
     const preview = new Chess(frame.fenBefore);
     const object = moveObjectFromUci(frame.userRecord.bestMove);
     let applied = null;
     try { applied = object ? preview.move(object) : null; } catch {}
-    if (applied) return { game: preview, last: { from: applied.from, to: applied.to }, bestPreview: true };
+    if (applied) return { game: preview, last: { from: applied.from, to: applied.to }, bestPreview: true, bestLinePreview: false };
   }
   const replayGame = new Chess(frame.fen);
-  return { game: replayGame, last: frame.move ? { from: frame.move.from, to: frame.move.to } : null, bestPreview: false };
+  return { game: replayGame, last: frame.move ? { from: frame.move.from, to: frame.move.to } : null, bestPreview: false, bestLinePreview: false };
 }
 
 function renderReplayBoard(frame) {
@@ -2883,15 +3121,16 @@ function renderReplayBoard(frame) {
   board.innerHTML = '';
   const display = replayDisplayPosition(frame);
   const orientationColor = replayState.session?.userColor || 'w';
-  const rated = frame.userRecord ? qualityForLoss(frame.userRecord.cpLoss) : null;
+  const rated = frame.userRecord ? qualityForMoveRecord(frame.userRecord) : null;
   replayOrderedSquares(orientationColor).forEach((square, index) => {
     const piece = display.game.get(square);
     const cell = document.createElement('div');
     cell.className = `sq ${((FILES.indexOf(square[0]) + Number(square[1])) % 2) ? 'light' : 'dark'}`;
     cell.dataset.square = square;
     if (display.last && (display.last.from === square || display.last.to === square)) cell.classList.add('last');
+    if (display.bestLinePreview && display.last && (display.last.from === square || display.last.to === square)) cell.classList.add('best-line-preview-square');
     if (display.bestPreview && display.last?.to === square) cell.classList.add('best-preview-square');
-    else if (frame.userRecord && frame.move?.to === square) cell.classList.add('move-quality-square', `quality-${rated?.key || 'pending'}`);
+    else if (frame.userRecord && frame.move?.to === square && !display.bestLinePreview) cell.classList.add('move-quality-square', `quality-${rated?.key || 'pending'}`);
     if (piece) {
       const glyph = document.createElement('span');
       glyph.className = `piece ${piece.color === 'w' ? 'white' : 'black'}`;
@@ -2933,6 +3172,8 @@ function renderCoachReplay() {
   const comparison = $('#replayComparison');
   const lineBox = $('#replayLine');
   const bestButton = $('#replayBestButton');
+  const bestLineButton = $('#replayBestLineButton');
+  const bestLineStatus = $('#replayBestLineStatus');
 
   if (frame.index === 0) {
     rating.textContent = 'Start'; rating.classList.add('quality-pending');
@@ -2940,7 +3181,7 @@ function renderCoachReplay() {
     $('#replayEval').textContent = 'Before the first played move';
     $('#replayCoachTitle').textContent = 'Orient yourself before replaying';
     $('#replayCoachText').textContent = `This ${phaseLabel(session.phase).toLowerCase()} began from “${session.opening}.” First identify material, king safety, pawn breaks, and the least active piece.`;
-    comparison.hidden = true; lineBox.hidden = true; bestButton.hidden = true;
+    comparison.hidden = true; lineBox.hidden = true; bestButton.hidden = true; bestLineButton.hidden = true; bestLineStatus.hidden = true; bestLineButton.hidden = true; bestLineStatus.hidden = true;
     updateCoachAvatarMood(frame);
     updateCoachVoiceControls();
     return;
@@ -2963,10 +3204,32 @@ function renderCoachReplay() {
     $('#replayBestMove').textContent = narration.bestSan;
     $('#replayBestOutcome').textContent = narration.bestOutcome;
     $('#replayBestText').textContent = narration.bestText;
-    lineBox.hidden = !narration.line.length;
-    $('#replayLineMoves').textContent = narration.line.length ? narration.line.join(' ') : 'No principal variation stored';
+    const continuationFrames = ensureBestContinuationFrames(frame);
+    lineBox.hidden = continuationFrames.length <= 1;
+    $('#replayLineMoves').innerHTML = continuationFrames.length > 1
+      ? bestLineTokenMarkup(continuationFrames, replayState.bestLineIndex)
+      : 'No principal variation stored';
     bestButton.hidden = !frame.userRecord?.bestMove;
-    bestButton.textContent = replayState.showBest ? 'Return to played move' : 'Show best move on board';
+    bestButton.textContent = replayState.showBest && replayState.bestLineIndex < 0 ? 'Return to played move' : 'Show best move on board';
+    bestLineButton.hidden = continuationFrames.length <= 1;
+    bestLineButton.textContent = replayState.bestLinePlaying
+      ? '❚❚ Pause best continuation'
+      : replayState.bestLineIndex >= 0 ? '↺ Replay best continuation' : '▶ Play best continuation';
+    const continuation = currentBestContinuationFrame();
+    if (continuation) {
+      bestLineStatus.hidden = false;
+      const total = Math.max(1, continuationFrames.length - 1);
+      if (continuation.index === 0) {
+        bestLineStatus.innerHTML = `<b>Best continuation ready</b><span>Stockfish will play ${total} half-move${total === 1 ? '' : 's'} from the position before your decision.</span>`;
+      } else {
+        const description = describeMoveFromFen(continuation.fenBefore, continuation.uci);
+        bestLineStatus.innerHTML = `<b>Best line ${continuation.index}/${total}: ${escapeHtml(continuation.san)}</b><span>${escapeHtml(description.text)}</span>`;
+        $('#replayPlyLabel').textContent = `Best continuation · ${continuation.san}`;
+        $('#replayEval').textContent = 'Stockfish principal variation';
+      }
+    } else {
+      bestLineStatus.hidden = true;
+    }
   } else {
     const description = describeMoveFromFen(frame.fenBefore, frame.move.uci || `${frame.move.from}${frame.move.to}${frame.move.promotion || ''}`);
     const nextDecision = nextUserFrameAfter(replayState.index);
@@ -2988,6 +3251,7 @@ function replayMoveSound(frame) {
 
 function setReplayIndex(index, playSound = true, speak = true) {
   if (!replayState.frames.length) return;
+  stopBestLinePlayback({ reset: true, render: false });
   const previous = replayState.index;
   replayState.index = Math.max(0, Math.min(replayState.frames.length - 1, Number(index) || 0));
   replayState.showBest = false;
@@ -3019,6 +3283,7 @@ function scheduleReplayStep() {
 }
 
 function toggleReplayAuto() {
+  stopBestLinePlayback({ reset: true, render: false });
   if (replayState.auto) {
     stopReplayAuto();
     return;
@@ -3041,7 +3306,7 @@ function openCoachReplay(session = currentSession) {
     return;
   }
   stopReplayAuto();
-  replayState = { session, frames, index: 0, timer: null, auto: false, showBest: false };
+  replayState = { session, frames, index: 0, timer: null, auto: false, showBest: false, bestLineKey: null, bestLineFrames: [], bestLineIndex: -1, bestLineTimer: null, bestLinePlaying: false };
   $('#replayTitle').textContent = `${session.opening === 'Various' ? phaseLabel(session.phase) : session.opening} coach replay`;
   renderCoachReplay();
   openDialog('replayDialog');
@@ -3050,11 +3315,55 @@ function openCoachReplay(session = currentSession) {
 }
 
 function toggleReplayBestMove() {
+  stopBestLinePlayback({ reset: true, render: false });
   const frame = replayState.frames[replayState.index];
   if (!frame?.userRecord?.bestMove) return;
   replayState.showBest = !replayState.showBest;
   renderCoachReplay();
   if (replayState.showBest && settings.coachVoice !== false) scheduleCoachSpeech(90);
+}
+
+
+function advanceBestLinePlayback() {
+  if (!replayState.bestLinePlaying) return;
+  const frame = replayState.frames[replayState.index];
+  const frames = ensureBestContinuationFrames(frame);
+  if (replayState.bestLineIndex >= frames.length - 1) {
+    replayState.bestLinePlaying = false;
+    replayState.bestLineTimer = null;
+    renderCoachReplay();
+    return;
+  }
+  replayState.bestLineIndex += 1;
+  replayState.showBest = true;
+  const step = frames[replayState.bestLineIndex];
+  if (step?.move) replayMoveSound({ move: step.move });
+  renderCoachReplay();
+  replayState.bestLineTimer = window.setTimeout(advanceBestLinePlayback, 1350);
+}
+
+function toggleBestLinePlayback() {
+  const frame = replayState.frames[replayState.index];
+  if (!frame?.isUser) return;
+  stopReplayAuto();
+  stopCoachSpeech();
+  const frames = ensureBestContinuationFrames(frame);
+  if (frames.length <= 1) {
+    toast('No Stockfish continuation is stored for this move');
+    return;
+  }
+  if (replayState.bestLinePlaying) {
+    replayState.bestLinePlaying = false;
+    if (replayState.bestLineTimer) window.clearTimeout(replayState.bestLineTimer);
+    replayState.bestLineTimer = null;
+    renderCoachReplay();
+    return;
+  }
+  if (replayState.bestLineIndex >= frames.length - 1 || replayState.bestLineIndex < 0) replayState.bestLineIndex = 0;
+  replayState.showBest = true;
+  replayState.bestLinePlaying = true;
+  renderCoachReplay();
+  replayState.bestLineTimer = window.setTimeout(advanceBestLinePlayback, 520);
 }
 
 function sessionCoach(session) {
@@ -3947,21 +4256,29 @@ class StockfishPlayEngine {
     await readyOk;
   }
 
-  evaluate({ fen, movetime = 450 }) {
+  evaluate({ fen, movetime = 450, searchMoves = [] }) {
     const run = async () => {
       await this.ready;
       await this.configureReview();
       this.lastInfo = {};
       this.send(`position fen ${fen}`);
-      const bestMoveLine = this.waitFor((line) => line.startsWith('bestmove '), Math.max(18000, movetime + 12000));
-      this.send(`go movetime ${Math.max(220, Math.round(movetime))}`);
+      const thinkTime = Math.max(220, Math.round(movetime));
+      const roots = Array.isArray(searchMoves) ? searchMoves.map(normalizeUciMove).filter(Boolean) : [];
+      const bestMoveLine = this.waitFor((line) => line.startsWith('bestmove '), Math.max(18000, thinkTime + 12000));
+      const rootClause = roots.length ? `searchmoves ${roots.join(' ')} ` : '';
+      this.send(`go ${rootClause}movetime ${thinkTime}`);
       const line = await bestMoveLine;
-      const move = line.split(/\s+/)[1];
+      const move = normalizeUciMove(line.split(/\s+/)[1]);
       const mate = Number(this.lastInfo.mate);
       let scoreCp = Number(this.lastInfo.scoreCp);
       if (Number.isFinite(mate) && mate !== 0) scoreCp = mate > 0 ? 100000 - Math.abs(mate) * 100 : -100000 + Math.abs(mate) * 100;
       if (!Number.isFinite(scoreCp)) scoreCp = 0;
-      return { move: move && !['(none)', '0000'].includes(move) ? move : null, scoreCp, ...this.lastInfo };
+      return {
+        move: move && !['(none)', '0000'].includes(move) ? move : null,
+        scoreCp,
+        searchMoves: roots,
+        ...this.lastInfo,
+      };
     };
     const result = this.searchQueue.then(run, run);
     this.searchQueue = result.catch(() => undefined);

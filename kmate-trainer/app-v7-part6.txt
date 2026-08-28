@@ -20,6 +20,7 @@
   $('#replayAuto')?.addEventListener('click', toggleReplayAuto);
   $('#replaySlider')?.addEventListener('input', (event) => setReplayIndex(Number(event.target.value), false));
   $('#replayBestButton')?.addEventListener('click', toggleReplayBestMove);
+  $('#replayBestLineButton')?.addEventListener('click', toggleBestLinePlayback);
   $('#coachVoiceToggle')?.addEventListener('click', toggleCoachVoice);
   $('#coachSpeakButton')?.addEventListener('click', handleCoachSpeak);
   $('#coachVoiceSelect')?.addEventListener('change', handleCoachVoiceSelect);
@@ -28,6 +29,11 @@
   $('#soundStyleSelect')?.addEventListener('change', handleSoundThemeChange);
   $('#previewSoundButton')?.addEventListener('click', previewSoundTheme);
   $('#coachMyVoiceInfo')?.addEventListener('click', () => openDialog('voiceCloneDialog'));
+  $('#replayDialog')?.addEventListener('close', () => {
+    stopReplayAuto();
+    stopBestLinePlayback({ reset: true, render: false });
+    stopCoachSpeech();
+  });
   $('#recentList')?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-replay-session]');
     if (!button) return;
@@ -72,7 +78,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '24.0-commercial-beta',
+  version: '25.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -91,13 +97,13 @@ window.__KMATE__ = {
     clocks: { ...clocks },
     finalized,
     reason: currentSession?.reason || null,
-    replay: { open: Boolean($('#replayDialog')?.open), index: replayState.index, frames: replayState.frames.length, showBest: replayState.showBest, coachVoice: settings.coachVoice !== false, coachSpeaking: Boolean(coachSpeechUtterance || window.speechSynthesis?.speaking), resolvedVoice: chooseCoachVoice()?.name || null, voiceURI: settings.coachVoiceURI || 'british-woman', voiceProfile: settings.coachVoiceURI === 'british-woman' ? 'generic British woman' : 'device voice', rate: Number(settings.coachVoiceRate) || 0.92, avatar: settings.coachAvatar || 'grandmaster' },
+    replay: { open: Boolean($('#replayDialog')?.open), index: replayState.index, frames: replayState.frames.length, showBest: replayState.showBest, bestLinePlaying: replayState.bestLinePlaying, bestLineIndex: replayState.bestLineIndex, bestLineFrames: replayState.bestLineFrames.length, coachVoice: settings.coachVoice !== false, coachSpeaking: Boolean(coachSpeechUtterance || window.speechSynthesis?.speaking), resolvedVoice: chooseCoachVoice()?.name || null, voiceURI: settings.coachVoiceURI || 'british-woman', voiceProfile: settings.coachVoiceURI === 'british-woman' ? 'generic British woman' : 'device voice', rate: Number(settings.coachVoiceRate) || 0.92, avatar: settings.coachAvatar || 'grandmaster' },
     dragAndDrop: true,
     ratedMoveSquare: ratedMoveSquare ? { ...ratedMoveSquare } : null,
     hint: { status: hintState.status, level: hintState.level, automatic: Boolean(settings.autoHints), candidate: hintState.level >= 2 ? hintState.candidate : null },
     sound: { enabled: soundEnabled(), theme: selectedSoundTheme(), unlocked: htmlAudioUnlocked, audibleConfirmed: soundAudiblyConfirmed, backend: soundPlaybackBackend, lastKind: lastSoundKind },
     engine: 'Stockfish 18 lite single-threaded',
-    reviewEngine: 'Independent Stockfish 18 move review',
+    reviewEngine: 'Equal-time root-restricted Stockfish 18 review',
     commercialBeta: true,
     cloudSync: false,
     billing: false,
@@ -125,6 +131,42 @@ if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
       const position = freshPosition();
       return { fen: position.fen, id: position.id, seedId: position.seedId, branchDepth: position.branchDepth || 0, generated: Boolean(position.generated) };
     }),
+    repairMoveRecord: (record) => {
+      const copy = clone(record);
+      reconcileMoveAnalysisRecord(copy);
+      return { ...copy, effectiveLoss: effectiveMoveLoss(copy), band: qualityForMoveRecord(copy) };
+    },
+    analyzeBestMove: async (fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') => {
+      const discovery = await getStockfishReviewEngine().evaluate({ fen, movetime: 520 });
+      const analysis = await analyzeMoveWithStockfish(fen, discovery.move);
+      const record = { id: 'test-best', uci: discovery.move, bestMove: analysis.bestMove, bestLine: analysis.bestLine, selectedLine: analysis.selectedLine, cpLoss: analysis.cpLoss, bestScore: analysis.bestScore, selectedScore: analysis.selectedScore };
+      const frames = buildBestContinuationFrames({ fenBefore: fen, userRecord: record });
+      return { discovery, analysis, frames: frames.map((item) => ({ index: item.index, fen: item.fen, san: item.san, uci: item.uci })) };
+    },
+    openBestLineDemo: async (fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') => {
+      const result = await window.__KMATE__.test.analyzeBestMove(fen);
+      const demo = new Chess(fen);
+      const object = moveObjectFromUci(result.discovery.move);
+      const applied = object ? demo.move(object) : null;
+      if (!applied) throw new Error('Unable to build best-line demo');
+      const record = {
+        id: 'demo-move', san: applied.san, uci: result.discovery.move, from: applied.from, to: applied.to,
+        color: applied.color, ply: 1, fenBefore: fen, cpLoss: result.analysis.cpLoss,
+        bestMove: result.analysis.bestMove, bestLine: result.analysis.bestLine,
+        selectedLine: result.analysis.selectedLine, bestScore: result.analysis.bestScore,
+        selectedScore: result.analysis.selectedScore, quality: 'best',
+      };
+      const session = {
+        id: 'demo-session', startFen: fen, finalFen: demo.fen(), phase: 'middlegame', opening: 'Review test',
+        theme: 'Move-review consistency', tags: ['calculation'], timeControl: 'untimed', userColor: 'w',
+        opponentRating: 1600, outcome: 'draw', reason: 'test', completed: true, takebacks: 0,
+        userMoves: [record], moveSequence: [{ ply: 1, color: applied.color, from: applied.from, to: applied.to, san: applied.san, uci: result.discovery.move, piece: applied.piece, captured: applied.captured || null, promotion: applied.promotion || null, flags: applied.flags || '' }],
+      };
+      reconcileSessionAnalysis(session);
+      openCoachReplay(session);
+      setReplayIndex(1, false, false);
+      return result;
+    },
   };
 }
 

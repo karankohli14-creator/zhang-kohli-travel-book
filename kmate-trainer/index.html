@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=24.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=25.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -563,8 +563,12 @@
             <b id="replayLineMoves">—</b>
           </div>
 
-          <button class="btn replay-best-button" id="replayBestButton" type="button" hidden>Show best move on board</button>
-          <p class="replay-footnote" id="replayFootnote">Coach K uses local Stockfish analysis. The explanation is practical training guidance, not a claim that every strategic nuance has been proven.</p>
+          <div class="replay-best-actions">
+            <button class="btn replay-best-button" id="replayBestButton" type="button" hidden>Show best move on board</button>
+            <button class="btn replay-best-line-button" id="replayBestLineButton" type="button" hidden>▶ Play best continuation</button>
+          </div>
+          <div class="replay-best-line-status" id="replayBestLineStatus" hidden></div>
+          <p class="replay-footnote" id="replayFootnote">Coach K uses equal-time, root-restricted Stockfish comparisons. Play the stored principal variation to see how the stronger move could continue.</p>
         </aside>
       </div>
     </div>
@@ -583,6 +587,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=24.0.0"></script>
+  <script type="module" src="./app-v7.js?v=25.0.0"></script>
 </body>
 </html>
