@@ -20,6 +20,8 @@
   $('#replayAuto')?.addEventListener('click', toggleReplayAuto);
   $('#replaySlider')?.addEventListener('input', (event) => setReplayIndex(Number(event.target.value), false));
   $('#replayBestButton')?.addEventListener('click', toggleReplayBestMove);
+  $('#coachVoiceToggle')?.addEventListener('click', toggleCoachVoice);
+  $('#coachSpeakButton')?.addEventListener('click', handleCoachSpeak);
   $('#recentList')?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-replay-session]');
     if (!button) return;
@@ -59,11 +61,12 @@ applySettingsToControls();
 bindControls();
 renderSummary();
 renderInsights();
+updateCoachVoiceControls();
 $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '20.0-commercial-beta',
+  version: '21.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -80,7 +83,7 @@ window.__KMATE__ = {
     clocks: { ...clocks },
     finalized,
     reason: currentSession?.reason || null,
-    replay: { open: Boolean($('#replayDialog')?.open), index: replayState.index, frames: replayState.frames.length, showBest: replayState.showBest },
+    replay: { open: Boolean($('#replayDialog')?.open), index: replayState.index, frames: replayState.frames.length, showBest: replayState.showBest, coachVoice: settings.coachVoice !== false, coachSpeaking: Boolean(window.speechSynthesis?.speaking) },
     ratedMoveSquare: ratedMoveSquare ? { ...ratedMoveSquare } : null,
     hint: { status: hintState.status, level: hintState.level, automatic: Boolean(settings.autoHints), candidate: hintState.level >= 2 ? hintState.candidate : null },
     sound: { enabled: soundEnabled(), unlocked: htmlAudioUnlocked, audibleConfirmed: soundAudiblyConfirmed, backend: soundPlaybackBackend, lastKind: lastSoundKind },
@@ -103,6 +106,7 @@ if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
       return true;
     },
     openReplay: () => openCoachReplay(currentSession),
+    speakCoach: () => speakCoachFrame(true),
   };
 }
 

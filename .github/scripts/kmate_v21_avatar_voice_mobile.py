@@ -21,7 +21,7 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 
 def sub_once(pattern: str, replacement: str, text: str, label: str, flags: int = 0) -> str:
-    updated, count = re.subn(pattern, replacement, text, count=1, flags=flags)
+    updated, count = re.subn(pattern, lambda _match: replacement, text, count=1, flags=flags)
     if count != 1:
         raise SystemExit(f"Expected one replacement for {label}, found {count}")
     return updated

@@ -501,3 +501,96 @@ td small{display:block;color:var(--muted)}
 @media(max-width:430px){
   .replay-header h2{font-size:21px}.replay-header p{font-size:10px}.replay-comparison{grid-template-columns:1fr}.replay-coach-card h2{font-size:20px}.piece.staunton-piece{width:71%;height:71%}.replay-position-bar{font-size:11px}.replay-controls{gap:4px}.replay-controls button{min-height:40px}.result-actions .btn{flex:1 1 45%}
 }
+
+
+/* K-Mate v21 — Coach K avatar, voice narration, and compact one-screen replay */
+.coach-stage{display:grid;grid-template-columns:104px minmax(0,1fr);gap:13px;align-items:stretch}
+.coach-avatar-column{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px}
+.coach-avatar{position:relative;display:grid;place-items:center;width:98px;aspect-ratio:150/178;border:1px solid #b9f47435;border-radius:22px;background:radial-gradient(circle at 50% 25%,#91cc6940,transparent 50%),linear-gradient(160deg,#23362a,#0b130e);box-shadow:inset 0 1px #fff2,0 16px 36px #0006;overflow:hidden;transform-origin:50% 88%;transition:filter .2s,transform .2s,border-color .2s}
+.coach-avatar svg{display:block;width:96%;height:96%;overflow:visible}
+.coach-avatar .coach-mouth{transform-box:fill-box;transform-origin:center;transition:transform .12s}
+.coach-avatar .coach-wave{opacity:0}
+.coach-avatar.speaking{border-color:#b9f47499;filter:brightness(1.08);animation:coachBob 1.25s ease-in-out infinite}
+.coach-avatar.speaking .coach-mouth{animation:coachTalk .22s ease-in-out infinite alternate}
+.coach-avatar.speaking .coach-wave-one{animation:coachWave 1s ease-out infinite}
+.coach-avatar.speaking .coach-wave-two{animation:coachWave 1s .18s ease-out infinite}
+.coach-avatar.mood-happy{filter:saturate(1.1) brightness(1.06)}
+.coach-avatar.mood-serious{border-color:#ffad5950}
+.coach-avatar.mood-watch{border-color:#70b8ff45}
+@keyframes coachTalk{from{transform:scaleY(.35)}to{transform:scaleY(1.55)}}
+@keyframes coachWave{0%{opacity:0;transform:translateX(-2px) scale(.75)}30%{opacity:.85}100%{opacity:0;transform:translateX(5px) scale(1.08)}}
+@keyframes coachBob{50%{transform:translateY(-2px) rotate(-.4deg)}}
+.coach-identity{text-align:center}.coach-identity b,.coach-identity span{display:block}.coach-identity b{font-size:13px}.coach-identity span{color:var(--accent);font-size:9px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.coach-bubble{position:relative;min-width:0;padding:13px 14px;border:1px solid #ffffff16;border-radius:17px;background:linear-gradient(145deg,#ffffff09,#ffffff04)}
+.coach-bubble:before{content:"";position:absolute;left:-8px;top:35px;width:14px;height:14px;border-left:1px solid #ffffff16;border-bottom:1px solid #ffffff16;background:#18241b;transform:rotate(45deg)}
+.coach-voice-row{display:flex;justify-content:flex-end;gap:6px;margin-top:7px}
+.coach-voice-button{min-height:32px;padding:0 10px;border:1px solid #ffffff1b;border-radius:10px;background:#ffffff07;color:var(--muted);font-size:10px;font-weight:900;cursor:pointer}
+.coach-voice-button.active{border-color:#80d8a466;background:#80d8a414;color:#c2f7d8}
+.coach-voice-button:disabled{opacity:.45;cursor:default}
+.coach-transcript{max-height:132px;overflow:auto;margin:7px 0 0!important;padding-right:3px;color:#e4ebe5!important;line-height:1.48!important;scrollbar-width:thin}
+.replay-comparison article p{margin:8px 0 0;color:#d6ded7;font-size:11px;line-height:1.43}
+.coach-your-card{border-left:3px solid #ffad5970!important}.coach-best-card{border-left:3px solid #7cf58a70!important}
+.coach-speaking .coach-bubble{border-color:#b9f47444;box-shadow:0 0 0 3px #b9f47408}
+.replay-board .piece.staunton-piece{width:68%;height:68%}
+.piece.staunton-piece svg{filter:drop-shadow(0 2px 1px #0005) drop-shadow(0 6px 7px #0003)}
+.sq.selected .piece-art{transform:translateY(-1.5px) scale(1.035)}
+.replay-boardwrap{background:linear-gradient(145deg,#1d281f,#0b120d);box-shadow:inset 0 1px #fff1,0 16px 32px #0004}
+
+@media(max-width:760px){
+  .replay-modal{inset:0;width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0}
+  .replay-shell{display:grid;grid-template-rows:auto minmax(0,1fr);width:100%;height:100dvh;max-height:100dvh;padding:7px;overflow:hidden}
+  .replay-header{align-items:center;min-height:40px;margin:0 0 5px}
+  .replay-header .eyebrow,.replay-header p{display:none}
+  .replay-header h2{margin:0;font-size:17px}
+  .replay-header-actions .btn{min-height:32px;padding:0 8px;font-size:9px}
+  .replay-header-actions .roundbtn{width:34px;height:34px;border-radius:10px;font-size:17px}
+  .replay-layout{display:grid;grid-template-rows:auto minmax(0,1fr);height:100%;min-height:0;gap:6px;overflow:hidden}
+  .replay-board-column{display:grid;grid-template-rows:auto auto auto auto;width:min(58vw,34dvh,238px);margin:0 auto;min-height:0}
+  .replay-position-bar{min-height:27px;padding:4px 7px;border-radius:9px 9px 0 0;font-size:9px}
+  .replay-boardwrap{padding:1px}
+  .replay-board{border-radius:4px}
+  .replay-board .coord{font-size:6px}
+  .replay-board .piece.staunton-piece{width:62%;height:62%}
+  .replay-slider{height:13px;margin:3px 0 1px}
+  .replay-controls{grid-template-columns:34px 34px minmax(72px,1fr) 34px 34px;gap:3px}
+  .replay-controls button{min-height:31px;border-radius:8px;font-size:10px}
+  .replay-coach-card{position:static;display:grid;grid-template-rows:auto auto auto auto;gap:5px;height:100%;min-height:0;padding:7px;border-radius:12px;overflow:hidden}
+  .coach-stage{grid-template-columns:64px minmax(0,1fr);gap:7px;min-height:0}
+  .coach-avatar{width:60px;border-radius:14px}
+  .coach-avatar-column{gap:2px}
+  .coach-identity b{font-size:10px}.coach-identity span{font-size:7px}
+  .coach-bubble{padding:6px 7px;border-radius:10px;min-height:0;overflow:hidden}
+  .coach-bubble:before{left:-5px;top:25px;width:9px;height:9px}
+  .replay-rating-row{font-size:8px}
+  .replay-rating-row .move-quality-badge{padding:3px 6px;font-size:7px}
+  .coach-voice-row{position:absolute;right:5px;top:4px;gap:3px;margin:0}
+  .coach-voice-button{min-height:24px;padding:0 6px;border-radius:7px;font-size:7px}
+  .replay-coach-card h2{margin:6px 0 2px;font-size:13px;line-height:1.15;padding-right:2px}
+  .coach-transcript{max-height:68px;margin-top:3px!important;font-size:9.5px!important;line-height:1.28!important}
+  .replay-comparison{grid-template-columns:1fr 1fr;gap:4px;margin:0;min-height:0}
+  .replay-comparison article{min-width:0;padding:5px 6px;border-radius:8px;overflow:auto}
+  .replay-comparison small{font-size:7px}.replay-comparison b{margin-top:2px;font-size:12px}.replay-comparison span{margin-top:1px;font-size:8px;line-height:1.2}
+  .replay-comparison article p{max-height:49px;overflow:auto;margin-top:3px;font-size:8.5px;line-height:1.22}
+  .replay-line{max-height:34px;overflow:auto;margin:0;padding:4px 6px;border-radius:7px}
+  .replay-line small{display:none}.replay-line b{margin:0;font-size:8px;line-height:1.35}
+  .replay-best-button{min-height:28px;margin:0;padding:0 8px;font-size:8px}
+  .replay-footnote{display:none}
+}
+
+@media(max-width:430px){
+  .replay-comparison{grid-template-columns:1fr 1fr}
+  .replay-coach-card h2{font-size:12px}
+  .replay-board .piece.staunton-piece{width:60%;height:60%}
+}
+
+@media(max-height:720px) and (max-width:760px){
+  .replay-board-column{width:min(54vw,29dvh,205px)}
+  .replay-header{min-height:34px}.replay-header h2{font-size:15px}
+  .replay-controls button{min-height:27px}
+  .coach-stage{grid-template-columns:54px minmax(0,1fr)}
+  .coach-avatar{width:50px}
+  .coach-transcript{max-height:52px}
+  .replay-comparison article p{max-height:38px}
+}
+
+.replay-comparison[hidden],.replay-line[hidden],.replay-best-button[hidden]{display:none!important}

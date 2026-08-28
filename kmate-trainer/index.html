@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=20.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=21.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -404,7 +404,7 @@
         </details>
       </section>
       <div class="dialogactions result-actions">
-        <button class="btn replay-primary" type="button" id="resultReplay">Coach replay</button>
+        <button class="btn replay-primary" type="button" id="resultReplay">Coach replay with Coach K</button>
         <button class="btn" type="button" id="resultInsights">View insights</button>
         <button class="btn" type="button" id="resultSetup">Change setup</button>
         <button class="btn primary" type="button" id="resultNext">Play another</button>
@@ -444,17 +444,71 @@
           </div>
         </section>
 
-        <aside class="replay-coach-card">
-          <div class="replay-rating-row">
-            <span class="move-quality-badge quality-pending" id="replayRating">Position</span>
-            <span id="replayDecisionCount">0 / 0</span>
-          </div>
-          <h2 id="replayCoachTitle">Start with the original position</h2>
-          <p id="replayCoachText">The coach will explain each move, then compare your decisions with Stockfish’s preferred continuation.</p>
+        <aside class="replay-coach-card" id="replayCoachCard">
+          <section class="coach-stage">
+            <div class="coach-avatar-column">
+              <div class="coach-avatar" id="coachAvatar" role="img" aria-label="Coach K, an animated chess knight coach">
+                <svg viewBox="0 0 150 178" focusable="false" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="coachJacket" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f6d5a"/><stop offset="1" stop-color="#17261d"/></linearGradient>
+                    <linearGradient id="coachFace" x1=".2" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="#f3deb4"/><stop offset=".55" stop-color="#d3b37c"/><stop offset="1" stop-color="#987447"/></linearGradient>
+                    <linearGradient id="coachMane" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#253a2d"/><stop offset="1" stop-color="#07110b"/></linearGradient>
+                    <radialGradient id="coachBadge" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#efffbf"/><stop offset="1" stop-color="#88bd45"/></radialGradient>
+                    <filter id="coachShadow" x="-30%" y="-20%" width="160%" height="170%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-opacity=".5"/></filter>
+                  </defs>
+                  <ellipse cx="75" cy="166" rx="49" ry="7" fill="#000" opacity=".24"/>
+                  <g filter="url(#coachShadow)">
+                    <path d="M28 163c3-31 19-47 47-47s44 16 47 47z" fill="url(#coachJacket)" stroke="#07110b" stroke-width="4"/>
+                    <path d="M58 118l17 16 17-16 9 45H49z" fill="#eef0df" stroke="#17261d" stroke-width="3"/>
+                    <path d="M62 135l13 9 13-9-3 20H65z" fill="#b9f474" stroke="#2a422f" stroke-width="2.5"/>
+                    <path d="M43 38c9-22 25-31 47-24 18 6 29 23 27 44-2 18-13 31-29 40l-5 20H54l4-18c-21-9-31-27-27-48 2-7 6-12 12-14z" fill="url(#coachFace)" stroke="#47361f" stroke-width="4" stroke-linejoin="round"/>
+                    <path d="M45 39c10-24 29-35 50-24 12 6 20 17 22 31-13-9-27-11-42-6-14 4-24 13-30 27-8-8-8-19 0-28z" fill="url(#coachMane)" stroke="#07110b" stroke-width="3"/>
+                    <path d="M93 41c12 6 20 18 19 33-1 13-8 22-20 29l-15-8c10-3 17-8 20-16-8 3-16 2-23-3 6-10 8-21 5-34 5-2 10-2 14-1z" fill="#c9985d" stroke="#4a331c" stroke-width="3"/>
+                    <path d="M43 41l-7-25c12 1 21 7 27 18" fill="#d7b57c" stroke="#47361f" stroke-width="4" stroke-linejoin="round"/>
+                    <circle cx="68" cy="55" r="10" fill="#ecf6e9" stroke="#18251c" stroke-width="3"/>
+                    <circle cx="96" cy="57" r="10" fill="#ecf6e9" stroke="#18251c" stroke-width="3"/>
+                    <path d="M78 55h8M57 52l-12-4M107 54l10-1" fill="none" stroke="#18251c" stroke-width="4" stroke-linecap="round"/>
+                    <circle cx="70" cy="56" r="3.5" fill="#152119"/><circle cx="94" cy="58" r="3.5" fill="#152119"/>
+                    <path d="M66 73c8 4 17 5 25 1" fill="none" stroke="#6b4129" stroke-width="3" stroke-linecap="round"/>
+                    <path class="coach-mouth" d="M68 85q10 7 20 0" fill="none" stroke="#4d2c23" stroke-width="4" stroke-linecap="round"/>
+                    <circle cx="42" cy="92" r="13" fill="#26382d" stroke="#09100b" stroke-width="4"/>
+                    <path d="M39 92c0-20 4-31 14-38" fill="none" stroke="#26382d" stroke-width="6" stroke-linecap="round"/>
+                    <circle cx="40" cy="92" r="5" fill="#b9f474"/>
+                    <circle cx="107" cy="122" r="15" fill="url(#coachBadge)" stroke="#203321" stroke-width="3"/>
+                    <path d="M103 112h8v8h7v7h-7v8h-8v-8h-7v-7h7z" fill="#213322"/>
+                  </g>
+                  <g class="coach-sound-waves" fill="none" stroke="#b9f474" stroke-width="4" stroke-linecap="round">
+                    <path class="coach-wave wave-one" d="M122 68q11 10 0 20"/>
+                    <path class="coach-wave wave-two" d="M130 61q20 17 0 35"/>
+                  </g>
+                </svg>
+              </div>
+              <div class="coach-identity"><b>Coach K</b><span id="coachMood">Ready</span></div>
+            </div>
+
+            <div class="coach-bubble">
+              <div class="replay-rating-row">
+                <span class="move-quality-badge quality-pending" id="replayRating">Position</span>
+                <span id="replayDecisionCount">0 / 0</span>
+              </div>
+              <div class="coach-voice-row">
+                <button class="coach-voice-button active" id="coachVoiceToggle" type="button">🔊 Voice on</button>
+                <button class="coach-voice-button" id="coachSpeakButton" type="button">▶ Speak</button>
+              </div>
+              <h2 id="replayCoachTitle">Start with the original position</h2>
+              <p class="coach-transcript" id="replayCoachText">Coach K will explain each move and compare your decision with Stockfish’s preferred continuation.</p>
+            </div>
+          </section>
 
           <div class="replay-comparison" id="replayComparison" hidden>
-            <article><small>Your move</small><b id="replayYourMove">—</b><span id="replayYourOutcome">—</span></article>
-            <article><small>Best move</small><b id="replayBestMove">—</b><span id="replayBestOutcome">—</span></article>
+            <article class="coach-your-card">
+              <small>Your move</small><b id="replayYourMove">—</b><span id="replayYourOutcome">—</span>
+              <p id="replayWhyText">Coach K will explain what the move allowed or failed to preserve.</p>
+            </article>
+            <article class="coach-best-card">
+              <small>Best move</small><b id="replayBestMove">—</b><span id="replayBestOutcome">—</span>
+              <p id="replayBestText">Coach K will explain what the stronger move would have achieved.</p>
+            </article>
           </div>
 
           <div class="replay-line" id="replayLine" hidden>
@@ -463,13 +517,13 @@
           </div>
 
           <button class="btn replay-best-button" id="replayBestButton" type="button" hidden>Show best move on board</button>
-          <p class="replay-footnote" id="replayFootnote">Engine explanations are local training guidance, not a substitute for a human coach’s full positional judgment.</p>
+          <p class="replay-footnote" id="replayFootnote">Coach K uses local Stockfish analysis. The explanation is practical training guidance, not a claim that every strategic nuance has been proven.</p>
         </aside>
       </div>
     </div>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=20.0.0"></script>
+  <script type="module" src="./app-v7.js?v=21.0.0"></script>
 </body>
 </html>

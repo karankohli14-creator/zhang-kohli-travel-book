@@ -118,6 +118,7 @@ const defaultSettings = {
   trainingGoal: 'all',
   blindCalibration: false,
   autoHints: false,
+  coachVoice: true,
 };
 
 function emptyStore() {
@@ -180,6 +181,10 @@ let hintRequestId = 0;
 let hintState = { fen: null, status: 'idle', level: 0, strategicText: '', exactText: '', candidate: null, requestedReveal: false, counted: false, revealCounted: false };
 let timeoutHandling = false;
 let replayState = { session: null, frames: [], index: 0, timer: null, auto: false, showBest: false };
+let coachSpeechUtterance = null;
+let coachSpeechTimer = null;
+let coachVoiceCache = null;
+let coachSpeechSerial = 0;
 
 function soundEnabled() {
   return settings.sound !== false;
@@ -280,15 +285,15 @@ function playSynthMoveSound(kind = 'move') {
 }
 
 const SOUND_SPRITE_SEGMENTS = {
-  move: { start: 0.10, duration: 0.30, volume: 0.94 },
-  capture: { start: 0.55, duration: 0.43, volume: 1.00 },
-  check: { start: 1.15, duration: 0.55, volume: 0.96 },
-  win: { start: 1.95, duration: 0.82, volume: 0.94 },
-  loss: { start: 3.00, duration: 0.72, volume: 0.94 },
-  draw: { start: 4.00, duration: 0.62, volume: 0.92 },
-  timeout: { start: 4.90, duration: 0.78, volume: 1.00 },
+  move: { start: 0.08, duration: 0.46, volume: 0.98 },
+  capture: { start: 0.70, duration: 0.62, volume: 1.00 },
+  check: { start: 1.48, duration: 0.76, volume: 0.98 },
+  win: { start: 2.48, duration: 1.00, volume: 0.96 },
+  loss: { start: 3.75, duration: 0.94, volume: 0.95 },
+  draw: { start: 4.95, duration: 0.76, volume: 0.94 },
+  timeout: { start: 5.95, duration: 1.18, volume: 1.00 },
 };
-const SOUND_SPRITE_URL = new URL('./sounds/kmate-sounds-v20.wav?v=20.0.0', document.baseURI).href;
+const SOUND_SPRITE_URL = new URL('./sounds/kmate-sounds-v21.wav?v=21.0.0', document.baseURI).href;
 let soundAudiblyConfirmed = false;
 
 function ensureHtmlMoveAudio() {
@@ -422,7 +427,7 @@ async function toggleSound() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260828-20';
+  url.search = '?v=20260828-21';
   url.hash = '';
   return url.href;
 }
@@ -1662,7 +1667,10 @@ function applyMoveAnalysisResult(sessionId, moveId, data) {
     renderMoveList();
     showMoveQualityBadge(targetMove);
     updateStoredCurrentSession();
-    if (finalized) renderPostGameReview(currentSession);
+    if (finalized) {
+      renderPostGameReview(currentSession);
+      if ($('#replayDialog')?.open && replayState.session?.id === sessionId) renderCoachReplay();
+    }
     if (replayState.session?.id === sessionId) {
       replayState.session = targetSession;
       renderCoachReplay();
@@ -1886,6 +1894,179 @@ function renderPostGameReview(session) {
     : '<div class="emptyMoves">No user moves were recorded.</div>';
 }
 
+
+function coachVoiceAvailable() {
+  return Boolean(window.speechSynthesis && window.SpeechSynthesisUtterance);
+}
+
+function chooseCoachVoice() {
+  if (!coachVoiceAvailable()) return null;
+  const voices = window.speechSynthesis.getVoices?.() || [];
+  if (coachVoiceCache && voices.includes(coachVoiceCache)) return coachVoiceCache;
+  const english = voices.filter((voice) => /^en([_-]|$)/i.test(voice.lang || ''));
+  const preferredNames = ['Samantha', 'Daniel', 'Karen', 'Moira', 'Microsoft Aria', 'Google US English', 'Google UK English Female'];
+  coachVoiceCache = preferredNames.map((name) => english.find((voice) => voice.name.includes(name))).find(Boolean)
+    || english.find((voice) => voice.localService)
+    || english[0]
+    || voices[0]
+    || null;
+  return coachVoiceCache;
+}
+
+function updateCoachVoiceControls() {
+  const toggle = $('#coachVoiceToggle');
+  const speak = $('#coachSpeakButton');
+  if (!toggle || !speak) return;
+  const available = coachVoiceAvailable();
+  const enabled = settings.coachVoice !== false;
+  toggle.disabled = !available;
+  speak.disabled = !available;
+  toggle.classList.toggle('active', available && enabled);
+  toggle.textContent = !available ? 'Text only' : enabled ? '🔊 Voice on' : '🔇 Voice off';
+  toggle.title = !available ? 'Speech is unavailable in this browser' : enabled ? 'Turn Coach K voice off' : 'Turn Coach K voice on';
+  speak.textContent = window.speechSynthesis?.speaking ? '■ Stop' : '▶ Speak';
+}
+
+function setCoachSpeaking(active) {
+  const avatar = $('#coachAvatar');
+  const card = $('#replayCoachCard');
+  avatar?.classList.toggle('speaking', Boolean(active));
+  card?.classList.toggle('coach-speaking', Boolean(active));
+  const mood = $('#coachMood');
+  if (mood && active) mood.textContent = 'Speaking';
+  if (!active) updateCoachVoiceControls();
+}
+
+function stopCoachSpeech() {
+  coachSpeechSerial += 1;
+  if (coachSpeechTimer) window.clearTimeout(coachSpeechTimer);
+  coachSpeechTimer = null;
+  try { window.speechSynthesis?.cancel(); } catch {}
+  coachSpeechUtterance = null;
+  setCoachSpeaking(false);
+}
+
+function coachSpeechTextForCurrentFrame() {
+  const title = $('#replayCoachTitle')?.textContent?.trim() || '';
+  const text = $('#replayCoachText')?.textContent?.trim() || '';
+  const comparison = $('#replayComparison');
+  const why = comparison && !comparison.hidden ? $('#replayWhyText')?.textContent?.trim() || '' : '';
+  const best = comparison && !comparison.hidden ? $('#replayBestText')?.textContent?.trim() || '' : '';
+  return [title, text, why ? `About your move: ${why}` : '', best ? `The stronger move: ${best}` : '']
+    .filter(Boolean)
+    .join('. ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function speakCoachFrame(force = false) {
+  if (!coachVoiceAvailable()) {
+    if (force) toast('Voice narration is not available in this browser');
+    updateCoachVoiceControls();
+    return false;
+  }
+  if (!force && settings.coachVoice === false) return false;
+  const text = coachSpeechTextForCurrentFrame();
+  if (!text) return false;
+  stopCoachSpeech();
+  const serial = ++coachSpeechSerial;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'en-US';
+  utterance.rate = 0.94;
+  utterance.pitch = 1.02;
+  utterance.volume = 1;
+  const voice = chooseCoachVoice();
+  if (voice) utterance.voice = voice;
+  utterance.onstart = () => {
+    if (serial !== coachSpeechSerial) return;
+    coachSpeechUtterance = utterance;
+    setCoachSpeaking(true);
+    updateCoachVoiceControls();
+  };
+  const finish = () => {
+    if (serial !== coachSpeechSerial) return;
+    coachSpeechUtterance = null;
+    setCoachSpeaking(false);
+    updateCoachAvatarMood(replayState.frames[replayState.index]);
+  };
+  utterance.onend = finish;
+  utterance.onerror = finish;
+  coachSpeechUtterance = utterance;
+  try {
+    window.speechSynthesis.speak(utterance);
+    updateCoachVoiceControls();
+    return true;
+  } catch (error) {
+    console.warn('Coach voice could not start.', error);
+    finish();
+    return false;
+  }
+}
+
+function scheduleCoachSpeech(delay = 180, force = false) {
+  if (coachSpeechTimer) window.clearTimeout(coachSpeechTimer);
+  coachSpeechTimer = window.setTimeout(() => speakCoachFrame(force), delay);
+}
+
+function toggleCoachVoice() {
+  if (!coachVoiceAvailable()) {
+    toast('This browser does not provide speech narration');
+    return;
+  }
+  settings.coachVoice = settings.coachVoice === false;
+  saveStore();
+  updateCoachVoiceControls();
+  if (settings.coachVoice) {
+    scheduleCoachSpeech(40, true);
+    toast('Coach K voice on');
+  } else {
+    stopCoachSpeech();
+    toast('Coach K voice off');
+  }
+}
+
+function handleCoachSpeak() {
+  if (window.speechSynthesis?.speaking) {
+    stopCoachSpeech();
+    return;
+  }
+  speakCoachFrame(true);
+}
+
+function updateCoachAvatarMood(frame) {
+  const mood = $('#coachMood');
+  const avatar = $('#coachAvatar');
+  if (!mood || !avatar || avatar.classList.contains('speaking')) return;
+  avatar.classList.remove('mood-happy', 'mood-thinking', 'mood-serious', 'mood-watch');
+  if (!frame || frame.index === 0) {
+    mood.textContent = 'Ready';
+    avatar.classList.add('mood-thinking');
+    return;
+  }
+  if (!frame.isUser) {
+    mood.textContent = 'Watching';
+    avatar.classList.add('mood-watch');
+    return;
+  }
+  const key = qualityForLoss(frame.userRecord?.cpLoss).key;
+  if (['best', 'excellent'].includes(key)) {
+    mood.textContent = 'Impressed';
+    avatar.classList.add('mood-happy');
+  } else if (key === 'good') {
+    mood.textContent = 'Encouraging';
+    avatar.classList.add('mood-thinking');
+  } else {
+    mood.textContent = 'Teaching';
+    avatar.classList.add('mood-serious');
+  }
+}
+
+window.speechSynthesis?.addEventListener?.('voiceschanged', () => {
+  coachVoiceCache = null;
+  chooseCoachVoice();
+  updateCoachVoiceControls();
+});
+
 function materialForPerspective(g, color) {
   const values = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
   let score = 0;
@@ -1981,27 +2162,61 @@ function strongestAlternativeAchievement(record, session) {
   return { best, selected, achievement };
 }
 
+function decisionShortfall(record, session, comparison, band) {
+  if (!Number.isFinite(record?.cpLoss)) return 'The move is still being analyzed.';
+  const best = comparison.best.move;
+  const selected = comparison.selected.move;
+  const loss = Math.round(record.cpLoss);
+  if (best?.san?.includes('#') && !selected?.san?.includes('#')) return `Your move missed a forced mate. That is why the position changed so sharply despite looking playable.`;
+  if (best?.san?.includes('+') && !selected?.san?.includes('+')) return `Your move passed up a forcing check, allowing the opponent time to organize or create a counter-threat.`;
+  if (best?.captured && !selected?.captured) return `Your move overlooked a tactical capture of the ${pieceName(best.captured)}, leaving material or initiative available to the opponent.`;
+  if (best?.san?.startsWith('O-O') && !selected?.san?.startsWith('O-O')) return 'Your move delayed king safety and rook connection when castling was the most urgent improvement.';
+  if (Number.isFinite(record.bestScore) && Number.isFinite(record.selectedScore)) {
+    if (record.bestScore >= 120 && record.selectedScore < 40) return 'Your move let a clear advantage drift back toward equality instead of preserving pressure.';
+    if (record.bestScore >= -35 && record.selectedScore <= -120) return 'Your move turned a defensible position into a clear disadvantage by missing the strongest resource.';
+    if (record.bestScore > 0 && record.selectedScore < 0) return 'Your move reversed which side had the easier position, so the opponent took over the practical initiative.';
+  }
+  if ((session.tags || []).includes('king safety')) return `The move did not address king safety as directly as the position required. The estimated loss was ${loss} centipawns.`;
+  if ((session.tags || []).some((tag) => ['pawn breaks', 'pawn structure'].includes(tag))) return `The move chose the wrong moment for the pawn structure and gave up a more useful break or restraint. The estimated loss was ${loss} centipawns.`;
+  if ((session.tags || []).includes('piece activity')) return `The move did not improve coordination as efficiently as the engine’s candidate. The estimated loss was ${loss} centipawns.`;
+  return `The move failed to preserve the strongest forcing or positional resource. Stockfish estimated a ${loss}-centipawn drop.`;
+}
+
 function coachNarrationForRecord(record, session, decisionNumber) {
-  if (!record) return { title: `Decision ${decisionNumber}`, text: 'This move was not linked to a stored analysis record.', bestSan: '—', yourSan: '—', bestOutcome: '—', yourOutcome: '—', line: [], band: { key: 'pending', label: 'Pending' } };
+  if (!record) return { title: `Decision ${decisionNumber}`, text: 'This move was not linked to a stored analysis record.', whyText: 'No stored explanation is available.', bestText: 'No best move is available.', bestSan: '—', yourSan: '—', bestOutcome: '—', yourOutcome: '—', line: [], band: { key: 'pending', label: 'Pending' } };
   const band = Number.isFinite(record.cpLoss) ? qualityForLoss(record.cpLoss) : { key: 'pending', label: 'Analyzing' };
   const comparison = strongestAlternativeAchievement(record, session);
   const bestSan = comparison.best.san || readableEngineMove(record.bestMove);
   const line = sanLineFromPv(record.fenBefore, record.bestLine, 8);
   const assisted = record.hintLevel ? ` You used ${record.hintLevel >= 2 ? 'the exact candidate reveal' : 'a strategic hint'} before moving.` : '';
   let text;
+  let whyText;
+  let bestText;
   if (!Number.isFinite(record.cpLoss)) {
     text = `Stockfish is still finishing the review of ${record.san}. The replay will refresh automatically when the evaluation arrives.${assisted}`;
+    whyText = 'The engine comparison is still pending.';
+    bestText = 'The preferred continuation will appear when analysis finishes.';
   } else if (['best', 'excellent'].includes(band.key)) {
     text = `${comparison.selected.text} This was ${band.label.toLowerCase()} and maintained ${evaluationText(record.selectedScore)}.${record.bestMove && record.bestMove !== record.uci ? ` Stockfish slightly preferred ${bestSan}, but the difference was only ${Math.round(record.cpLoss)} centipawns.` : ' It matched the engine’s principal choice.'}${assisted}`;
+    whyText = `${record.san} preserved the position’s key resources and left you with ${evaluationText(record.selectedScore)}.`;
+    bestText = record.bestMove && record.bestMove !== record.uci
+      ? `${bestSan} was marginally more precise and would have ${comparison.achievement}.`
+      : `${record.san} was the engine’s principal choice and achieved the position’s main objective.`;
   } else if (band.key === 'good') {
     text = `${comparison.selected.text} It was a good practical decision, but ${bestSan} was more precise because it would have ${comparison.achievement}. The estimated difference was ${Math.round(record.cpLoss)} centipawns.${assisted}`;
+    whyText = `${record.san} was playable, but it gave up some precision and left ${evaluationText(record.selectedScore)}.`;
+    bestText = `${bestSan} would have ${comparison.achievement}, preserving ${evaluationText(record.bestScore)}.`;
   } else {
     const transition = `The evaluation moved from ${evaluationText(record.bestScore)} with best play to ${evaluationText(record.selectedScore)} after your move.`;
-    text = `${comparison.selected.text} The main problem was not merely the destination square: ${transition} ${bestSan} was stronger because it would have ${comparison.achievement}.${assisted}`;
+    whyText = decisionShortfall(record, session, comparison, band);
+    bestText = `${bestSan} would have ${comparison.achievement}, keeping ${evaluationText(record.bestScore)}.`;
+    text = `${comparison.selected.text} ${transition} ${whyText} ${bestText}${assisted}`;
   }
   return {
     title: `Decision ${decisionNumber} · ${band.label}`,
     text,
+    whyText,
+    bestText,
     bestSan,
     yourSan: record.san,
     bestOutcome: evaluationText(record.bestScore),
@@ -2133,6 +2348,8 @@ function renderCoachReplay() {
     $('#replayCoachTitle').textContent = 'Orient yourself before replaying';
     $('#replayCoachText').textContent = `This ${phaseLabel(session.phase).toLowerCase()} began from “${session.opening}.” First identify material, king safety, pawn breaks, and the least active piece.`;
     comparison.hidden = true; lineBox.hidden = true; bestButton.hidden = true;
+    updateCoachAvatarMood(frame);
+    updateCoachVoiceControls();
     return;
   }
 
@@ -2149,8 +2366,10 @@ function renderCoachReplay() {
     comparison.hidden = false;
     $('#replayYourMove').textContent = narration.yourSan;
     $('#replayYourOutcome').textContent = narration.yourOutcome;
+    $('#replayWhyText').textContent = narration.whyText;
     $('#replayBestMove').textContent = narration.bestSan;
     $('#replayBestOutcome').textContent = narration.bestOutcome;
+    $('#replayBestText').textContent = narration.bestText;
     lineBox.hidden = !narration.line.length;
     $('#replayLineMoves').textContent = narration.line.length ? narration.line.join(' ') : 'No principal variation stored';
     bestButton.hidden = !frame.userRecord?.bestMove;
@@ -2161,9 +2380,11 @@ function renderCoachReplay() {
     rating.textContent = 'Opponent'; rating.classList.add('quality-pending');
     $('#replayEval').textContent = 'Your next decision';
     $('#replayCoachTitle').textContent = `Opponent played ${frame.move.san}`;
-    $('#replayCoachText').textContent = `${description.text} This is the moment to ask what changed and what the opponent is threatening.${nextDecision?.userRecord?.bestMove ? ` In the resulting position, Stockfish’s leading response was ${describeMoveFromFen(nextDecision.userRecord.fenBefore, nextDecision.userRecord.bestMove).san}.` : ''}`;
+    $('#replayCoachText').textContent = `${description.text} Ask what changed, what is now attacked, and what the opponent threatens.${nextDecision?.userRecord?.bestMove ? ` In the resulting position, Stockfish’s leading response was ${describeMoveFromFen(nextDecision.userRecord.fenBefore, nextDecision.userRecord.bestMove).san}.` : ''}`;
     comparison.hidden = true; lineBox.hidden = true; bestButton.hidden = true;
   }
+  updateCoachAvatarMood(frame);
+  updateCoachVoiceControls();
 }
 
 function replayMoveSound(frame) {
@@ -2172,13 +2393,14 @@ function replayMoveSound(frame) {
   playMoveSound(kind);
 }
 
-function setReplayIndex(index, playSound = true) {
+function setReplayIndex(index, playSound = true, speak = true) {
   if (!replayState.frames.length) return;
   const previous = replayState.index;
   replayState.index = Math.max(0, Math.min(replayState.frames.length - 1, Number(index) || 0));
   replayState.showBest = false;
   if (playSound && replayState.index === previous + 1) replayMoveSound(replayState.frames[replayState.index]);
   renderCoachReplay();
+  if (speak && settings.coachVoice !== false) scheduleCoachSpeech(160);
 }
 
 function stopReplayAuto() {
@@ -2195,10 +2417,12 @@ function scheduleReplayStep() {
     stopReplayAuto();
     return;
   }
-  setReplayIndex(replayState.index + 1, true);
+  setReplayIndex(replayState.index + 1, true, true);
   const frame = replayState.frames[replayState.index];
-  const delay = frame?.isUser ? 4300 : 2400;
-  replayState.timer = window.setTimeout(scheduleReplayStep, delay);
+  const words = coachSpeechTextForCurrentFrame().split(/\s+/).filter(Boolean).length;
+  const narratedDelay = Math.max(frame?.isUser ? 4800 : 3000, Math.min(10500, words * 315 + 900));
+  const silentDelay = frame?.isUser ? 4300 : 2400;
+  replayState.timer = window.setTimeout(scheduleReplayStep, settings.coachVoice === false ? silentDelay : narratedDelay);
 }
 
 function toggleReplayAuto() {
@@ -2209,7 +2433,8 @@ function toggleReplayAuto() {
   if (replayState.index >= replayState.frames.length - 1) setReplayIndex(0, false);
   replayState.auto = true;
   renderCoachReplay();
-  replayState.timer = window.setTimeout(scheduleReplayStep, 700);
+  if (settings.coachVoice !== false) scheduleCoachSpeech(100);
+  replayState.timer = window.setTimeout(scheduleReplayStep, 900);
 }
 
 function openCoachReplay(session = currentSession) {
@@ -2227,6 +2452,8 @@ function openCoachReplay(session = currentSession) {
   $('#replayTitle').textContent = `${session.opening === 'Various' ? phaseLabel(session.phase) : session.opening} coach replay`;
   renderCoachReplay();
   openDialog('replayDialog');
+  updateCoachVoiceControls();
+  if (settings.coachVoice !== false) scheduleCoachSpeech(220);
 }
 
 function toggleReplayBestMove() {
@@ -2234,6 +2461,7 @@ function toggleReplayBestMove() {
   if (!frame?.userRecord?.bestMove) return;
   replayState.showBest = !replayState.showBest;
   renderCoachReplay();
+  if (replayState.showBest && settings.coachVoice !== false) scheduleCoachSpeech(90);
 }
 
 function sessionCoach(session) {
@@ -2352,7 +2580,7 @@ function openDialog(id) {
 }
 
 function closeDialog(id) {
-  if (id === 'replayDialog') stopReplayAuto();
+  if (id === 'replayDialog') { stopReplayAuto(); stopCoachSpeech(); }
   const dialog = $(`#${id}`);
   if (typeof dialog.close === 'function') dialog.close();
   else dialog.removeAttribute('open');
