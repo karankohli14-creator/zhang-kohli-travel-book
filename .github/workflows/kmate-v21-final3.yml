@@ -59,10 +59,8 @@ jobs:
           marker = "          node <<'NODE'\n"
           start = workflow.index(marker) + len(marker)
           end = workflow.index('\n          NODE', start)
-          test = textwrap.dedent(workflow[start:end]).replace(
-              '            assert.strictEqual(window === undefined, false);\n',
-              '',
-          )
+          test = textwrap.dedent(workflow[start:end])
+          test = test.replace('assert.strictEqual(window === undefined, false);\n', '')
           Path('/tmp/kmate-v21-browser-test.js').write_text(test)
           PY
           node --check /tmp/kmate-v21-final.js
