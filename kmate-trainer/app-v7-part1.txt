@@ -437,7 +437,11 @@ function playMoveSound(kind = 'move') {
   });
 }
 
-const primeSoundFromGesture = () => { unlockMoveAudio(false); };
+const primeSoundFromGesture = (event) => {
+  // Let the speaker button's click handler perform the explicit unlock itself.
+  if (event?.target?.closest?.('#soundToggle')) return;
+  unlockMoveAudio(false);
+};
 document.addEventListener('pointerdown', primeSoundFromGesture, { capture: true, once: true });
 document.addEventListener('touchstart', primeSoundFromGesture, { capture: true, once: true, passive: true });
 document.addEventListener('keydown', primeSoundFromGesture, { capture: true, once: true });
@@ -447,6 +451,7 @@ function updateSoundToggle() {
   if (!button) return;
   button.textContent = soundEnabled() ? '🔊' : '🔇';
   button.classList.toggle('audio-ready', soundEnabled() && htmlAudioUnlocked);
+  button.classList.toggle('audio-needs-tap', soundEnabled() && !htmlAudioUnlocked);
   button.setAttribute('aria-label', soundEnabled() ? 'Mute move sounds' : 'Turn on move sounds');
   button.title = soundEnabled()
     ? (htmlAudioUnlocked ? 'Move sounds on' : 'Move sounds on — tap once to enable audio')
@@ -454,6 +459,17 @@ function updateSoundToggle() {
 }
 
 async function toggleSound() {
+  // On iOS/PWA, the first speaker tap should unlock and test audio—not mute it.
+  if (soundEnabled() && !htmlAudioUnlocked) {
+    const unlocked = await unlockMoveAudio(true);
+    updateSoundToggle();
+    if (unlocked) {
+      playMoveSound('move');
+      toast('Move sounds ready');
+    }
+    return;
+  }
+
   settings.sound = !soundEnabled();
   saveStore();
   updateSoundToggle();

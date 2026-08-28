@@ -437,3 +437,6 @@ td small{display:block;color:var(--muted)}
   .piece.vector-piece{width:74%;height:74%}
   .piece.vector-piece svg{filter:drop-shadow(0 2px 1px #0007) drop-shadow(0 4px 4px #0004)}
 }
+
+.sound-toggle.audio-needs-tap{border-color:#f4cc7066;color:#ffe09a;animation:soundReadyPulse 1.15s ease-in-out infinite alternate}
+@keyframes soundReadyPulse{to{box-shadow:0 0 0 4px #f4cc7012;filter:brightness(1.12)}}

@@ -41,7 +41,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '19.0-commercial-beta',
+  version: '19.1-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
