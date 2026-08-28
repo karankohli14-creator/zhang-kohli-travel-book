@@ -41,7 +41,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '18.0-commercial-beta',
+  version: '19.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -58,6 +58,7 @@ window.__KMATE__ = {
     clocks: { ...clocks },
     ratedMoveSquare: ratedMoveSquare ? { ...ratedMoveSquare } : null,
     hint: { status: hintState.status, level: hintState.level, automatic: Boolean(settings.autoHints), candidate: hintState.level >= 2 ? hintState.candidate : null },
+    sound: { enabled: soundEnabled(), unlocked: htmlAudioUnlocked, backend: soundPlaybackBackend, lastKind: lastSoundKind },
     engine: 'Stockfish 18 lite single-threaded',
     reviewEngine: 'Independent Stockfish 18 move review',
     commercialBeta: true,
