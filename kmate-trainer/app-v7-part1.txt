@@ -120,7 +120,7 @@ const defaultSettings = {
   blindCalibration: false,
   autoHints: false,
   coachVoice: true,
-  coachVoiceURI: 'auto',
+  coachVoiceURI: 'british-woman',
   coachVoiceRate: 0.92,
   coachAvatar: 'grandmaster',
 };
@@ -150,6 +150,11 @@ try {
 store.sessions = Array.isArray(store.sessions) ? store.sessions : [];
 store.legacy = { ...emptyStore().legacy, ...(store.legacy || {}) };
 store.settings = { ...defaultSettings, ...(store.settings || {}) };
+// Move existing automatic users to the new generic British-woman preference.
+// Explicitly selected device voices remain untouched.
+if (!store.settings.coachVoiceURI || store.settings.coachVoiceURI === 'auto') {
+  store.settings.coachVoiceURI = 'british-woman';
+}
 
 let settings = { ...store.settings };
 let game = null;
@@ -480,7 +485,7 @@ function previewSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260828-23';
+  url.search = '?v=20260828-24';
   url.hash = '';
   return url.href;
 }
@@ -2258,16 +2263,52 @@ function coachVoiceAvailable() {
   return Boolean(window.speechSynthesis && window.SpeechSynthesisUtterance);
 }
 
+const BRITISH_WOMAN_PROFILE = 'british-woman';
+const LIKELY_WOMAN_VOICE_PATTERN = /sonia|libby|maisie|serena|kate|stephanie|martha|hazel|susan|fiona|emma|amy|olivia|ava|aria|jenny|samantha|karen|moira|allison|zira|female|woman/i;
+const LIKELY_MAN_VOICE_PATTERN = /daniel|arthur|ryan|oliver|george|aaron|tom|fred|david|mark|male|\bman\b/i;
+
+function voiceSearchText(voice) {
+  return `${voice?.name || ''} ${voice?.voiceURI || ''} ${voice?.lang || ''}`;
+}
+
+function isBritishEnglishVoice(voice) {
+  const language = String(voice?.lang || '').toLowerCase();
+  const name = voiceSearchText(voice).toLowerCase();
+  return /^en[-_]gb(?:$|[-_])/i.test(language)
+    || /united kingdom|british english|uk english|english \(united kingdom\)/i.test(name);
+}
+
+function isLikelyWomanVoice(voice) {
+  const name = voiceSearchText(voice);
+  return LIKELY_WOMAN_VOICE_PATTERN.test(name) && !LIKELY_MAN_VOICE_PATTERN.test(name);
+}
+
+function isLikelyManVoice(voice) {
+  return LIKELY_MAN_VOICE_PATTERN.test(voiceSearchText(voice));
+}
+
 function coachVoiceScore(voice) {
-  const name = `${voice?.name || ''} ${voice?.voiceURI || ''}`.toLowerCase();
+  const name = voiceSearchText(voice).toLowerCase();
   const lang = String(voice?.lang || '').toLowerCase();
   let score = /^en([_-]|$)/.test(lang) ? 100 : -1000;
   if (/premium|enhanced|natural|neural|high quality|hq/.test(name)) score += 220;
-  if (/ava|samantha|serena|daniel|karen|moira|aria|jenny|sonia|olivia|aaron|allison|tom|victoria/.test(name)) score += 90;
-  if (/en-us/.test(lang)) score += 25;
-  else if (/en-gb|en-au|en-ie|en-ca/.test(lang)) score += 18;
+  if (/ava|samantha|serena|daniel|karen|moira|aria|jenny|sonia|olivia|aaron|allison|tom|victoria|libby|maisie|kate|stephanie|martha/.test(name)) score += 90;
+  if (/en-gb/.test(lang)) score += 42;
+  else if (/en-us/.test(lang)) score += 24;
+  else if (/en-au|en-ie|en-ca/.test(lang)) score += 18;
   if (voice?.localService) score += 8;
   if (/compact|robot|espeak|fred|zarvox|whisper|bad news|bubbles|cellos/.test(name)) score -= 180;
+  return score;
+}
+
+function britishWomanVoiceScore(voice) {
+  let score = coachVoiceScore(voice);
+  const british = isBritishEnglishVoice(voice);
+  const woman = isLikelyWomanVoice(voice);
+  if (british) score += 430;
+  if (woman) score += 360;
+  if (british && woman) score += 380;
+  if (isLikelyManVoice(voice)) score -= 520;
   return score;
 }
 
@@ -2284,10 +2325,28 @@ function englishCoachVoices() {
   });
 }
 
+function chooseBritishWomanVoice(voices = englishCoachVoices()) {
+  if (!voices.length) return null;
+  const sortPreferred = (items) => items.slice().sort((a, b) => britishWomanVoiceScore(b) - britishWomanVoiceScore(a) || a.name.localeCompare(b.name));
+  const exact = voices.filter((voice) => isBritishEnglishVoice(voice) && isLikelyWomanVoice(voice));
+  if (exact.length) return sortPreferred(exact)[0];
+  const women = voices.filter((voice) => isLikelyWomanVoice(voice));
+  if (women.length) return sortPreferred(women)[0];
+  const britishNeutral = voices.filter((voice) => isBritishEnglishVoice(voice) && !isLikelyManVoice(voice));
+  if (britishNeutral.length) return sortPreferred(britishNeutral)[0];
+  const british = voices.filter(isBritishEnglishVoice);
+  if (british.length) return sortPreferred(british)[0];
+  return voices.slice().sort((a, b) => coachVoiceScore(b) - coachVoiceScore(a) || a.name.localeCompare(b.name))[0] || null;
+}
+
 function chooseCoachVoice() {
   const voices = englishCoachVoices();
   if (!voices.length) return null;
-  const selected = settings.coachVoiceURI || 'auto';
+  const selected = settings.coachVoiceURI || BRITISH_WOMAN_PROFILE;
+  if (selected === BRITISH_WOMAN_PROFILE) {
+    coachVoiceCache = chooseBritishWomanVoice(voices);
+    return coachVoiceCache;
+  }
   if (selected !== 'auto') {
     const exact = voices.find((voice) => (voice.voiceURI || `${voice.name}-${voice.lang}`) === selected);
     if (exact) {
@@ -2299,26 +2358,54 @@ function chooseCoachVoice() {
   return coachVoiceCache;
 }
 
+function britishWomanPreferenceLabel(voice) {
+  if (!voice) return 'British woman — best available';
+  if (isBritishEnglishVoice(voice) && isLikelyWomanVoice(voice)) return `British woman — ${voice.name}`;
+  if (isLikelyWomanVoice(voice)) return `Woman — ${voice.name} (British voice unavailable)`;
+  if (isBritishEnglishVoice(voice)) return `British English — ${voice.name} (closest available)`;
+  return `Closest natural voice — ${voice.name}`;
+}
+
+function individualVoiceLabel(voice) {
+  if (isBritishEnglishVoice(voice) && isLikelyWomanVoice(voice)) return `British woman — ${voice.name} (${voice.lang})`;
+  if (isBritishEnglishVoice(voice)) return `British English — ${voice.name} (${voice.lang})`;
+  if (isLikelyWomanVoice(voice)) return `Woman — ${voice.name} (${voice.lang})`;
+  const quality = coachVoiceScore(voice) >= 250 ? 'Natural' : 'System';
+  return `${quality} — ${voice.name} (${voice.lang})`;
+}
+
 function populateCoachVoiceSelect() {
   const select = $('#coachVoiceSelect');
   if (!select) return;
   const voices = englishCoachVoices();
-  const resolved = chooseCoachVoice();
-  const requested = settings.coachVoiceURI || 'auto';
+  const britishWoman = chooseBritishWomanVoice(voices);
+  const natural = voices.slice().sort((a, b) => coachVoiceScore(b) - coachVoiceScore(a) || a.name.localeCompare(b.name))[0] || null;
+  const requested = settings.coachVoiceURI || BRITISH_WOMAN_PROFILE;
   select.innerHTML = '';
-  const auto = document.createElement('option');
-  auto.value = 'auto';
-  auto.textContent = resolved ? `Natural — ${resolved.name}` : 'Natural — best available';
-  select.append(auto);
-  for (const voice of voices.slice().sort((a, b) => coachVoiceScore(b) - coachVoiceScore(a) || a.name.localeCompare(b.name))) {
+
+  const preferred = document.createElement('option');
+  preferred.value = BRITISH_WOMAN_PROFILE;
+  preferred.textContent = britishWomanPreferenceLabel(britishWoman);
+  select.append(preferred);
+
+  const automatic = document.createElement('option');
+  automatic.value = 'auto';
+  automatic.textContent = natural ? `Natural — ${natural.name}` : 'Natural — best available';
+  select.append(automatic);
+
+  for (const voice of voices.slice().sort((a, b) => britishWomanVoiceScore(b) - britishWomanVoiceScore(a) || a.name.localeCompare(b.name))) {
     const option = document.createElement('option');
     option.value = voice.voiceURI || `${voice.name}-${voice.lang}`;
-    const quality = coachVoiceScore(voice) >= 250 ? 'Natural' : 'System';
-    option.textContent = `${quality} — ${voice.name} (${voice.lang})`;
+    option.textContent = individualVoiceLabel(voice);
     select.append(option);
   }
-  select.value = [...select.options].some((option) => option.value === requested) ? requested : 'auto';
-  if (select.value !== requested) settings.coachVoiceURI = 'auto';
+
+  const availableValues = new Set([...select.options].map((option) => option.value));
+  select.value = availableValues.has(requested) ? requested : BRITISH_WOMAN_PROFILE;
+  if (select.value !== requested) settings.coachVoiceURI = BRITISH_WOMAN_PROFILE;
+  select.title = britishWoman
+    ? `Preferred generic British woman voice: ${britishWoman.name}`
+    : 'A generic British woman voice was requested; K-Mate will use the closest voice available on this device.';
 }
 
 function updateCoachAvatarControls() {
@@ -2463,11 +2550,11 @@ function speakCoachQueueSegment(serial) {
     return;
   }
   const utterance = new SpeechSynthesisUtterance(speechFriendlyText(segment.text));
-  utterance.lang = 'en-US';
+  const voice = chooseCoachVoice();
+  utterance.lang = voice?.lang || 'en-GB';
   utterance.rate = Math.max(0.82, Math.min(1.06, Number(settings.coachVoiceRate) || 0.92));
   utterance.pitch = 1.0;
   utterance.volume = 1;
-  const voice = chooseCoachVoice();
   if (voice) utterance.voice = voice;
   utterance.onstart = () => {
     if (serial !== coachSpeechSerial) return;
