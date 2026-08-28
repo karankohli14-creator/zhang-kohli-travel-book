@@ -1,0 +1,203 @@
+name: K-Mate v20 coached replay, timeout review, audio, and graphics
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v20-coach-replay.yml'
+permissions:
+  contents: write
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply K-Mate v20 patch and generate audio
+        run: python .github/scripts/kmate_v20_replay_timeout_audio_graphics.py
+
+      - name: Validate assembled application JavaScript
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{n}.txt').read_text() for n in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v20-combined.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v20-combined.js
+
+      - name: Validate generated sound and feature markers
+        run: |
+          python - <<'PY'
+          import wave
+          from pathlib import Path
+          path = Path('kmate-trainer/sounds/kmate-sounds-v20.wav')
+          assert path.exists() and path.stat().st_size > 300000, path
+          with wave.open(str(path), 'rb') as wav:
+              assert wav.getnchannels() == 1
+              assert wav.getsampwidth() == 2
+              assert wav.getframerate() == 44100
+              duration = wav.getnframes() / wav.getframerate()
+              assert 5.8 <= duration <= 6.0, duration
+          print({'sound_bytes': path.stat().st_size, 'duration': duration})
+          PY
+          grep -q 'id="replayDialog"' kmate-trainer/index.html
+          grep -q 'id="resultReplay"' kmate-trainer/index.html
+          grep -q 'function openCoachReplay' kmate-trainer/app-v7-part1.txt
+          grep -q 'function serializeMoveSequence' kmate-trainer/app-v7-part1.txt
+          grep -q "sampled-wav-sprite" kmate-trainer/app-v7-part1.txt
+          grep -q "version: '20.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+          grep -q 'piece.staunton-piece' kmate-trainer/styles-v7.css
+
+      - name: Install browser test runtime
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          npx playwright install --with-deps chromium
+
+      - name: Run K-Mate locally
+        run: |
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v20-server.log 2>&1 &
+          echo $! >/tmp/kmate-v20-server.pid
+
+      - name: Verify timeout completion, coached replay, sampled sound, and pieces on mobile
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+
+          async function waitForUserTurn(page) {
+            await page.waitForFunction(() => {
+              const state = window.__KMATE__?.state?.();
+              return state && !state.finalized && state.turn === state.userColor;
+            }, null, { timeout: 120000 });
+          }
+
+          async function makeFirstLegalMove(page) {
+            return page.evaluate(() => {
+              const state = window.__KMATE__.state();
+              const className = state.userColor === 'w' ? 'white' : 'black';
+              for (const square of document.querySelectorAll('#board .sq')) {
+                if (!square.querySelector(`.piece.${className}`)) continue;
+                square.click();
+                const target = document.querySelector('#board .sq.legal, #board .sq.capture');
+                if (target) {
+                  target.click();
+                  return target.dataset.square;
+                }
+              }
+              return null;
+            });
+          }
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+            await context.addInitScript(() => {
+              window.__kmateAudioPlayCalls = 0;
+              HTMLMediaElement.prototype.play = function () {
+                window.__kmateAudioPlayCalls += 1;
+                return Promise.resolve();
+              };
+            });
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
+            page.on('console', message => {
+              if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+            });
+
+            await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1', null, { timeout: 120000 });
+
+            const wav = await page.evaluate(async () => {
+              const response = await fetch('./sounds/kmate-sounds-v20.wav');
+              const bytes = new Uint8Array(await response.arrayBuffer());
+              return { ok: response.ok, length: bytes.length, header: String.fromCharCode(...bytes.slice(0, 4)) };
+            });
+            assert.ok(wav.ok && wav.length > 300000 && wav.header === 'RIFF', `invalid sampled sound: ${JSON.stringify(wav)}`);
+
+            await page.click('#soundToggle');
+            await page.waitForFunction(() => window.__KMATE__.state().sound.audibleConfirmed === true, null, { timeout: 30000 });
+            const soundReady = await page.evaluate(() => window.__KMATE__.state().sound);
+            assert.strictEqual(soundReady.enabled, true);
+            assert.strictEqual(soundReady.backend, 'sampled-wav-sprite');
+
+            await page.click('#startButton');
+            await page.waitForSelector('#gameView:not([hidden])', { timeout: 30000 });
+            assert.strictEqual(await page.locator('#board .sq').count(), 64);
+            assert.ok(await page.locator('#board .piece.staunton-piece svg').count() >= 10, 'new Staunton pieces did not render');
+            const ratio = await page.locator('#board .piece.staunton-piece').first().evaluate(piece => {
+              const square = piece.closest('.sq').getBoundingClientRect();
+              const rect = piece.getBoundingClientRect();
+              return Math.max(rect.width / square.width, rect.height / square.height);
+            });
+            assert.ok(ratio >= 0.60 && ratio <= 0.78, `mobile piece ratio out of range: ${ratio}`);
+
+            await waitForUserTurn(page);
+            const destination = await makeFirstLegalMove(page);
+            assert.ok(destination, 'could not make a legal user move');
+            await page.waitForFunction(() => {
+              const badge = document.querySelector('#moveList .user-move .move-rating');
+              return badge && !/Analyzing|Pending/i.test(badge.textContent);
+            }, null, { timeout: 120000 });
+            await waitForUserTurn(page);
+
+            const forced = await page.evaluate(() => window.__KMATE__.test.forceTimeout(window.__KMATE__.state().userColor));
+            assert.strictEqual(forced, true, 'timeout test hook did not run');
+            await page.waitForSelector('#resultDialog[open]', { timeout: 15000 });
+            const timedOut = await page.evaluate(() => window.__KMATE__.state());
+            assert.strictEqual(timedOut.finalized, true, 'play did not finalize on timeout');
+            assert.strictEqual(timedOut.reason, 'timeout', 'timeout reason was not stored');
+            assert.strictEqual(Math.round(timedOut.clocks[timedOut.userColor]), 0, 'flagged clock was not zero');
+            assert.ok((await page.locator('#resultTitle').textContent()).includes('Time expired'));
+            assert.ok(await page.locator('#postReview').isVisible(), 'review is not visible after timeout');
+            assert.strictEqual(await page.locator('#resultReplay').isEnabled(), true, 'coach replay is disabled after timeout');
+
+            await page.click('#resultReplay');
+            await page.waitForSelector('#replayDialog[open]', { timeout: 15000 });
+            assert.strictEqual(await page.locator('#replayBoard .sq').count(), 64, 'replay board did not render');
+
+            for (let index = 0; index < 8; index += 1) {
+              const label = (await page.locator('#replayRating').textContent()).trim();
+              if (!['Start', 'Opponent'].includes(label)) break;
+              if (!(await page.locator('#replayNext').isEnabled())) break;
+              await page.click('#replayNext');
+            }
+            const replayLabel = (await page.locator('#replayRating').textContent()).trim();
+            assert.ok(['Best', 'Excellent', 'Good', 'Inaccurate', 'Miss', 'Blunder'].includes(replayLabel), `unexpected replay rating: ${replayLabel}`);
+            assert.ok((await page.locator('#replayCoachText').textContent()).trim().length > 100, 'coach explanation is too short');
+            assert.ok(await page.locator('#replayComparison').isVisible(), 'move comparison is missing');
+            assert.ok((await page.locator('#replayBestMove').textContent()).trim().length >= 2, 'best move is missing');
+            if (await page.locator('#replayBestButton').isVisible()) {
+              await page.click('#replayBestButton');
+              assert.strictEqual(await page.locator('#replayBoard .best-preview-square').count(), 1, 'best-move board preview missing');
+            }
+
+            await page.click('#replayBackToReview');
+            await page.waitForSelector('#resultDialog[open]');
+            await page.click('#resultInsights');
+            await page.waitForSelector('#insightsView:not([hidden])');
+            assert.ok(Number(await page.locator('#metricGames').textContent()) >= 1, 'timeout result did not reach insights');
+
+            const playCalls = await page.evaluate(() => window.__kmateAudioPlayCalls);
+            assert.ok(playCalls >= 3, `sampled audio was not invoked enough times: ${playCalls}`);
+            if (errors.length) throw new Error(errors.join('\n'));
+
+            console.log(JSON.stringify({ ok: true, wav, ratio, replayLabel, playCalls, timedOut: { finalized: timedOut.finalized, reason: timedOut.reason } }, null, 2));
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Commit K-Mate v20
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add kmate-trainer/index.html kmate-trainer/styles-v7.css kmate-trainer/app-v7.js kmate-trainer/app-v7-part1.txt kmate-trainer/app-v7-part6.txt kmate-trainer/sounds/kmate-sounds-v20.wav
+          git commit -m 'K-Mate v20: coached replay, timeout review, sampled audio, and Staunton pieces' || exit 0
+          git push
