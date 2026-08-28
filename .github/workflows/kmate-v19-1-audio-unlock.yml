@@ -1,3 +1,4 @@
+# stable-speaker-pulse verification
 name: K-Mate v19.1 first-tap audio unlock
 on:
   push:
