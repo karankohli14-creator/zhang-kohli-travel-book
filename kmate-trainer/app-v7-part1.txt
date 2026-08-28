@@ -115,12 +115,14 @@ const defaultSettings = {
   timeControl: '3+0',
   side: 'random',
   sound: true,
+  soundTheme: 'soft',
   trainingGoal: 'all',
   blindCalibration: false,
   autoHints: false,
   coachVoice: true,
   coachVoiceURI: 'auto',
   coachVoiceRate: 0.92,
+  coachAvatar: 'grandmaster',
 };
 
 function emptyStore() {
@@ -169,6 +171,7 @@ let toastTimer = null;
 let audioContext = null;
 let audioNoiseBuffer = null;
 let htmlMoveAudio = null;
+let htmlMoveAudioTheme = null;
 let htmlMoveAudioStopTimer = null;
 let htmlAudioUnlocked = false;
 let soundSpriteUri = null;
@@ -292,25 +295,41 @@ function playSynthMoveSound(kind = 'move') {
 }
 
 const SOUND_SPRITE_SEGMENTS = {
-  move: { start: 0.08, duration: 0.46, volume: 0.98 },
-  capture: { start: 0.70, duration: 0.62, volume: 1.00 },
-  check: { start: 1.48, duration: 0.76, volume: 0.98 },
-  win: { start: 2.48, duration: 1.00, volume: 0.96 },
-  loss: { start: 3.75, duration: 0.94, volume: 0.95 },
-  draw: { start: 4.95, duration: 0.76, volume: 0.94 },
-  timeout: { start: 5.95, duration: 1.18, volume: 1.00 },
+  move: { start: 0.08, duration: 0.46, volume: 0.88 },
+  capture: { start: 0.70, duration: 0.62, volume: 0.92 },
+  check: { start: 1.48, duration: 0.76, volume: 0.90 },
+  win: { start: 2.48, duration: 1.00, volume: 0.90 },
+  loss: { start: 3.75, duration: 0.94, volume: 0.88 },
+  draw: { start: 4.95, duration: 0.76, volume: 0.86 },
+  timeout: { start: 5.95, duration: 1.18, volume: 0.94 },
 };
-const SOUND_SPRITE_URL = new URL('./sounds/kmate-sounds-v21.wav?v=21.0.0', document.baseURI).href;
+const SOUND_THEME_LABELS = {
+  soft: 'Soft wood',
+  tournament: 'Tournament wood',
+  minimal: 'Minimal click',
+};
+const SOUND_SPRITE_URLS = {
+  soft: new URL('./sounds/kmate-soft-v23.wav?v=23.0.0', document.baseURI).href,
+  tournament: new URL('./sounds/kmate-tournament-v23.wav?v=23.0.0', document.baseURI).href,
+  minimal: new URL('./sounds/kmate-minimal-v23.wav?v=23.0.0', document.baseURI).href,
+};
 let soundAudiblyConfirmed = false;
 
+function selectedSoundTheme() {
+  return SOUND_SPRITE_URLS[settings.soundTheme] ? settings.soundTheme : 'soft';
+}
+
 function ensureHtmlMoveAudio() {
-  if (htmlMoveAudio) return htmlMoveAudio;
+  const theme = selectedSoundTheme();
+  if (htmlMoveAudio && htmlMoveAudioTheme === theme) return htmlMoveAudio;
+  try { htmlMoveAudio?.pause(); } catch {}
   const audio = new Audio();
   audio.preload = 'auto';
   audio.playsInline = true;
-  audio.src = SOUND_SPRITE_URL;
-  audio.volume = 0.94;
+  audio.src = SOUND_SPRITE_URLS[theme];
+  audio.volume = 0.90;
   htmlMoveAudio = audio;
+  htmlMoveAudioTheme = theme;
   try { audio.load(); } catch {}
   return audio;
 }
@@ -432,9 +451,36 @@ async function toggleSound() {
   }
 }
 
+
+async function setSoundTheme(theme, preview = false) {
+  settings.soundTheme = SOUND_SPRITE_URLS[theme] ? theme : 'soft';
+  const select = $('#soundStyleSelect');
+  if (select) select.value = settings.soundTheme;
+  try { htmlMoveAudio?.pause(); } catch {}
+  htmlMoveAudio = null;
+  htmlMoveAudioTheme = null;
+  htmlAudioUnlocked = false;
+  soundAudiblyConfirmed = false;
+  soundPlaybackBackend = 'not-unlocked';
+  saveStore();
+  updateSoundToggle();
+  if (preview && soundEnabled()) {
+    const unlocked = await unlockMoveAudio(true);
+    if (unlocked) toast(`${SOUND_THEME_LABELS[settings.soundTheme]} selected`);
+  }
+}
+
+function handleSoundThemeChange(event) {
+  setSoundTheme(event?.target?.value || 'soft', true);
+}
+
+function previewSoundTheme() {
+  setSoundTheme($('#soundStyleSelect')?.value || selectedSoundTheme(), true);
+}
+
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260828-22';
+  url.search = '?v=20260828-23';
   url.hash = '';
   return url.href;
 }
@@ -571,6 +617,7 @@ function applySettingsToControls() {
   if ($('#goalSelect')) $('#goalSelect').value = settings.trainingGoal || 'all';
   if ($('#blindCalibration')) $('#blindCalibration').checked = Boolean(settings.blindCalibration);
   if ($('#autoHints')) $('#autoHints').checked = Boolean(settings.autoHints);
+  if ($('#soundStyleSelect')) $('#soundStyleSelect').value = selectedSoundTheme();
   updateControls(false);
 }
 
@@ -581,6 +628,7 @@ function updateControls(persist = true) {
   settings.trainingGoal = $('#goalSelect')?.value || settings.trainingGoal || 'all';
   settings.blindCalibration = Boolean($('#blindCalibration')?.checked);
   settings.autoHints = Boolean($('#autoHints')?.checked);
+  settings.soundTheme = $('#soundStyleSelect')?.value || settings.soundTheme || 'soft';
   $('#positionValue').textContent = settings.positionRating;
   $('#opponentValue').textContent = settings.opponentRating >= 3500 ? '3500 · MAX' : settings.opponentRating;
   $('#timeValue').textContent = timeControl().label;
@@ -604,7 +652,8 @@ function updateControls(persist = true) {
     : openingPool.filter((position) => (position.tags || []).some((tag) => goal.tags?.includes(tag)));
   const usablePool = goalPool.length ? goalPool : openingPool;
   const count = usablePool.length;
-  $('#openingCount').textContent = `∞ generated · ${count} curated seed${count === 1 ? '' : 's'}`;
+  const localBranches = Array.isArray(genTree) ? genTree.filter((item) => item.phase === settings.phase && (settings.opening === 'all' || item.opening === settings.opening)).length : 0;
+  $('#openingCount').textContent = `∞ stream · ${count} seed${count === 1 ? '' : 's'} · ${localBranches} branches`;
   if ($('#goalCount')) $('#goalCount').textContent = goal.label;
   if ($('#goalDescription')) $('#goalDescription').textContent = goal.description;
 
@@ -616,8 +665,8 @@ function updateControls(persist = true) {
       .map((position) => position.rating))]
       .sort((a, b) => a - b);
     $('#positionBand').textContent = nearest <= 100
-      ? `Fresh ${phaseLabel(settings.phase).toLowerCase()} practice near ${settings.positionRating}, filtered for ${goal.label.toLowerCase()}.`
-      : `Uses the nearest curated anchors (${ratings.join(' or ')}) and applies a legal quality-gated continuation.`;
+      ? `Open-ended ${phaseLabel(settings.phase).toLowerCase()} stream near ${settings.positionRating}; recent and near-identical boards are rejected.`
+      : `Branches from the nearest anchors (${ratings.join(' or ')}) and expands its local position tree after every accepted position.`;
   }
 
   if (persist) saveStore();
@@ -641,78 +690,169 @@ function navigate(view) {
   showView(view);
 }
 
-const GEN_KEY = 'kmate-generated-v8';
-const GEN_LIMIT = 240;
+const GEN_KEY = 'kmate-generated-v23';
+const GEN_TREE_KEY = 'kmate-generation-tree-v23';
+const GEN_COUNTER_KEY = 'kmate-generation-counter-v23';
+const GEN_LIMIT = 2200;
+const GEN_TREE_LIMIT = 420;
 let genSeen;
+let genTree;
+let generationCounter = 0;
+let lastGenerationMeta = null;
 try {
   const saved = JSON.parse(localStorage.getItem(GEN_KEY) || '[]');
   genSeen = Array.isArray(saved) ? saved.slice(0, GEN_LIMIT) : [];
 } catch { genSeen = []; }
+try {
+  const saved = JSON.parse(localStorage.getItem(GEN_TREE_KEY) || '[]');
+  genTree = Array.isArray(saved)
+    ? saved.filter((item) => item?.fen && item?.seedId && item?.phase).slice(0, GEN_TREE_LIMIT)
+    : [];
+} catch { genTree = []; }
+try { generationCounter = Number(localStorage.getItem(GEN_COUNTER_KEY)) || 0; } catch {}
 
+function randomFloat() {
+  try {
+    const values = new Uint32Array(1);
+    window.crypto?.getRandomValues(values);
+    return values[0] / 4294967296;
+  } catch { return Math.random(); }
+}
+function randomInt(min, max) { return min + Math.floor(randomFloat() * (max - min + 1)); }
+function shuffled(items) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swap = randomInt(0, index);
+    [copy[index], copy[swap]] = [copy[swap], copy[index]];
+  }
+  return copy;
+}
 function shortFen(fen) { return String(fen).split(/\s+/).slice(0, 4).join(' '); }
+function expandedPlacement(fen) {
+  const placement = String(fen || '').split(/\s+/)[0] || '';
+  let output = '';
+  for (const char of placement) {
+    if (char === '/') continue;
+    if (/\d/.test(char)) output += '.'.repeat(Number(char));
+    else output += char;
+  }
+  return output.padEnd(64, '.').slice(0, 64);
+}
+function positionDistance(firstFen, secondFen) {
+  const first = expandedPlacement(firstFen);
+  const second = expandedPlacement(secondFen);
+  let distance = 0;
+  for (let index = 0; index < 64; index += 1) if (first[index] !== second[index]) distance += 1;
+  return distance;
+}
 function rememberFen(fen) {
   const key = shortFen(fen);
   genSeen = [key, ...genSeen.filter((item) => item !== key)].slice(0, GEN_LIMIT);
   try { localStorage.setItem(GEN_KEY, JSON.stringify(genSeen)); } catch {}
 }
+function rememberGeneratedPosition(position) {
+  const record = {
+    id: position.id,
+    fen: position.fen,
+    seedId: position.seedId,
+    phase: position.phase,
+    opening: position.opening,
+    rating: position.rating,
+    tags: [...(position.tags || [])],
+    title: position.title,
+    depth: Number(position.branchDepth) || Number(position.variationPlies) || 0,
+  };
+  genTree = [record, ...genTree.filter((item) => shortFen(item.fen) !== shortFen(record.fen))].slice(0, GEN_TREE_LIMIT);
+  try {
+    localStorage.setItem(GEN_TREE_KEY, JSON.stringify(genTree));
+    localStorage.setItem(GEN_COUNTER_KEY, String(generationCounter));
+  } catch {}
+}
+function recentlyTooSimilar(fen) {
+  const exact = shortFen(fen);
+  const minimumDistance = settings.phase === 'endgame' ? 3 : 5;
+  for (const recent of genSeen.slice(0, 110)) {
+    if (recent === exact) return true;
+    if (positionDistance(recent, exact) < minimumDistance) return true;
+  }
+  return false;
+}
 function materialInfo(g) {
   const x = { pieces: 0, queens: 0 };
-  g.board().forEach((row) => row.forEach((p) => { if (p) { x.pieces += 1; if (p.type === 'q') x.queens += 1; } }));
+  g.board().forEach((row) => row.forEach((piece) => {
+    if (!piece) return;
+    x.pieces += 1;
+    if (piece.type === 'q') x.queens += 1;
+  }));
   return x;
 }
 function phaseFits(g, phase) {
-  if (g.isGameOver() || g.moves().length < (phase === 'endgame' ? 2 : 7)) return false;
+  if (g.isGameOver() || g.moves().length < (phase === 'endgame' ? 2 : 5)) return false;
   const x = materialInfo(g);
-  if (phase === 'middlegame') return x.pieces >= 21 && x.queens >= 1;
-  if (phase === 'late-middlegame') return x.pieces >= 14;
+  if (phase === 'middlegame') return x.pieces >= 18 && x.queens >= 1;
+  if (phase === 'late-middlegame') return x.pieces >= 12 && x.pieces <= 25;
   return x.pieces <= 20;
 }
 function quickEval(g, color, phase) {
   if (g.isCheckmate()) return g.turn() === color ? -99999 : 99999;
   if (g.isDraw()) return 0;
-  const v = { p: 100, n: 320, b: 335, r: 510, q: 930, k: 0 };
+  const values = { p: 100, n: 320, b: 335, r: 510, q: 930, k: 0 };
   let score = 0;
-  g.board().forEach((row, rank) => row.forEach((p, file) => {
-    if (!p) return;
-    const sign = p.color === color ? 1 : -1;
+  g.board().forEach((row, rank) => row.forEach((piece, file) => {
+    if (!piece) return;
+    const sign = piece.color === color ? 1 : -1;
     const center = 7 - (Math.abs(3.5 - file) + Math.abs(3.5 - rank));
-    let value = v[p.type];
-    if (p.type === 'p') value += (p.color === 'w' ? 6 - rank : rank - 1) * (phase === 'endgame' ? 13 : 7);
-    if (p.type === 'n' || p.type === 'b') value += Math.max(0, center * 4);
-    if (p.type === 'k' && phase === 'endgame') value += Math.max(0, center * 7);
+    let value = values[piece.type];
+    if (piece.type === 'p') value += (piece.color === 'w' ? 6 - rank : rank - 1) * (phase === 'endgame' ? 13 : 7);
+    if (piece.type === 'n' || piece.type === 'b') value += Math.max(0, center * 4);
+    if (piece.type === 'k' && phase === 'endgame') value += Math.max(0, center * 7);
     score += sign * value;
   }));
   if (g.isCheck()) score += g.turn() === color ? -24 : 24;
   return score;
 }
-function movePriority(m) {
-  const v = { p: 100, n: 320, b: 335, r: 510, q: 930, k: 0 };
-  return (m.captured ? v[m.captured] + 50 : 0) + (m.promotion ? v[m.promotion] + 250 : 0) + (m.san?.includes('#') ? 99999 : m.san?.includes('+') ? 80 : 0);
+function movePriority(move) {
+  const values = { p: 100, n: 320, b: 335, r: 510, q: 930, k: 0 };
+  return (move.captured ? values[move.captured] + 50 : 0)
+    + (move.promotion ? values[move.promotion] + 250 : 0)
+    + (move.san?.includes('#') ? 99999 : move.san?.includes('+') ? 80 : 0);
 }
 function generatedMove(g, rating, phase) {
   const color = g.turn();
-  const moves = g.moves({ verbose: true });
-  const scored = moves.map((m) => {
-    g.move({ from: m.from, to: m.to, promotion: m.promotion || 'q' });
-    let score = quickEval(g, color, phase) + movePriority(m) * 0.12;
-    const replies = g.moves({ verbose: true }).sort((a, b) => movePriority(b) - movePriority(a)).slice(0, rating >= 1800 ? 5 : 3);
-    if (replies.length && !g.isGameOver()) {
+  const allMoves = g.moves({ verbose: true });
+  if (!allMoves.length) return null;
+  const ordered = allMoves.slice().sort((a, b) => movePriority(b) - movePriority(a));
+  const candidates = [...ordered.slice(0, 12), ...shuffled(ordered.slice(12)).slice(0, 7)];
+  const scored = candidates.map((move) => {
+    g.move({ from: move.from, to: move.to, promotion: move.promotion || 'q' });
+    let score = quickEval(g, color, phase) + movePriority(move) * 0.10;
+    if (!g.isGameOver()) {
+      const replies = g.moves({ verbose: true })
+        .sort((a, b) => movePriority(b) - movePriority(a))
+        .slice(0, rating >= 1800 ? 4 : 3);
       let worst = Infinity;
       for (const reply of replies) {
         g.move({ from: reply.from, to: reply.to, promotion: reply.promotion || 'q' });
         worst = Math.min(worst, quickEval(g, color, phase));
         g.undo();
       }
-      score = score * 0.45 + worst * 0.55;
+      if (Number.isFinite(worst)) score = score * 0.42 + worst * 0.58;
     }
     g.undo();
-    return { m, score };
+    return { move, score };
   }).sort((a, b) => b.score - a.score);
-  const choices = rating >= 2000 ? 2 : rating >= 1800 ? 3 : rating >= 1600 ? 4 : rating >= 1400 ? 6 : 8;
-  const pool = scored.slice(0, Math.min(choices, scored.length));
-  const bias = rating >= 1900 ? 2.8 : rating >= 1600 ? 1.8 : 1.1;
-  const index = Math.min(pool.length - 1, Math.floor(Math.pow(Math.random(), bias) * pool.length));
-  return pool[index]?.m || moves[0];
+  const best = scored[0]?.score ?? 0;
+  const window = rating >= 1900 ? 165 : rating >= 1600 ? 215 : 290;
+  const viable = scored.filter((item) => item.score >= best - window).slice(0, phase === 'endgame' ? 9 : 11);
+  const temperature = rating >= 1900 ? 105 : rating >= 1600 ? 145 : 190;
+  const weights = viable.map((item) => Math.exp((item.score - best) / temperature) * (0.84 + randomFloat() * 0.32));
+  const total = weights.reduce((sum, value) => sum + value, 0) || 1;
+  let target = randomFloat() * total;
+  for (let index = 0; index < viable.length; index += 1) {
+    target -= weights[index];
+    if (target <= 0) return viable[index].move;
+  }
+  return viable.at(-1)?.move || ordered[0];
 }
 function materialPointBalance(g) {
   const values = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -722,47 +862,16 @@ function materialPointBalance(g) {
   }));
   return totals.w - totals.b;
 }
-
 function positionPassesQualityGate(g, phase, goalKey) {
   if (!phaseFits(g, phase)) return false;
   const legalCount = g.moves().length;
-  if (legalCount < (phase === 'endgame' ? 2 : 6)) return false;
+  if (legalCount < (phase === 'endgame' ? 2 : 5)) return false;
   const imbalance = Math.abs(materialPointBalance(g));
   const tolerance = ['convert', 'defend'].includes(goalKey) ? 6 : 4;
   if (imbalance > tolerance) return false;
   const evaluation = Math.abs(quickEval(g, 'w', phase));
-  return evaluation < (['convert', 'defend'].includes(goalKey) ? 780 : 520);
+  return evaluation < (['convert', 'defend'].includes(goalKey) ? 900 : 650);
 }
-
-function freshPosition() {
-  let anchors = candidatePositions();
-  if (!anchors.length) anchors = validPositions.filter((p) => p.phase === settings.phase);
-  if (!anchors.length) anchors = validPositions;
-  const nearest = Math.min(...anchors.map((p) => Math.abs(p.rating - settings.positionRating)));
-  let pool = anchors.filter((p) => Math.abs(p.rating - settings.positionRating) <= Math.max(100, nearest));
-  if (current?.seedId && pool.length > 1) pool = pool.filter((p) => p.id !== current.seedId);
-  for (let attempt = 0; attempt < 28; attempt += 1) {
-    const anchor = pool[Math.floor(Math.random() * pool.length)];
-    const g = new Chess(anchor.fen);
-    const ranges = settings.phase === 'endgame' ? [1, 7] : settings.phase === 'late-middlegame' ? [3, 11] : [3, 9];
-    const plies = ranges[0] + Math.floor(Math.random() * (ranges[1] - ranges[0] + 1));
-    const line = [];
-    for (let ply = 0; ply < plies && !g.isGameOver(); ply += 1) {
-      const m = generatedMove(g, Math.max(1100, Math.min(2200, settings.positionRating + Math.round((Math.random() - 0.5) * 240))), settings.phase);
-      if (!m) break;
-      line.push(g.move({ from: m.from, to: m.to, promotion: m.promotion || 'q' }).san);
-    }
-    const fen = g.fen();
-    if (!genSeen.includes(shortFen(fen)) && positionPassesQualityGate(g, settings.phase, settings.trainingGoal)) {
-      rememberFen(fen);
-      const code = Math.random().toString(36).slice(2, 6).toUpperCase();
-      return { ...anchor, id: `generated-${anchor.id}-${Date.now()}-${code}`, seedId: anchor.id, generated: true, variationPlies: line.length, variation: line, fen, rating: settings.positionRating, title: `${anchor.opening === 'Various' ? anchor.title : anchor.opening} · ${code}`, description: `Quality-gated continuation from “${anchor.title}.” K-Mate varied ${line.length} plies while preserving the opening family, phase, and selected training goal.` };
-    }
-  }
-  const anchor = pool[Math.floor(Math.random() * pool.length)];
-  return { ...anchor, id: `generated-${anchor.id}-${Date.now()}`, seedId: anchor.id, generated: false, variationPlies: 0, rating: settings.positionRating };
-}
-
 function candidatePositions() {
   let pool = validPositions.filter((position) => position.phase === settings.phase);
   if (settings.phase !== 'endgame' && settings.opening !== 'all') {
@@ -776,7 +885,149 @@ function candidatePositions() {
   }
   return pool;
 }
+function generationRoots(anchors) {
+  const anchorIds = new Set(anchors.map((anchor) => anchor.id));
+  const descendants = genTree
+    .filter((item) => item.phase === settings.phase)
+    .filter((item) => settings.opening === 'all' || item.opening === settings.opening)
+    .filter((item) => Math.abs((Number(item.rating) || settings.positionRating) - settings.positionRating) <= 300)
+    .filter((item) => Number(item.depth) < 30)
+    .filter((item) => settings.opening === 'all' || anchorIds.has(item.seedId))
+    .map((item) => {
+      const seed = validPositions.find((position) => position.id === item.seedId);
+      if (!seed) return null;
+      return {
+        ...seed,
+        id: item.id,
+        fen: item.fen,
+        title: item.title || seed.title,
+        seedId: item.seedId,
+        generationDepth: Number(item.depth) || 0,
+        generatedRoot: true,
+      };
+    })
+    .filter(Boolean);
+  return { anchors, descendants };
+}
+function chooseGenerationRoot(anchors) {
+  const roots = generationRoots(anchors);
+  const useDescendant = roots.descendants.length && randomFloat() < 0.44;
+  let pool = useDescendant ? roots.descendants : roots.anchors;
+  if (current?.fen && pool.length > 1) {
+    const withoutCurrent = pool.filter((item) => shortFen(item.fen) !== shortFen(current.fen));
+    if (withoutCurrent.length) pool = withoutCurrent;
+  }
+  return pool[randomInt(0, Math.max(0, pool.length - 1))] || anchors[0];
+}
+function buildGeneratedPosition(root, fen, line, strictGate) {
+  const seedId = root.seedId || root.id;
+  const seed = validPositions.find((position) => position.id === seedId) || root;
+  generationCounter += 1;
+  const code = generationCounter.toString(36).toUpperCase().padStart(4, '0');
+  const branchDepth = (Number(root.generationDepth) || 0) + line.length;
+  const position = {
+    ...seed,
+    id: `generated-${seed.id}-${Date.now()}-${code}`,
+    seedId: seed.id,
+    generated: true,
+    variationPlies: line.length,
+    branchDepth,
+    branchCode: code,
+    variation: line,
+    fen,
+    rating: settings.positionRating,
+    title: `${seed.opening === 'Various' ? seed.title : seed.opening} · Variation ${code}`,
+    description: `${strictGate ? 'Quality-gated' : 'Diversity-gated'} open-ended branch from “${seed.title}.” K-Mate explored ${line.length} new plies (branch depth ${branchDepth}) and rejected exact or near-identical recent boards.`,
+  };
+  rememberFen(fen);
+  rememberGeneratedPosition(position);
+  lastGenerationMeta = {
+    code,
+    seedId: seed.id,
+    branchDepth,
+    variationPlies: line.length,
+    source: root.generatedRoot ? 'expanded local branch' : 'curated seed',
+    strictGate,
+  };
+  return position;
+}
+function freshPosition() {
+  let anchors = candidatePositions();
+  if (!anchors.length) anchors = validPositions.filter((position) => position.phase === settings.phase);
+  if (!anchors.length) anchors = validPositions;
+  const nearest = Math.min(...anchors.map((position) => Math.abs(position.rating - settings.positionRating)));
+  let pool = anchors.filter((position) => Math.abs(position.rating - settings.positionRating) <= Math.max(200, nearest));
+  if (current?.seedId && pool.length > 1 && randomFloat() < 0.72) {
+    const alternate = pool.filter((position) => position.id !== current.seedId);
+    if (alternate.length) pool = alternate;
+  }
 
+  const deadline = performance.now() + 460;
+  let bestRelaxed = null;
+  for (let attempt = 0; attempt < 56; attempt += 1) {
+    if (attempt > 12 && performance.now() > deadline && bestRelaxed) break;
+    const root = chooseGenerationRoot(pool);
+    if (!root) break;
+    const rootDepth = Number(root.generationDepth) || 0;
+    const ranges = settings.phase === 'endgame'
+      ? [4, Math.max(7, Math.min(20, 32 - rootDepth))]
+      : settings.phase === 'late-middlegame'
+        ? [5, Math.max(8, Math.min(18, 30 - rootDepth))]
+        : [6, Math.max(9, Math.min(17, 28 - rootDepth))];
+    const targetPlies = randomInt(ranges[0], Math.max(ranges[0], ranges[1]));
+    const g = new Chess(root.fen);
+    const line = [];
+    for (let ply = 0; ply < targetPlies && !g.isGameOver(); ply += 1) {
+      const jitter = Math.round((randomFloat() - 0.5) * 360);
+      const move = generatedMove(g, Math.max(1200, Math.min(2200, settings.positionRating + jitter)), settings.phase);
+      if (!move) break;
+      const applied = g.move({ from: move.from, to: move.to, promotion: move.promotion || 'q' });
+      if (!applied) break;
+      line.push(applied.san);
+      if (line.length >= ranges[0] && !phaseFits(g, settings.phase)) {
+        g.undo();
+        line.pop();
+        break;
+      }
+    }
+    const fen = g.fen();
+    const exactSeen = genSeen.includes(shortFen(fen));
+    const rootDistance = positionDistance(root.fen, fen);
+    const currentDistance = current?.fen ? positionDistance(current.fen, fen) : 64;
+    const strictGate = positionPassesQualityGate(g, settings.phase, settings.trainingGoal);
+    const relaxedGate = phaseFits(g, settings.phase) && Math.abs(materialPointBalance(g)) <= 7;
+    const minimumRootDistance = settings.phase === 'endgame' ? 3 : 5;
+    const minimumCurrentDistance = settings.phase === 'endgame' ? 3 : 5;
+    const noveltyScore = rootDistance * 2 + currentDistance + line.length * 0.7 - Math.abs(quickEval(g, 'w', settings.phase)) / 150 + randomFloat();
+    if (!exactSeen && relaxedGate && rootDistance >= 2 && (!bestRelaxed || noveltyScore > bestRelaxed.score)) {
+      bestRelaxed = { root, fen, line, score: noveltyScore };
+    }
+    if (!exactSeen && !recentlyTooSimilar(fen) && strictGate && rootDistance >= minimumRootDistance && currentDistance >= minimumCurrentDistance) {
+      return buildGeneratedPosition(root, fen, line, true);
+    }
+  }
+  if (bestRelaxed) return buildGeneratedPosition(bestRelaxed.root, bestRelaxed.fen, bestRelaxed.line, false);
+
+  // Last-resort legal branching still avoids returning the exact same seed board.
+  for (let rescue = 0; rescue < 14; rescue += 1) {
+    const root = chooseGenerationRoot(pool);
+    const g = new Chess(root.fen);
+    const line = [];
+    for (let ply = 0; ply < randomInt(3, 8) && !g.isGameOver(); ply += 1) {
+      const move = generatedMove(g, 1500, settings.phase);
+      if (!move) break;
+      const applied = g.move({ from: move.from, to: move.to, promotion: move.promotion || 'q' });
+      if (!applied) break;
+      line.push(applied.san);
+    }
+    if (line.length && phaseFits(g, settings.phase) && !genSeen.includes(shortFen(g.fen()))) {
+      return buildGeneratedPosition(root, g.fen(), line, false);
+    }
+  }
+  const anchor = pool[randomInt(0, Math.max(0, pool.length - 1))];
+  lastGenerationMeta = { seedId: anchor?.id || null, strictGate: false, fallback: true };
+  return { ...anchor, id: `fallback-${anchor.id}-${Date.now()}`, seedId: anchor.id, generated: false, variationPlies: 0, rating: settings.positionRating };
+}
 function pickPosition() {
   if (queuedCustomPosition) {
     const position = queuedCustomPosition;
@@ -969,11 +1220,11 @@ function startPosition({ preservePrevious = false } = {}) {
   };
 
   $('#positionTitle').textContent = current.title;
-  $('#gameMeta').textContent = current.custom ? `${phaseLabel(current.phase)} · imported position` : `${phaseLabel(current.phase)} · ${current.opening} · curated variation`;
-  $('#positionBadge').textContent = current.custom ? 'Your position' : `${current.rating} level · quality-gated`;
+  $('#gameMeta').textContent = current.custom ? `${phaseLabel(current.phase)} · imported position` : `${phaseLabel(current.phase)} · ${current.opening} · ${current.generated ? 'open-ended branch' : 'curated seed'}`;
+  $('#positionBadge').textContent = current.custom ? 'Your position' : current.generated ? `${current.rating} level · variation ${current.branchCode || 'new'}` : `${current.rating} level · curated seed`;
   $('#themeTitle').textContent = current.theme;
   $('#positionDescription').textContent = current.description;
-  $('#positionTags').innerHTML = [...(current.tags || []), current.custom ? 'your own game' : 'curated seed'].map((tag) => `<span>${escapeHtml(tag)}</span>`).join('');
+  $('#positionTags').innerHTML = [...(current.tags || []), current.custom ? 'your own game' : current.generated ? 'open-ended branch' : 'curated seed'].map((tag) => `<span>${escapeHtml(tag)}</span>`).join('');
   $('#engineName').textContent = currentSession.blindCalibration ? 'K-Mate ?' : `K-Mate ${activeOpponentRating}`;
   $('#engineSub').textContent = currentSession.blindCalibration ? `Blind calibration · ${timeControl().label}` : `${ratingDescriptor(activeOpponentRating)} · ${timeControl().label}`;
   $('#userSide').textContent = userColor === 'w' ? 'White' : 'Black';
@@ -1105,7 +1356,11 @@ function renderBoard() {
     button.type = 'button';
     button.className = `sq ${((FILES.indexOf(square[0]) + Number(square[1])) % 2) ? 'light' : 'dark'}`;
     if (selected === square) button.classList.add('selected');
-    if (lastMove && (lastMove.from === square || lastMove.to === square)) button.classList.add('last');
+    if (lastMove && (lastMove.from === square || lastMove.to === square)) {
+      const actor = lastMove.actor || 'user';
+      button.classList.add('last', `last-${actor}`, square === lastMove.from ? 'last-from' : 'last-to');
+      button.dataset.lastActor = actor;
+    }
     if (ratedMoveSquare?.square === square) {
       button.classList.add('move-quality-square', `quality-${ratedMoveSquare.key}`);
       button.dataset.moveQuality = ratedMoveSquare.label || ratedMoveSquare.key;
@@ -1116,6 +1371,14 @@ function renderBoard() {
     if (checkSquare === square) button.classList.add('check');
     button.dataset.square = square;
     button.setAttribute('aria-label', `${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ' empty'}`);
+
+    if (lastMove?.actor === 'engine' && lastMove.to === square) {
+      const marker = document.createElement('span');
+      marker.className = 'engine-last-marker';
+      marker.textContent = 'AI';
+      marker.setAttribute('aria-hidden', 'true');
+      button.append(marker);
+    }
 
     if (piece) {
       const glyph = document.createElement('span');
@@ -1623,7 +1886,7 @@ function makeUserMove(moveObject) {
   requestMoveAnalysis(fenBefore, moveRecord);
   selected = null;
   legalMoves = [];
-  lastMove = { from: move.from, to: move.to };
+  lastMove = { from: move.from, to: move.to, actor: 'user', san: move.san };
   playMoveSound(game.isCheck() ? 'check' : move.captured ? 'capture' : 'move');
   beginNextTurn();
   setStatus(`${game.isCheck() ? 'Check. ' : ''}Opponent is considering the position.`, 'thinking');
@@ -1709,10 +1972,10 @@ function applyEngineReply(id, data) {
     return;
   }
   applyIncrement(engineColor);
-  lastMove = { from: move.from, to: move.to };
+  lastMove = { from: move.from, to: move.to, actor: 'engine', san: move.san };
   playMoveSound(game.isCheck() ? 'check' : move.captured ? 'capture' : 'move');
   beginNextTurn();
-  setStatus(game.isCheck() ? 'Check—your king is under attack.' : 'Your move. Build the position one decision at a time.');
+  setStatus(game.isCheck() ? `Engine played ${move.san}: check—your king is under attack.` : `Engine played ${move.san}. Your move.`);
   renderAll();
   const finished = finishIfNeeded();
   if (!finished) prepareHintForTurn();
@@ -2058,6 +2321,23 @@ function populateCoachVoiceSelect() {
   if (select.value !== requested) settings.coachVoiceURI = 'auto';
 }
 
+function updateCoachAvatarControls() {
+  const style = ['grandmaster', 'crest', 'none'].includes(settings.coachAvatar) ? settings.coachAvatar : 'grandmaster';
+  settings.coachAvatar = style;
+  const avatar = $('#coachAvatar');
+  const select = $('#coachAvatarSelect');
+  const card = $('#replayCoachCard');
+  if (avatar) avatar.dataset.style = style;
+  if (select) select.value = style;
+  card?.classList.toggle('avatar-hidden', style === 'none');
+}
+
+function handleCoachAvatarChange(event) {
+  settings.coachAvatar = event?.target?.value || 'grandmaster';
+  saveStore();
+  updateCoachAvatarControls();
+}
+
 function updateCoachVoiceControls() {
   const toggle = $('#coachVoiceToggle');
   const speak = $('#coachSpeakButton');
@@ -2067,6 +2347,7 @@ function updateCoachVoiceControls() {
   const available = coachVoiceAvailable();
   const enabled = settings.coachVoice !== false;
   populateCoachVoiceSelect();
+  updateCoachAvatarControls();
   toggle.disabled = !available;
   speak.disabled = !available;
   if (select) select.disabled = !available;

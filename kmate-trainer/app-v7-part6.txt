@@ -24,6 +24,9 @@
   $('#coachSpeakButton')?.addEventListener('click', handleCoachSpeak);
   $('#coachVoiceSelect')?.addEventListener('change', handleCoachVoiceSelect);
   $('#coachRateRange')?.addEventListener('input', handleCoachRateChange);
+  $('#coachAvatarSelect')?.addEventListener('change', handleCoachAvatarChange);
+  $('#soundStyleSelect')?.addEventListener('change', handleSoundThemeChange);
+  $('#previewSoundButton')?.addEventListener('click', previewSoundTheme);
   $('#coachMyVoiceInfo')?.addEventListener('click', () => openDialog('voiceCloneDialog'));
   $('#recentList')?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-replay-session]');
@@ -69,7 +72,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '22.0-commercial-beta',
+  version: '23.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -78,19 +81,21 @@ window.__KMATE__ = {
     seedId: current?.seedId || null,
     variationPlies: current?.variationPlies || 0,
     recentGenerated: genSeen.length,
+    generator: { mode: 'open-ended branch tree', branches: genTree.length, counter: generationCounter, last: lastGenerationMeta ? { ...lastGenerationMeta } : null },
     fen: game?.fen() || null,
     phase: current?.phase || null,
     opening: current?.opening || null,
     userColor,
     turn: game?.turn() || null,
+    lastMove: lastMove ? { ...lastMove } : null,
     clocks: { ...clocks },
     finalized,
     reason: currentSession?.reason || null,
-    replay: { open: Boolean($('#replayDialog')?.open), index: replayState.index, frames: replayState.frames.length, showBest: replayState.showBest, coachVoice: settings.coachVoice !== false, coachSpeaking: Boolean(coachSpeechUtterance || window.speechSynthesis?.speaking), resolvedVoice: chooseCoachVoice()?.name || null, voiceURI: settings.coachVoiceURI || 'auto', rate: Number(settings.coachVoiceRate) || 0.92 },
+    replay: { open: Boolean($('#replayDialog')?.open), index: replayState.index, frames: replayState.frames.length, showBest: replayState.showBest, coachVoice: settings.coachVoice !== false, coachSpeaking: Boolean(coachSpeechUtterance || window.speechSynthesis?.speaking), resolvedVoice: chooseCoachVoice()?.name || null, voiceURI: settings.coachVoiceURI || 'auto', rate: Number(settings.coachVoiceRate) || 0.92, avatar: settings.coachAvatar || 'grandmaster' },
     dragAndDrop: true,
     ratedMoveSquare: ratedMoveSquare ? { ...ratedMoveSquare } : null,
     hint: { status: hintState.status, level: hintState.level, automatic: Boolean(settings.autoHints), candidate: hintState.level >= 2 ? hintState.candidate : null },
-    sound: { enabled: soundEnabled(), unlocked: htmlAudioUnlocked, audibleConfirmed: soundAudiblyConfirmed, backend: soundPlaybackBackend, lastKind: lastSoundKind },
+    sound: { enabled: soundEnabled(), theme: selectedSoundTheme(), unlocked: htmlAudioUnlocked, audibleConfirmed: soundAudiblyConfirmed, backend: soundPlaybackBackend, lastKind: lastSoundKind },
     engine: 'Stockfish 18 lite single-threaded',
     reviewEngine: 'Independent Stockfish 18 move review',
     commercialBeta: true,
@@ -116,6 +121,10 @@ if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
       const move = game.moves({ verbose: true }).find((candidate) => candidate.color === userColor && !candidate.promotion);
       return move ? { from: move.from, to: move.to } : null;
     },
+    sampleGenerated: (count = 24) => Array.from({ length: Math.max(1, Math.min(60, Number(count) || 24)) }, () => {
+      const position = freshPosition();
+      return { fen: position.fen, id: position.id, seedId: position.seedId, branchDepth: position.branchDepth || 0, generated: Boolean(position.generated) };
+    }),
   };
 }
 

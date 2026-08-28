@@ -620,3 +620,38 @@ body.dragging-piece #board .sq.drag-target{cursor:copy}
 }
 
 #board .piece[draggable="true"]{pointer-events:auto!important;cursor:grab}
+
+
+/* K-Mate v23 — sound profiles, refined Coach K, and engine reply trail */
+.sound-style-head{align-items:center}
+.sound-preview{min-height:31px;padding:0 11px;border:1px solid #b9f47445;border-radius:10px;background:#b9f47410;color:var(--accent);font-size:11px;font-weight:900;cursor:pointer}
+.sound-preview:active{transform:scale(.97)}
+
+.sq.last.last-user{box-shadow:inset 0 0 0 999px #f4cc7138}
+.sq.last.last-user.last-to{box-shadow:inset 0 0 0 4px #f4cc70cc,inset 0 0 0 999px #f4cc7138}
+.sq.last.last-engine{box-shadow:inset 0 0 0 999px #2d9fd43d!important}
+.sq.last.last-engine.last-from{box-shadow:inset 0 0 0 4px #75d6ffcc,inset 0 0 0 999px #287fa339!important}
+.sq.last.last-engine.last-to{z-index:4;box-shadow:inset 0 0 0 6px #5bd4ff,inset 0 0 0 999px #168ec655,0 0 18px #43cfff9c!important;animation:engineLandingV23 .72s ease-out}
+.engine-last-marker{position:absolute;right:4px;top:4px;z-index:8;display:grid;place-items:center;min-width:22px;height:18px;padding:0 5px;border:1px solid #c7f1ff99;border-radius:99px;background:#075f85e8;color:#e7faff;font:950 8px/1 system-ui,sans-serif;letter-spacing:.06em;box-shadow:0 3px 10px #00364d99;pointer-events:none}
+@keyframes engineLandingV23{0%{filter:brightness(1.55);transform:scale(.96)}55%{filter:brightness(1.15);transform:scale(1.015)}100%{filter:none;transform:none}}
+
+.coach-avatar-visual{display:none;width:100%;height:100%}
+.coach-avatar-visual svg{display:block;width:100%;height:100%}
+.coach-avatar[data-style="grandmaster"] .coach-avatar-grandmaster{display:block}
+.coach-avatar[data-style="crest"] .coach-avatar-crest{display:block}
+.replay-coach-card.avatar-hidden .coach-avatar-column{display:none}
+.replay-coach-card.avatar-hidden .coach-stage{grid-template-columns:minmax(0,1fr)}
+.coach-avatar-select-wrap{display:grid;gap:3px;min-width:0;color:var(--muted);font-size:8px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
+.coach-voice-settings{grid-template-columns:minmax(0,1.15fr) 88px minmax(92px,.72fr)}
+.coach-avatar-grandmaster .coach-mouth{transform-origin:90px 105px}
+.coach-avatar.speaking .coach-avatar-grandmaster .coach-mouth{animation:coachHumanTalk .22s infinite alternate}
+.coach-avatar.speaking .coach-avatar-crest{animation:coachCrestSpeak .7s ease-in-out infinite alternate}
+@keyframes coachHumanTalk{to{transform:scaleY(1.45) translateY(1px)}}
+@keyframes coachCrestSpeak{to{filter:drop-shadow(0 0 11px #b9f47499);transform:translateY(-2px)}}
+
+@media(max-width:760px){
+  .coach-voice-settings{grid-template-columns:minmax(0,1fr) 72px minmax(76px,.8fr);gap:4px}
+  .coach-avatar-select-wrap{font-size:6.5px}
+  .engine-last-marker{right:2px;top:2px;min-width:18px;height:15px;padding:0 3px;font-size:6.5px}
+  .sq.last.last-engine.last-to{box-shadow:inset 0 0 0 4px #5bd4ff,inset 0 0 0 999px #168ec655,0 0 12px #43cfff88!important}
+}

@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=22.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=23.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -143,6 +143,19 @@
             <input id="autoHints" type="checkbox">
             <span><b>Automatic hints before every move</b><small>Show a strategic idea at the start of each turn. The exact candidate remains hidden unless you reveal it.</small></span>
           </label>
+
+          <div class="field sound-style-field" id="soundStyleField">
+            <div class="fieldhead sound-style-head">
+              <label for="soundStyleSelect">Move sound</label>
+              <button class="sound-preview" id="previewSoundButton" type="button">Preview</button>
+            </div>
+            <select class="select" id="soundStyleSelect" aria-label="Move sound style">
+              <option value="soft">Soft wood</option>
+              <option value="tournament">Tournament wood</option>
+              <option value="minimal">Minimal click</option>
+            </select>
+            <small class="sub">Choose a quieter wooden piece sound, a sharper tournament-board sound, or a very restrained click. The speaker button can still mute everything.</small>
+          </div>
 
           <div class="beta-tools">
             <button type="button" id="openPositionImport"><b>Import FEN / PGN</b><small>Train from your own game</small></button>
@@ -447,41 +460,69 @@
         <aside class="replay-coach-card" id="replayCoachCard">
           <section class="coach-stage">
             <div class="coach-avatar-column">
-              <div class="coach-avatar" id="coachAvatar" role="img" aria-label="Coach K, an animated chess knight coach">
-                <svg viewBox="0 0 150 178" focusable="false" aria-hidden="true">
-                  <defs>
-                    <linearGradient id="coachJacket" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f6d5a"/><stop offset="1" stop-color="#17261d"/></linearGradient>
-                    <linearGradient id="coachFace" x1=".2" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="#f3deb4"/><stop offset=".55" stop-color="#d3b37c"/><stop offset="1" stop-color="#987447"/></linearGradient>
-                    <linearGradient id="coachMane" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#253a2d"/><stop offset="1" stop-color="#07110b"/></linearGradient>
-                    <radialGradient id="coachBadge" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#efffbf"/><stop offset="1" stop-color="#88bd45"/></radialGradient>
-                    <filter id="coachShadow" x="-30%" y="-20%" width="160%" height="170%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-opacity=".5"/></filter>
-                  </defs>
-                  <ellipse cx="75" cy="166" rx="49" ry="7" fill="#000" opacity=".24"/>
-                  <g filter="url(#coachShadow)">
-                    <path d="M28 163c3-31 19-47 47-47s44 16 47 47z" fill="url(#coachJacket)" stroke="#07110b" stroke-width="4"/>
-                    <path d="M58 118l17 16 17-16 9 45H49z" fill="#eef0df" stroke="#17261d" stroke-width="3"/>
-                    <path d="M62 135l13 9 13-9-3 20H65z" fill="#b9f474" stroke="#2a422f" stroke-width="2.5"/>
-                    <path d="M43 38c9-22 25-31 47-24 18 6 29 23 27 44-2 18-13 31-29 40l-5 20H54l4-18c-21-9-31-27-27-48 2-7 6-12 12-14z" fill="url(#coachFace)" stroke="#47361f" stroke-width="4" stroke-linejoin="round"/>
-                    <path d="M45 39c10-24 29-35 50-24 12 6 20 17 22 31-13-9-27-11-42-6-14 4-24 13-30 27-8-8-8-19 0-28z" fill="url(#coachMane)" stroke="#07110b" stroke-width="3"/>
-                    <path d="M93 41c12 6 20 18 19 33-1 13-8 22-20 29l-15-8c10-3 17-8 20-16-8 3-16 2-23-3 6-10 8-21 5-34 5-2 10-2 14-1z" fill="#c9985d" stroke="#4a331c" stroke-width="3"/>
-                    <path d="M43 41l-7-25c12 1 21 7 27 18" fill="#d7b57c" stroke="#47361f" stroke-width="4" stroke-linejoin="round"/>
-                    <circle cx="68" cy="55" r="10" fill="#ecf6e9" stroke="#18251c" stroke-width="3"/>
-                    <circle cx="96" cy="57" r="10" fill="#ecf6e9" stroke="#18251c" stroke-width="3"/>
-                    <path d="M78 55h8M57 52l-12-4M107 54l10-1" fill="none" stroke="#18251c" stroke-width="4" stroke-linecap="round"/>
-                    <circle cx="70" cy="56" r="3.5" fill="#152119"/><circle cx="94" cy="58" r="3.5" fill="#152119"/>
-                    <path d="M66 73c8 4 17 5 25 1" fill="none" stroke="#6b4129" stroke-width="3" stroke-linecap="round"/>
-                    <path class="coach-mouth" d="M68 85q10 7 20 0" fill="none" stroke="#4d2c23" stroke-width="4" stroke-linecap="round"/>
-                    <circle cx="42" cy="92" r="13" fill="#26382d" stroke="#09100b" stroke-width="4"/>
-                    <path d="M39 92c0-20 4-31 14-38" fill="none" stroke="#26382d" stroke-width="6" stroke-linecap="round"/>
-                    <circle cx="40" cy="92" r="5" fill="#b9f474"/>
-                    <circle cx="107" cy="122" r="15" fill="url(#coachBadge)" stroke="#203321" stroke-width="3"/>
-                    <path d="M103 112h8v8h7v7h-7v8h-8v-8h-7v-7h7z" fill="#213322"/>
-                  </g>
-                  <g class="coach-sound-waves" fill="none" stroke="#b9f474" stroke-width="4" stroke-linecap="round">
-                    <path class="coach-wave wave-one" d="M122 68q11 10 0 20"/>
-                    <path class="coach-wave wave-two" d="M130 61q20 17 0 35"/>
-                  </g>
-                </svg>
+              <div class="coach-avatar" id="coachAvatar" data-style="grandmaster" role="img" aria-label="Coach K, a calm fictional grandmaster coach">
+                <div class="coach-avatar-visual coach-avatar-grandmaster">
+                  <svg viewBox="0 0 180 192" focusable="false" aria-hidden="true">
+                    <defs>
+                      <radialGradient id="gmBackdrop" cx="38%" cy="25%" r="78%"><stop offset="0" stop-color="#42624b"/><stop offset=".62" stop-color="#18271e"/><stop offset="1" stop-color="#09110c"/></radialGradient>
+                      <linearGradient id="gmJacket" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#405c49"/><stop offset=".52" stop-color="#1d3024"/><stop offset="1" stop-color="#0b1510"/></linearGradient>
+                      <linearGradient id="gmSkin" x1=".25" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="#e9bd92"/><stop offset=".62" stop-color="#c98760"/><stop offset="1" stop-color="#96583e"/></linearGradient>
+                      <linearGradient id="gmHair" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#302a24"/><stop offset="1" stop-color="#0b0d0c"/></linearGradient>
+                      <filter id="gmShadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="7" stdDeviation="7" flood-opacity=".46"/></filter>
+                    </defs>
+                    <circle cx="90" cy="88" r="78" fill="url(#gmBackdrop)" stroke="#91c85a" stroke-opacity=".34" stroke-width="3"/>
+                    <g filter="url(#gmShadow)">
+                      <path d="M29 184c3-38 25-59 61-59s58 21 61 59z" fill="url(#gmJacket)" stroke="#09110c" stroke-width="4"/>
+                      <path d="M66 126l24 26 24-26 11 58H55z" fill="#e9eee7" stroke="#18261d" stroke-width="3"/>
+                      <path d="M76 143l14 11 14-11-5 29H81z" fill="#b9f474" stroke="#315027" stroke-width="2.5"/>
+                      <path d="M73 116v20c7 7 27 7 34 0v-20z" fill="#b87454" stroke="#683d2c" stroke-width="3"/>
+                      <ellipse cx="90" cy="77" rx="39" ry="48" fill="url(#gmSkin)" stroke="#683d2c" stroke-width="4"/>
+                      <path d="M51 70c-2-35 16-55 43-55 28 0 44 19 39 53-8-13-18-22-31-26-17 7-32 9-48 4-3 7-4 15-3 24z" fill="url(#gmHair)" stroke="#11120f" stroke-width="4" stroke-linejoin="round"/>
+                      <path d="M57 55c13 4 29 1 45-8 12 5 21 13 29 25" fill="none" stroke="#6b5a49" stroke-opacity=".55" stroke-width="4" stroke-linecap="round"/>
+                      <ellipse cx="51" cy="82" rx="7" ry="12" fill="#c78360" stroke="#683d2c" stroke-width="3"/>
+                      <ellipse cx="129" cy="82" rx="7" ry="12" fill="#c78360" stroke="#683d2c" stroke-width="3"/>
+                      <rect x="57" y="65" width="29" height="22" rx="9" fill="#f3f7ef" fill-opacity=".12" stroke="#18231b" stroke-width="4"/>
+                      <rect x="94" y="65" width="29" height="22" rx="9" fill="#f3f7ef" fill-opacity=".12" stroke="#18231b" stroke-width="4"/>
+                      <path d="M86 74h8M52 72l8-2M121 70l8 2" fill="none" stroke="#18231b" stroke-width="4" stroke-linecap="round"/>
+                      <circle cx="73" cy="76" r="3.5" fill="#172019"/><circle cx="107" cy="76" r="3.5" fill="#172019"/>
+                      <path d="M90 78l-4 15 8 1" fill="none" stroke="#8c513c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path class="coach-mouth" d="M75 105q15 10 30 0" fill="none" stroke="#6a342d" stroke-width="4" stroke-linecap="round"/>
+                      <path d="M63 95q27 17 54 0" fill="none" stroke="#4b2a24" stroke-opacity=".22" stroke-width="8" stroke-linecap="round"/>
+                      <path d="M45 85c-1-25 4-42 17-52" fill="none" stroke="#24382b" stroke-width="7" stroke-linecap="round"/>
+                      <circle cx="46" cy="89" r="12" fill="#22352a" stroke="#09110c" stroke-width="4"/>
+                      <circle cx="46" cy="89" r="4" fill="#b9f474"/>
+                      <path d="M45 100c7 4 13 7 19 12" fill="none" stroke="#263b2e" stroke-width="5" stroke-linecap="round"/>
+                      <circle cx="126" cy="142" r="16" fill="#b9f474" stroke="#203621" stroke-width="3"/>
+                      <path d="M119 151V132h8c7 0 11 3 11 9 0 5-4 8-10 8h-3v2zm6-7h3c3 0 4-1 4-3s-1-3-4-3h-3z" fill="#1a2b1c"/>
+                    </g>
+                    <g class="coach-sound-waves" fill="none" stroke="#b9f474" stroke-width="4" stroke-linecap="round">
+                      <path class="coach-wave wave-one" d="M145 71q10 10 0 20"/>
+                      <path class="coach-wave wave-two" d="M154 63q19 18 0 36"/>
+                    </g>
+                  </svg>
+                </div>
+                <div class="coach-avatar-visual coach-avatar-crest">
+                  <svg viewBox="0 0 180 192" focusable="false" aria-hidden="true">
+                    <defs>
+                      <radialGradient id="crestBg" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#4c704f"/><stop offset="1" stop-color="#09110c"/></radialGradient>
+                      <linearGradient id="crestMetal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6ffcf"/><stop offset=".45" stop-color="#b9f474"/><stop offset="1" stop-color="#5b8e3d"/></linearGradient>
+                      <filter id="crestShadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-opacity=".55"/></filter>
+                    </defs>
+                    <circle cx="90" cy="91" r="78" fill="url(#crestBg)" stroke="#b9f474" stroke-opacity=".45" stroke-width="4"/>
+                    <circle cx="90" cy="91" r="63" fill="none" stroke="#eef7de" stroke-opacity=".18" stroke-width="2"/>
+                    <g filter="url(#crestShadow)" fill="url(#crestMetal)" stroke="#1b2d1c" stroke-width="5" stroke-linejoin="round">
+                      <path d="M52 146c5-27 17-48 36-63-12-8-17-21-13-38 16 1 29-6 40-22 22 16 31 38 23 61-5 15-17 25-30 34h23l10 28z"/>
+                      <path d="M69 146h73l8 18H57z"/>
+                    </g>
+                    <circle cx="108" cy="59" r="5" fill="#142116"/>
+                    <path d="M83 84q21 8 38-4" fill="none" stroke="#1b2d1c" stroke-width="5" stroke-linecap="round"/>
+                    <text x="90" y="181" text-anchor="middle" fill="#dff4c6" font-size="13" font-family="system-ui,sans-serif" font-weight="900" letter-spacing="3">COACH K</text>
+                    <g class="coach-sound-waves" fill="none" stroke="#b9f474" stroke-width="4" stroke-linecap="round">
+                      <path class="coach-wave wave-one" d="M145 71q10 10 0 20"/>
+                      <path class="coach-wave wave-two" d="M154 63q19 18 0 36"/>
+                    </g>
+                  </svg>
+                </div>
               </div>
               <div class="coach-identity"><b>Coach K</b><span id="coachMood">Ready</span></div>
             </div>
@@ -499,6 +540,7 @@
               <div class="coach-voice-settings">
                 <label class="coach-voice-select-wrap" for="coachVoiceSelect"><span>Voice</span><select id="coachVoiceSelect" class="coach-voice-select"><option value="auto">Natural — best available</option></select></label>
                 <label class="coach-rate-wrap" for="coachRateRange"><span>Pace <b id="coachRateValue">0.92×</b></span><input id="coachRateRange" type="range" min="0.82" max="1.06" step="0.02" value="0.92"></label>
+                <label class="coach-avatar-select-wrap" for="coachAvatarSelect"><span>Coach look</span><select id="coachAvatarSelect" class="coach-voice-select"><option value="grandmaster">Grandmaster</option><option value="crest">Minimal crest</option><option value="none">Text only</option></select></label>
               </div>
               <h2 id="replayCoachTitle">Start with the original position</h2>
               <p class="coach-transcript" id="replayCoachText">Coach K will explain each move and compare your decision with Stockfish’s preferred continuation.</p>
@@ -541,6 +583,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=22.0.0"></script>
+  <script type="module" src="./app-v7.js?v=23.0.0"></script>
 </body>
 </html>
