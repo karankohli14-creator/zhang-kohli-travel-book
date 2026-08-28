@@ -1,0 +1,159 @@
+name: K-Mate v22 natural voice and drag
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v22-natural-voice-drag.yml'
+permissions:
+  contents: write
+jobs:
+  patch-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply K-Mate v22 patch
+        run: python .github/scripts/kmate_v22_natural_voice_drag.py
+      - name: Validate assembled JavaScript and feature markers
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{n}.txt').read_text() for n in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v22-combined.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v22-combined.js
+          grep -q 'id="coachVoiceSelect"' kmate-trainer/index.html
+          grep -q 'id="coachRateRange"' kmate-trainer/index.html
+          grep -q 'id="voiceCloneDialog"' kmate-trainer/index.html
+          grep -q 'function beginBoardDrag' kmate-trainer/app-v7-part1.txt
+          grep -q 'function speechFriendlyText' kmate-trainer/app-v7-part1.txt
+          grep -q "version: '22.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+      - name: Install browser runtime and serve K-Mate
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v22-server.log 2>&1 &
+      - name: Verify natural voice selection and mouse dragging
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 1180, height: 900 } });
+            await context.addInitScript(() => {
+              window.__voiceCalls = [];
+              const voices = [
+                { name: 'System Robot', lang: 'en-US', voiceURI: 'robot', localService: true },
+                { name: 'Ava Premium', lang: 'en-US', voiceURI: 'ava-premium', localService: true },
+                { name: 'Daniel Neural', lang: 'en-GB', voiceURI: 'daniel-neural', localService: true },
+              ];
+              class TestUtterance {
+                constructor(text) {
+                  this.text = text;
+                  this.lang = 'en-US';
+                  this.rate = 1;
+                  this.pitch = 1;
+                  this.volume = 1;
+                  this.voice = null;
+                  this.onstart = null;
+                  this.onend = null;
+                  this.onerror = null;
+                }
+              }
+              const synth = {
+                speaking: false,
+                pending: false,
+                paused: false,
+                getVoices: () => voices,
+                addEventListener: () => {},
+                cancel() { this.speaking = false; },
+                speak(utterance) {
+                  this.speaking = true;
+                  window.__voiceCalls.push({ text: utterance.text, voice: utterance.voice?.name || null, rate: utterance.rate });
+                  utterance.onstart?.();
+                  setTimeout(() => {
+                    this.speaking = false;
+                    utterance.onend?.();
+                  }, 180);
+                },
+              };
+              Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: synth });
+              Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: TestUtterance });
+              HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+              HTMLMediaElement.prototype.pause = function () {};
+            });
+
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
+            page.on('console', message => { if (message.type() === 'error') errors.push(`console: ${message.text()}`); });
+            await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1', null, { timeout: 120000 });
+            await page.click('#startButton');
+            await page.waitForSelector('#gameView:not([hidden])', { timeout: 30000 });
+            await page.waitForFunction(() => {
+              const state = window.__KMATE__?.state?.();
+              return state && !state.finalized && state.turn === state.userColor && window.__KMATE__.test.firstLegalDrag();
+            }, null, { timeout: 90000 });
+
+            const drag = await page.evaluate(() => window.__KMATE__.test.firstLegalDrag());
+            assert.ok(drag?.from && drag?.to, `no draggable move: ${JSON.stringify(drag)}`);
+            const beforeFen = await page.evaluate(() => window.__KMATE__.state().fen);
+            const source = page.locator(`#board .sq[data-square="${drag.from}"] .piece`);
+            const target = page.locator(`#board .sq[data-square="${drag.to}"]`);
+            assert.strictEqual(await source.getAttribute('draggable'), 'true');
+            await source.dragTo(target);
+            await page.waitForFunction((fen) => window.__KMATE__.state().fen !== fen, beforeFen, { timeout: 15000 });
+            assert.notStrictEqual(await page.locator('#moveCount').textContent(), '0');
+
+            await page.evaluate(() => window.__KMATE__.test.forceTimeout(window.__KMATE__.state().userColor));
+            await page.waitForSelector('#resultDialog[open]', { timeout: 15000 });
+            await page.click('#resultReplay');
+            await page.waitForSelector('#replayDialog[open]', { timeout: 15000 });
+
+            const autoVoice = await page.evaluate(() => window.__KMATE__.state().replay.resolvedVoice);
+            assert.strictEqual(autoVoice, 'Ava Premium', `natural auto voice was ${autoVoice}`);
+            const optionText = await page.locator('#coachVoiceSelect option').allTextContents();
+            assert.ok(optionText.some(text => text.includes('Ava Premium')));
+            assert.ok(optionText.some(text => text.includes('Daniel Neural')));
+
+            await page.selectOption('#coachVoiceSelect', 'daniel-neural');
+            await page.locator('#coachRateRange').evaluate((input) => {
+              input.value = '0.86';
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            await page.click('#coachSpeakButton');
+            await page.waitForFunction(() => window.__voiceCalls.length > 0, null, { timeout: 10000 });
+            const spoken = await page.evaluate(() => window.__voiceCalls[0]);
+            assert.strictEqual(spoken.voice, 'Daniel Neural');
+            assert.ok(Math.abs(spoken.rate - 0.86) < 0.001, `unexpected rate ${spoken.rate}`);
+            assert.ok(!/[KQRBN]x[a-h][1-8][+#]?/.test(spoken.text), `notation was not made speech-friendly: ${spoken.text}`);
+
+            await page.click('#coachMyVoiceInfo');
+            await page.waitForSelector('#voiceCloneDialog[open]');
+            const ownVoiceText = await page.locator('#voiceCloneDialog').textContent();
+            assert.ok(ownVoiceText.includes('consented voice recording'));
+            assert.ok(ownVoiceText.includes('does not record, upload, or imitate your voice'));
+
+            const state = await page.evaluate(() => window.__KMATE__.state());
+            assert.strictEqual(state.dragAndDrop, true);
+            assert.strictEqual(state.replay.voiceURI, 'daniel-neural');
+            assert.ok(Math.abs(state.replay.rate - 0.86) < 0.001);
+            if (errors.length) throw new Error(errors.join('\n'));
+            console.log(JSON.stringify({ ok: true, drag, autoVoice, spoken, state: state.replay }, null, 2));
+            await browser.close();
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Commit K-Mate v22
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add kmate-trainer/index.html kmate-trainer/styles-v7.css kmate-trainer/app-v7.js kmate-trainer/app-v7-part1.txt kmate-trainer/app-v7-part6.txt
+          git commit -m 'K-Mate v22: natural voice picker and piece dragging' || exit 0
+          git push
