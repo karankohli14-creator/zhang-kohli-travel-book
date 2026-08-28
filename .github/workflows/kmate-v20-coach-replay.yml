@@ -17,6 +17,18 @@ jobs:
       - name: Apply K-Mate v20 patch and generate audio
         run: python .github/scripts/kmate_v20_replay_timeout_audio_graphics.py
 
+      - name: Keep replay navigation visible on mobile
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('kmate-trainer/styles-v7.css')
+          css = path.read_text()
+          old = '.replay-header-actions .btn{display:none}'
+          new = '.replay-header-actions{gap:5px}.replay-header-actions .btn{min-height:36px;padding:0 9px;font-size:10px;white-space:nowrap}'
+          assert old in css, 'mobile replay navigation marker missing'
+          path.write_text(css.replace(old, new, 1))
+          PY
+
       - name: Validate assembled application JavaScript
         run: |
           node --check kmate-trainer/app-v7.js
@@ -51,6 +63,8 @@ jobs:
           grep -q "sampled-wav-sprite" kmate-trainer/app-v7-part1.txt
           grep -q "version: '20.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
           grep -q 'piece.staunton-piece' kmate-trainer/styles-v7.css
+          grep -q 'id="replayBackToReview"' kmate-trainer/index.html
+          ! grep -q '.replay-header-actions .btn{display:none}' kmate-trainer/styles-v7.css
 
       - name: Install browser test runtime
         run: |
@@ -159,6 +173,7 @@ jobs:
             await page.click('#resultReplay');
             await page.waitForSelector('#replayDialog[open]', { timeout: 15000 });
             assert.strictEqual(await page.locator('#replayBoard .sq').count(), 64, 'replay board did not render');
+            assert.ok(await page.locator('#replayBackToReview').isVisible(), 'Back to review is hidden on mobile');
 
             for (let index = 0; index < 8; index += 1) {
               const label = (await page.locator('#replayRating').textContent()).trim();
