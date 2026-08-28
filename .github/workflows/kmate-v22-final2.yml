@@ -18,6 +18,7 @@ jobs:
           python .github/scripts/kmate_v22_natural_voice_drag.py
           python .github/scripts/kmate_v22_pointer_drag_fix.py
           python .github/scripts/kmate_v22_piece_pointer_events_fix.py
+          python .github/scripts/kmate_v22_square_pointer_fix.py
       - name: Validate JavaScript and feature markers
         run: |
           node --check kmate-trainer/app-v7.js
@@ -31,6 +32,7 @@ jobs:
           node --check /tmp/kmate-v22-final2.js
           grep -q 'pointer-events:auto!important' kmate-trainer/styles-v7.css
           grep -q 'beginPointerBoardDrag' kmate-trainer/app-v7-part1.txt
+          grep -q "button.addEventListener('pointerdown'" kmate-trainer/app-v7-part1.txt
           grep -q 'coachVoiceSelect' kmate-trainer/index.html
       - name: Install Chromium and serve app
         run: |
@@ -92,16 +94,18 @@ jobs:
 
             const drag = await page.evaluate(() => window.__KMATE__.test.firstLegalDrag());
             const beforeFen = await page.evaluate(() => window.__KMATE__.state().fen);
-            const source = page.locator(`#board .sq[data-square="${drag.from}"] .piece`);
+            const sourceSquare = page.locator(`#board .sq[data-square="${drag.from}"]`);
+            const sourcePiece = sourceSquare.locator('.piece');
             const target = page.locator(`#board .sq[data-square="${drag.to}"]`);
-            const sb = await source.boundingBox();
+            const sb = await sourcePiece.boundingBox();
             const tb = await target.boundingBox();
             assert.ok(sb && tb);
-            assert.strictEqual(await source.evaluate(el => getComputedStyle(el).pointerEvents), 'auto');
+            assert.strictEqual(await sourcePiece.evaluate(el => getComputedStyle(el).pointerEvents), 'auto');
             await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2);
             await page.mouse.down();
             await page.mouse.move((sb.x + tb.x) / 2, (sb.y + tb.y) / 2, { steps: 8 });
             await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2, { steps: 8 });
+            assert.strictEqual(await page.locator('.board-drag-ghost').count(), 1);
             assert.strictEqual(await page.locator('#board .sq.drag-over').count(), 1);
             await page.mouse.up();
             await page.waitForFunction((fen) => window.__KMATE__.state().fen !== fen, beforeFen, { timeout: 15000 });
