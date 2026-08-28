@@ -1,0 +1,176 @@
+name: K-Mate v23 polish and open-ended positions r2
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v23-polish-unlimited-r2.yml'
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply corrected K-Mate v23 update
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/kmate_v23_polish_unlimited.py')
+          source = path.read_text()
+          source = source.replace(
+              'generator_pattern.subn(new_generator, app, count=1)',
+              'generator_pattern.subn(lambda _match: new_generator, app, count=1)',
+          )
+          compile(source, str(path), 'exec')
+          namespace = {'__name__': '__main__', '__file__': str(path)}
+          exec(compile(source, str(path), 'exec'), namespace)
+          PY
+      - name: Validate JavaScript, UI markers, and sound sprites
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          import wave
+
+          parts = [Path(f'kmate-trainer/app-v7-part{number}.txt').read_text() for number in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v23-combined.js').write_text(''.join(parts))
+
+          for name in ('soft', 'tournament', 'minimal'):
+              path = Path(f'kmate-trainer/sounds/kmate-{name}-v23.wav')
+              assert path.exists() and path.stat().st_size > 300000, path
+              with wave.open(str(path), 'rb') as audio:
+                  assert audio.getnchannels() == 1
+                  assert audio.getsampwidth() == 2
+                  assert audio.getframerate() == 32000
+                  assert audio.getnframes() > 220000
+          PY
+          node --check /tmp/kmate-v23-combined.js
+          grep -q 'id="soundStyleSelect"' kmate-trainer/index.html
+          grep -q 'id="coachAvatarSelect"' kmate-trainer/index.html
+          grep -q 'engine-last-marker' kmate-trainer/styles-v7.css
+          grep -q "GEN_TREE_KEY = 'kmate-generation-tree-v23'" kmate-trainer/app-v7-part1.txt
+          grep -q "version: '23.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+      - name: Install Playwright API and serve K-Mate
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          BROWSER_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$BROWSER_PATH"
+          echo "BROWSER_PATH=$BROWSER_PATH" >> "$GITHUB_ENV"
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v23-server.log 2>&1 &
+      - name: Verify generator diversity, engine trail, sound profiles, and avatar choices
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_PATH, args: ['--no-sandbox'] });
+            const context = await browser.newContext({ viewport: { width: 1180, height: 900 } });
+            await context.addInitScript(() => {
+              const voices = [
+                { name: 'Ava Premium', lang: 'en-US', voiceURI: 'ava-premium', localService: true },
+                { name: 'Daniel Neural', lang: 'en-GB', voiceURI: 'daniel-neural', localService: true },
+              ];
+              class TestUtterance {
+                constructor(text) { this.text = text; this.voice = null; this.onstart = null; this.onend = null; this.onerror = null; }
+              }
+              const synth = {
+                speaking: false,
+                getVoices: () => voices,
+                addEventListener: () => {},
+                cancel() { this.speaking = false; },
+                speak(utterance) {
+                  this.speaking = true;
+                  utterance.onstart?.();
+                  setTimeout(() => { this.speaking = false; utterance.onend?.(); }, 40);
+                },
+              };
+              Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: synth });
+              Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: TestUtterance });
+              HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+              HTMLMediaElement.prototype.pause = function () {};
+            });
+
+            const page = await context.newPage();
+            const fatalErrors = [];
+            page.on('pageerror', error => fatalErrors.push(`pageerror: ${error.message}`));
+            page.on('console', message => {
+              if (message.type() !== 'error') return;
+              const text = message.text();
+              if (text.includes('Failed to load resource') && text.includes('404')) return;
+              fatalErrors.push(`console: ${text}`);
+            });
+
+            await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1', null, { timeout: 120000 });
+
+            assert.strictEqual(await page.locator('#soundStyleSelect option').count(), 3);
+            await page.selectOption('#soundStyleSelect', 'minimal');
+            await page.waitForFunction(() => window.__KMATE__.state().sound.theme === 'minimal');
+            await page.selectOption('#soundStyleSelect', 'soft');
+            await page.waitForFunction(() => window.__KMATE__.state().sound.theme === 'soft');
+
+            const samples = await page.evaluate(() => window.__KMATE__.test.sampleGenerated(28));
+            const unique = new Set(samples.map(item => item.fen));
+            assert.ok(unique.size >= 26, `only ${unique.size} unique generated positions`);
+            assert.ok(samples.filter(item => item.generated).length >= 26, 'generator fell back too often');
+            assert.ok(samples.some(item => item.branchDepth >= 8), 'branch depth did not expand');
+
+            await page.click('[data-side="w"]');
+            await page.click('#startButton');
+            await page.waitForSelector('#gameView:not([hidden])');
+            await page.waitForFunction(() => {
+              const state = window.__KMATE__?.state?.();
+              return state && !state.finalized && state.turn === state.userColor;
+            }, null, { timeout: 90000 });
+
+            let state = await page.evaluate(() => window.__KMATE__.state());
+            if (state.lastMove?.actor !== 'engine') {
+              const drag = await page.evaluate(() => window.__KMATE__.test.firstLegalDrag());
+              assert.ok(drag?.from && drag?.to, `no legal move available: ${JSON.stringify(drag)}`);
+              const source = page.locator(`#board .sq[data-square="${drag.from}"] .piece`);
+              const target = page.locator(`#board .sq[data-square="${drag.to}"]`);
+              await source.dragTo(target);
+              await page.waitForFunction(() => {
+                const current = window.__KMATE__.state();
+                return current.lastMove?.actor === 'engine' && current.turn === current.userColor;
+              }, null, { timeout: 90000 });
+            }
+
+            assert.strictEqual(await page.locator('#board .sq.last-engine').count(), 2);
+            assert.strictEqual(await page.locator('#board .sq.last-engine.last-to').count(), 1);
+            assert.strictEqual(await page.locator('#board .engine-last-marker').count(), 1);
+
+            await page.evaluate(() => window.__KMATE__.test.forceTimeout(window.__KMATE__.state().userColor));
+            await page.waitForSelector('#resultDialog[open]');
+            await page.click('#resultReplay');
+            await page.waitForSelector('#replayDialog[open]');
+            assert.strictEqual(await page.locator('#coachAvatarSelect option').count(), 3);
+            await page.selectOption('#coachAvatarSelect', 'crest');
+            await page.waitForFunction(() => document.querySelector('#coachAvatar')?.dataset.style === 'crest');
+            await page.selectOption('#coachAvatarSelect', 'none');
+            await page.waitForFunction(() => document.querySelector('#replayCoachCard')?.classList.contains('avatar-hidden'));
+            await page.selectOption('#coachAvatarSelect', 'grandmaster');
+            await page.waitForFunction(() => document.querySelector('#coachAvatar')?.dataset.style === 'grandmaster');
+
+            state = await page.evaluate(() => window.__KMATE__.state());
+            assert.strictEqual(state.generator.mode, 'open-ended branch tree');
+            assert.ok(state.generator.branches >= 20);
+            assert.strictEqual(state.replay.avatar, 'grandmaster');
+            if (fatalErrors.length) throw new Error(fatalErrors.join('\n'));
+            console.log(JSON.stringify({ ok: true, uniquePositions: unique.size, generator: state.generator, sound: state.sound, lastMove: state.lastMove }, null, 2));
+            await browser.close();
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Commit and publish K-Mate v23
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add kmate-trainer/index.html kmate-trainer/styles-v7.css kmate-trainer/app-v7.js kmate-trainer/app-v7-part1.txt kmate-trainer/app-v7-part6.txt kmate-trainer/sounds/kmate-soft-v23.wav kmate-trainer/sounds/kmate-tournament-v23.wav kmate-trainer/sounds/kmate-minimal-v23.wav
+          git commit -m 'K-Mate v23: polish sound and coach, highlight engine replies, expand position stream'
+          git pull --rebase origin main
+          git push
