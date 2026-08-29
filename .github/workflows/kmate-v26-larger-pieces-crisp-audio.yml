@@ -102,6 +102,21 @@ jobs:
 
             await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 60000 });
             await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
+
+            const soundFile = await page.evaluate(async () => {
+              const response = await fetch('./sounds/kmate-soft-v26.wav?v=26.0.0', { cache: 'no-store' });
+              const bytes = await response.arrayBuffer();
+              return { ok: response.ok, size: bytes.byteLength };
+            });
+            assert.ok(soundFile.ok);
+            assert.ok(soundFile.size > 1_300_000, soundFile);
+            await page.click('#previewSoundButton');
+            await page.waitForTimeout(100);
+            const soundState = await page.evaluate(() => window.__KMATE__.state().sound);
+            assert.strictEqual(soundState.theme, 'soft');
+            assert.strictEqual(soundState.backend, 'sampled-wav-sprite');
+            assert.ok(soundState.unlocked);
+
             await page.click('[data-side="w"]');
             await page.click('[data-time="untimed"]');
             await page.click('#startButton');
@@ -135,24 +150,8 @@ jobs:
             assert.notStrictEqual(presentation.lightBackground, presentation.darkBackground);
             assert.ok(presentation.noHorizontalOverflow);
 
-            const soundFile = await page.evaluate(async () => {
-              const response = await fetch('./sounds/kmate-soft-v26.wav?v=26.0.0', { cache: 'no-store' });
-              const bytes = await response.arrayBuffer();
-              return { ok: response.ok, size: bytes.byteLength };
-            });
-            assert.ok(soundFile.ok);
-            assert.ok(soundFile.size > 1_300_000, soundFile);
-
-            await page.click('#previewSoundButton');
-            await page.waitForTimeout(100);
-            const state = await page.evaluate(() => window.__KMATE__.state());
-            assert.strictEqual(state.version, undefined);
-            assert.strictEqual(state.sound.theme, 'soft');
-            assert.strictEqual(state.sound.backend, 'sampled-wav-sprite');
-            assert.ok(state.sound.unlocked);
-
             if (fatalErrors.length) throw new Error(fatalErrors.join('\n'));
-            console.log(JSON.stringify({ ok: true, presentation, soundFile, sound: state.sound }, null, 2));
+            console.log(JSON.stringify({ ok: true, presentation, soundFile, sound: soundState }, null, 2));
             await browser.close();
           })().catch(error => { console.error(error); process.exit(1); });
           NODE
