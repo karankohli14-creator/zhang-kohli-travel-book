@@ -706,3 +706,16 @@ body.dragging-piece #board .sq.drag-target{cursor:copy}
   .replay-board .piece.staunton-piece{width:69%;height:69%}
 }
 /* End K-Mate v26 */
+
+
+/* K-Mate v27 — 25-option crisp wooden desk-knock library */
+.sound-preview-actions{display:flex;align-items:center;gap:6px}
+.sound-preview-actions .sound-preview{min-width:72px}
+.sound-style-field .select{font-weight:760}
+#soundStyleDescription{min-height:35px}
+@media(max-width:560px){
+  .sound-style-head{align-items:flex-start}
+  .sound-preview-actions{gap:4px}
+  .sound-preview-actions .sound-preview{min-width:61px;padding:0 8px;font-size:10px}
+}
+/* End K-Mate v27 */

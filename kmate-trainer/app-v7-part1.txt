@@ -210,7 +210,7 @@ const defaultSettings = {
   timeControl: '3+0',
   side: 'random',
   sound: true,
-  soundTheme: 'soft',
+  soundTheme: 'desk-balanced',
   trainingGoal: 'all',
   blindCalibration: false,
   autoHints: false,
@@ -249,6 +249,12 @@ store.settings = { ...defaultSettings, ...(store.settings || {}) };
 // Explicitly selected device voices remain untouched.
 if (!store.settings.coachVoiceURI || store.settings.coachVoiceURI === 'auto') {
   store.settings.coachVoiceURI = 'british-woman';
+}
+
+const legacySoundProfileMap = { soft: 'desk-balanced', tournament: 'tournament-crisp', minimal: 'short-click' };
+if (legacySoundProfileMap[store.settings.soundTheme]) {
+  store.settings.soundTheme = legacySoundProfileMap[store.settings.soundTheme];
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch {}
 }
 
 let repairedStoredMoveRatings = false;
@@ -395,6 +401,13 @@ function playSynthMoveSound(kind = 'move') {
     scheduleChessTone(ctx, now + 0.1, 294, 294, 0.05, 0.13, 'sine');
     return;
   }
+  if (kind === 'timeout') {
+    scheduleChessKnock(ctx, now, 0.15, 0.026, 2450);
+    scheduleChessKnock(ctx, now + 0.12, 0.17, 0.028, 2250);
+    scheduleChessKnock(ctx, now + 0.24, 0.20, 0.032, 1900);
+    scheduleChessTone(ctx, now + 0.30, 220, 125, 0.075, 0.20, 'triangle');
+    return;
+  }
 
   // A dry, fast wooden-board contact for ordinary moves.
   scheduleChessKnock(ctx, now, 0.18, 0.030, 2950);
@@ -402,29 +415,80 @@ function playSynthMoveSound(kind = 'move') {
   scheduleChessTone(ctx, now + 0.003, 340, 185, 0.060, 0.075, 'sine');
 }
 
-const SOUND_SPRITE_SEGMENTS = {
-  move: { start: 0.08, duration: 0.46, volume: 0.97 },
-  capture: { start: 0.70, duration: 0.62, volume: 1.00 },
-  check: { start: 1.48, duration: 0.76, volume: 0.90 },
-  win: { start: 2.48, duration: 1.00, volume: 0.90 },
-  loss: { start: 3.75, duration: 0.94, volume: 0.88 },
-  draw: { start: 4.95, duration: 0.76, volume: 0.86 },
-  timeout: { start: 5.95, duration: 1.18, volume: 0.94 },
-};
-const SOUND_THEME_LABELS = {
-  soft: 'Crisp soft wood',
-  tournament: 'Crisp tournament wood',
-  minimal: 'Dry click',
-};
-const SOUND_SPRITE_URLS = {
-  soft: new URL('./sounds/kmate-soft-v26.wav?v=26.0.0', document.baseURI).href,
-  tournament: new URL('./sounds/kmate-tournament-v26.wav?v=26.0.0', document.baseURI).href,
-  minimal: new URL('./sounds/kmate-minimal-v26.wav?v=26.0.0', document.baseURI).href,
-};
+const SOUND_SPRITE_SEGMENTS = Object.freeze({
+  move: Object.freeze({ start: 0.06, duration: 0.42, volume: 0.98 }),
+  capture: Object.freeze({ start: 0.56, duration: 0.72, volume: 1.00 }),
+  check: Object.freeze({ start: 1.34, duration: 0.66, volume: 0.94 }),
+});
+const SOUND_PROFILE_GROUPS = Object.freeze(["Desk knocks", "Hardwood character", "Board & table", "Dry & minimal", "Warm & distinctive"]);
+const SOUND_PROFILES = Object.freeze({
+  "desk-balanced": Object.freeze({ label: "01 \u00b7 Balanced desk", group: "Desk knocks", description: "Neutral close wooden knock with a clean body.", url: new URL("./sounds/wood-v27/kmate-desk-balanced-v27.wav?v=27.0.0", document.baseURI).href }),
+  "desk-bright": Object.freeze({ label: "02 \u00b7 Bright desktop", group: "Desk knocks", description: "Higher, snappier desktop attack with a short tail.", url: new URL("./sounds/wood-v27/kmate-desk-bright-v27.wav?v=27.0.0", document.baseURI).href }),
+  "desk-deep": Object.freeze({ label: "03 \u00b7 Deep desktop", group: "Desk knocks", description: "Lower, heavier desk resonance without a long boom.", url: new URL("./sounds/wood-v27/kmate-desk-deep-v27.wav?v=27.0.0", document.baseURI).href }),
+  "desk-close": Object.freeze({ label: "04 \u00b7 Close-mic knock", group: "Desk knocks", description: "Very close, dry microphone feel with almost no room reflection.", url: new URL("./sounds/wood-v27/kmate-desk-close-v27.wav?v=27.0.0", document.baseURI).href }),
+  "desk-hard": Object.freeze({ label: "05 \u00b7 Hard desk tap", group: "Desk knocks", description: "Firm, hard-edged impact with a pronounced initial crack.", url: new URL("./sounds/wood-v27/kmate-desk-hard-v27.wav?v=27.0.0", document.baseURI).href }),
+  "hardwood-solid": Object.freeze({ label: "06 \u00b7 Solid hardwood", group: "Hardwood character", description: "Solid hardwood character with a firm midrange core.", url: new URL("./sounds/wood-v27/kmate-hardwood-solid-v27.wav?v=27.0.0", document.baseURI).href }),
+  "hardwood-dense": Object.freeze({ label: "07 \u00b7 Dense hardwood", group: "Hardwood character", description: "Dense, compact knock with strong low-mid weight.", url: new URL("./sounds/wood-v27/kmate-hardwood-dense-v27.wav?v=27.0.0", document.baseURI).href }),
+  "maple-snap": Object.freeze({ label: "08 \u00b7 Maple-style snap", group: "Hardwood character", description: "Bright hardwood-style snap with little lingering resonance.", url: new URL("./sounds/wood-v27/kmate-maple-snap-v27.wav?v=27.0.0", document.baseURI).href }),
+  "oak-knock": Object.freeze({ label: "09 \u00b7 Oak-style knock", group: "Hardwood character", description: "Solid mid-low knock with a restrained room response.", url: new URL("./sounds/wood-v27/kmate-oak-knock-v27.wav?v=27.0.0", document.baseURI).href }),
+  "walnut-knock": Object.freeze({ label: "10 \u00b7 Walnut-style knock", group: "Hardwood character", description: "Warm, darker hardwood character with rounded depth.", url: new URL("./sounds/wood-v27/kmate-walnut-knock-v27.wav?v=27.0.0", document.baseURI).href }),
+  "tournament-crisp": Object.freeze({ label: "11 \u00b7 Tournament board", group: "Board & table", description: "Sharp tournament-board placement with clear captures.", url: new URL("./sounds/wood-v27/kmate-tournament-crisp-v27.wav?v=27.0.0", document.baseURI).href }),
+  "thick-board": Object.freeze({ label: "12 \u00b7 Thick board", group: "Board & table", description: "Heavy, thick-board landing with compact bass.", url: new URL("./sounds/wood-v27/kmate-thick-board-v27.wav?v=27.0.0", document.baseURI).href }),
+  "thin-board": Object.freeze({ label: "13 \u00b7 Thin board", group: "Board & table", description: "Thin wooden board with a lively upper resonance.", url: new URL("./sounds/wood-v27/kmate-thin-board-v27.wav?v=27.0.0", document.baseURI).href }),
+  "butcher-block": Object.freeze({ label: "14 \u00b7 Butcher block", group: "Board & table", description: "Dense block-style contact with a broad, weighty body.", url: new URL("./sounds/wood-v27/kmate-butcher-block-v27.wav?v=27.0.0", document.baseURI).href }),
+  "hollow-board": Object.freeze({ label: "15 \u00b7 Hollow board", group: "Board & table", description: "Crisp impact followed by a short hollow panel resonance.", url: new URL("./sounds/wood-v27/kmate-hollow-board-v27.wav?v=27.0.0", document.baseURI).href }),
+  "dry-studio": Object.freeze({ label: "16 \u00b7 Dry studio knock", group: "Dry & minimal", description: "Studio-damped wooden contact: clean, short, and controlled.", url: new URL("./sounds/wood-v27/kmate-dry-studio-v27.wav?v=27.0.0", document.baseURI).href }),
+  "ultra-dry": Object.freeze({ label: "17 \u00b7 Ultra-dry tap", group: "Dry & minimal", description: "Extremely short wooden tap with almost no body tail.", url: new URL("./sounds/wood-v27/kmate-ultra-dry-v27.wav?v=27.0.0", document.baseURI).href }),
+  "edge-knock": Object.freeze({ label: "18 \u00b7 Desk-edge knock", group: "Dry & minimal", description: "Bright edge-of-desk strike with a focused crack.", url: new URL("./sounds/wood-v27/kmate-edge-knock-v27.wav?v=27.0.0", document.baseURI).href }),
+  "short-click": Object.freeze({ label: "19 \u00b7 Short wood click", group: "Dry & minimal", description: "Compact wooden click, useful when you want minimal distraction.", url: new URL("./sounds/wood-v27/kmate-short-click-v27.wav?v=27.0.0", document.baseURI).href }),
+  "minimal-hardwood": Object.freeze({ label: "20 \u00b7 Minimal hardwood", group: "Dry & minimal", description: "Minimal contact sound with a faint hardwood body.", url: new URL("./sounds/wood-v27/kmate-minimal-hardwood-v27.wav?v=27.0.0", document.baseURI).href }),
+  "warm-desk": Object.freeze({ label: "21 \u00b7 Warm desk knock", group: "Warm & distinctive", description: "Warm desk tone with gentle depth and a clean attack.", url: new URL("./sounds/wood-v27/kmate-warm-desk-v27.wav?v=27.0.0", document.baseURI).href }),
+  "rounded-knock": Object.freeze({ label: "22 \u00b7 Rounded knock", group: "Warm & distinctive", description: "Rounded wooden contact with less high-frequency bite.", url: new URL("./sounds/wood-v27/kmate-rounded-knock-v27.wav?v=27.0.0", document.baseURI).href }),
+  "soft-hardwood": Object.freeze({ label: "23 \u00b7 Soft hardwood", group: "Warm & distinctive", description: "Softer attack while retaining a recognizable wooden core.", url: new URL("./sounds/wood-v27/kmate-soft-hardwood-v27.wav?v=27.0.0", document.baseURI).href }),
+  "low-thud": Object.freeze({ label: "24 \u00b7 Low wooden thud", group: "Warm & distinctive", description: "Low, weighty wooden thud with restrained high frequencies.", url: new URL("./sounds/wood-v27/kmate-low-thud-v27.wav?v=27.0.0", document.baseURI).href }),
+  "snappy-capture": Object.freeze({ label: "25 \u00b7 Snappy capture", group: "Warm & distinctive", description: "Clean move knock with the strongest two-hit capture contrast.", url: new URL("./sounds/wood-v27/kmate-snappy-capture-v27.wav?v=27.0.0", document.baseURI).href }),
+});
+const SOUND_THEME_LABELS = Object.freeze(Object.fromEntries(
+  Object.entries(SOUND_PROFILES).map(([key, profile]) => [key, profile.label]),
+));
+const LEGACY_SOUND_THEME_MAP = Object.freeze({ soft: 'desk-balanced', tournament: 'tournament-crisp', minimal: 'short-click' });
 let soundAudiblyConfirmed = false;
 
+function normalizeSoundTheme(theme) {
+  const normalized = LEGACY_SOUND_THEME_MAP[theme] || theme;
+  return SOUND_PROFILES[normalized] ? normalized : 'desk-balanced';
+}
+
 function selectedSoundTheme() {
-  return SOUND_SPRITE_URLS[settings.soundTheme] ? settings.soundTheme : 'soft';
+  const normalized = normalizeSoundTheme(settings.soundTheme);
+  if (settings.soundTheme !== normalized) settings.soundTheme = normalized;
+  return normalized;
+}
+
+function populateSoundProfiles() {
+  const select = $('#soundStyleSelect');
+  if (!select) return;
+  select.innerHTML = '';
+  for (const group of SOUND_PROFILE_GROUPS) {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = group;
+    for (const [key, profile] of Object.entries(SOUND_PROFILES)) {
+      if (profile.group !== group) continue;
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = profile.label;
+      optgroup.append(option);
+    }
+    select.append(optgroup);
+  }
+  select.value = selectedSoundTheme();
+  updateSoundProfileDescription();
+}
+
+function updateSoundProfileDescription() {
+  const profile = SOUND_PROFILES[selectedSoundTheme()] || SOUND_PROFILES['desk-balanced'];
+  const description = $('#soundStyleDescription');
+  if (description) description.textContent = `${profile.description} Each option has a matching two-hit capture and wooden check cue.`;
 }
 
 function ensureHtmlMoveAudio() {
@@ -434,7 +498,7 @@ function ensureHtmlMoveAudio() {
   const audio = new Audio();
   audio.preload = 'auto';
   audio.playsInline = true;
-  audio.src = SOUND_SPRITE_URLS[theme];
+  audio.src = SOUND_PROFILES[theme].url;
   audio.volume = 0.90;
   htmlMoveAudio = audio;
   htmlMoveAudioTheme = theme;
@@ -480,8 +544,12 @@ async function unlockMoveAudio(audible = false) {
 }
 
 function playHtmlMoveSound(kind) {
+  const segment = SOUND_SPRITE_SEGMENTS[kind];
+  if (!segment) {
+    playSynthMoveSound(kind);
+    return;
+  }
   const audio = ensureHtmlMoveAudio();
-  const segment = SOUND_SPRITE_SEGMENTS[kind] || SOUND_SPRITE_SEGMENTS.move;
   if (htmlMoveAudioStopTimer) window.clearTimeout(htmlMoveAudioStopTimer);
   audio.pause();
   audio.currentTime = segment.start;
@@ -508,6 +576,10 @@ function playHtmlMoveSound(kind) {
 function playMoveSound(kind = 'move') {
   if (!soundEnabled()) return;
   lastSoundKind = kind;
+  if (!SOUND_SPRITE_SEGMENTS[kind]) {
+    playSynthMoveSound(kind);
+    return;
+  }
   if (htmlAudioUnlocked) {
     playHtmlMoveSound(kind);
     return;
@@ -560,35 +632,53 @@ async function toggleSound() {
 }
 
 
-async function setSoundTheme(theme, preview = false) {
-  settings.soundTheme = SOUND_SPRITE_URLS[theme] ? theme : 'soft';
+async function setSoundTheme(theme, previewKind = null) {
+  const nextTheme = normalizeSoundTheme(theme);
+  const changed = nextTheme !== selectedSoundTheme();
+  settings.soundTheme = nextTheme;
   const select = $('#soundStyleSelect');
   if (select) select.value = settings.soundTheme;
-  try { htmlMoveAudio?.pause(); } catch {}
-  htmlMoveAudio = null;
-  htmlMoveAudioTheme = null;
-  htmlAudioUnlocked = false;
-  soundAudiblyConfirmed = false;
-  soundPlaybackBackend = 'not-unlocked';
+  updateSoundProfileDescription();
+  if (changed) {
+    try { htmlMoveAudio?.pause(); } catch {}
+    htmlMoveAudio = null;
+    htmlMoveAudioTheme = null;
+    htmlAudioUnlocked = false;
+    soundAudiblyConfirmed = false;
+    soundPlaybackBackend = 'not-unlocked';
+  }
   saveStore();
   updateSoundToggle();
-  if (preview && soundEnabled()) {
-    const unlocked = await unlockMoveAudio(true);
-    if (unlocked) toast(`${SOUND_THEME_LABELS[settings.soundTheme]} selected`);
+  if (previewKind && !soundEnabled()) {
+    toast('Turn sound on to preview this wooden knock');
+    return;
+  }
+  if (previewKind) {
+    const unlocked = await unlockMoveAudio(false);
+    if (unlocked) {
+      lastSoundKind = previewKind;
+      playHtmlMoveSound(previewKind);
+      const kindLabel = previewKind === 'capture' ? 'capture' : 'move';
+      toast(`${SOUND_THEME_LABELS[settings.soundTheme]} · ${kindLabel}`);
+    }
   }
 }
 
 function handleSoundThemeChange(event) {
-  setSoundTheme(event?.target?.value || 'soft', true);
+  setSoundTheme(event?.target?.value || 'desk-balanced', 'move');
 }
 
 function previewSoundTheme() {
-  setSoundTheme($('#soundStyleSelect')?.value || selectedSoundTheme(), true);
+  setSoundTheme($('#soundStyleSelect')?.value || selectedSoundTheme(), 'move');
+}
+
+function previewCaptureSoundTheme() {
+  setSoundTheme($('#soundStyleSelect')?.value || selectedSoundTheme(), 'capture');
 }
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260829-26';
+  url.search = '?v=20260829-27';
   url.hash = '';
   return url.href;
 }
@@ -725,6 +815,7 @@ function applySettingsToControls() {
   if ($('#blindCalibration')) $('#blindCalibration').checked = Boolean(settings.blindCalibration);
   if ($('#autoHints')) $('#autoHints').checked = Boolean(settings.autoHints);
   if ($('#soundStyleSelect')) $('#soundStyleSelect').value = selectedSoundTheme();
+  updateSoundProfileDescription();
   updateControls(false);
 }
 
@@ -735,7 +826,8 @@ function updateControls(persist = true) {
   settings.trainingGoal = $('#goalSelect')?.value || settings.trainingGoal || 'all';
   settings.blindCalibration = Boolean($('#blindCalibration')?.checked);
   settings.autoHints = Boolean($('#autoHints')?.checked);
-  settings.soundTheme = $('#soundStyleSelect')?.value || settings.soundTheme || 'soft';
+  settings.soundTheme = normalizeSoundTheme($('#soundStyleSelect')?.value || settings.soundTheme || 'desk-balanced');
+  updateSoundProfileDescription();
   $('#positionValue').textContent = settings.positionRating;
   $('#opponentValue').textContent = settings.opponentRating >= 3500 ? '3500 · MAX' : settings.opponentRating;
   $('#timeValue').textContent = timeControl().label;

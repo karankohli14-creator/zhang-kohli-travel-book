@@ -28,6 +28,7 @@
   $('#coachAvatarSelect')?.addEventListener('change', handleCoachAvatarChange);
   $('#soundStyleSelect')?.addEventListener('change', handleSoundThemeChange);
   $('#previewSoundButton')?.addEventListener('click', previewSoundTheme);
+  $('#previewCaptureButton')?.addEventListener('click', previewCaptureSoundTheme);
   $('#coachMyVoiceInfo')?.addEventListener('click', () => openDialog('voiceCloneDialog'));
   $('#replayDialog')?.addEventListener('close', () => {
     stopReplayAuto();
@@ -69,6 +70,7 @@
 }
 
 populateOpenings();
+populateSoundProfiles();
 applySettingsToControls();
 bindControls();
 renderSummary();
@@ -78,7 +80,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '26.0-commercial-beta',
+  version: '27.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },

@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=26.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=27.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -146,15 +146,16 @@
 
           <div class="field sound-style-field" id="soundStyleField">
             <div class="fieldhead sound-style-head">
-              <label for="soundStyleSelect">Move sound</label>
-              <button class="sound-preview" id="previewSoundButton" type="button">Preview</button>
+              <label for="soundStyleSelect">Wood sound library</label>
+              <div class="sound-preview-actions" aria-label="Preview selected wooden sound">
+                <button class="sound-preview" id="previewSoundButton" type="button" aria-label="Preview move sound">Move</button>
+                <button class="sound-preview" id="previewCaptureButton" type="button" aria-label="Preview capture sound">Capture</button>
+              </div>
             </div>
-            <select class="select" id="soundStyleSelect" aria-label="Move sound style">
-              <option value="soft">Crisp soft wood</option>
-              <option value="tournament">Crisp tournament wood</option>
-              <option value="minimal">Dry click</option>
+            <select class="select" id="soundStyleSelect" aria-label="Wooden move sound style">
+              <option value="desk-balanced">01 · Balanced desk</option>
             </select>
-            <small class="sub">All three profiles now use a faster attack and less reverberation: crisp soft wood, a firmer tournament-board impact, or a very dry click. The speaker button can still mute everything.</small>
+            <small class="sub" id="soundStyleDescription">Choose from 25 original crisp wooden desk-knock profiles. Only the selected sound is loaded.</small>
           </div>
 
           <div class="beta-tools">
@@ -587,6 +588,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=26.0.0"></script>
+  <script type="module" src="./app-v7.js?v=27.0.0"></script>
 </body>
 </html>
