@@ -1,0 +1,42 @@
+name: Publish verified K-Mate v28
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v28-live-coach-principles-crisp-sound-r6.yml'
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build K-Mate v28
+        run: |
+          python .github/scripts/kmate_v28_prepare_patch.py
+          python .github/scripts/kmate_v28_live_coach_principles_crisp_sound.py
+          rm -f \
+            .github/workflows/inspect-kmate-sound-reference.yml \
+            .github/workflows/kmate-v28-live-coach-principles-crisp-sound.yml \
+            .github/workflows/kmate-v28-live-coach-principles-crisp-sound-r2.yml \
+            .github/workflows/kmate-v28-live-coach-principles-crisp-sound-r3.yml \
+            .github/workflows/kmate-v28-live-coach-principles-crisp-sound-r4.yml \
+            .github/workflows/kmate-v28-live-coach-principles-crisp-sound-r5.yml
+      - name: Validate application and audio
+        run: python .github/scripts/kmate_v28_validate.py
+      - name: Verify mobile teaching flow
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          BROWSER_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$BROWSER_PATH"
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v28-r6-server.log 2>&1 &
+          BROWSER_PATH="$BROWSER_PATH" node .github/scripts/kmate_v28_browser_test.js
+      - name: Commit and publish K-Mate v28
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A kmate-trainer .github/workflows
+          git commit -m 'K-Mate v28: live coach, position principles, and original crisp desk knock'
+          git push
