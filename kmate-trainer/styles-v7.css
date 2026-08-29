@@ -826,3 +826,71 @@ body.dragging-piece #board .sq.drag-target{cursor:copy}
   .live-coach-active .live-coach-summary{display:none}
 }
 /* End K-Mate v29 */
+
+
+/* K-Mate v30 — persistent, player-controlled Live Coach with a balanced split */
+.live-coach-active .board-coach-stage{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch}
+.live-coach-active .live-boardwrap{align-self:start}
+.live-coach-board-panel{display:flex;flex-direction:column;height:100%;max-height:none;overscroll-behavior:contain}
+.live-coach-pause-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 3px;padding:9px 10px;border:1px solid #70b8ff42;border-radius:12px;background:linear-gradient(90deg,#70b8ff13,#ffffff04)}
+.live-coach-pause-banner span{flex:0 0 auto;color:#a9d5ff;font-size:9px;font-weight:950;letter-spacing:.075em;text-transform:uppercase}
+.live-coach-pause-banner b{color:#e4edf8;font-size:10px;line-height:1.35;text-align:right}
+.live-coach-board-panel .live-coach-summary{font-size:12px}
+.live-coach-board-panel .live-coach-comparison{margin-top:2px}
+.live-coach-board-panel .live-coach-comparison article{box-shadow:inset 0 1px #fff1}
+.live-coach-actions{position:sticky;bottom:-17px;z-index:20;margin-top:auto;padding:12px 0 4px;background:linear-gradient(180deg,transparent 0,#0d1610 32%,#0d1610 100%);box-shadow:0 -12px 18px #0d1610cc}
+.live-coach-actions .btn{flex:1 1 0;min-width:0}
+.live-coach-actions .live-coach-resume{min-width:148px;font-size:13px}
+#board.replay-live-coach-highlights .sq.live-played-from,#board.replay-live-coach-highlights .sq.live-played-to{animation:kmatePlayedPulseV30 .9s ease-out}
+#board.replay-live-coach-highlights .sq.live-best-from,#board.replay-live-coach-highlights .sq.live-best-to{animation:kmateBestPulseV30 .9s .08s ease-out}
+#board.replay-live-coach-highlights .live-coach-board-arrows{animation:kmateArrowReplayV30 .85s ease-out}
+@keyframes kmatePlayedPulseV30{0%{filter:brightness(1.75);transform:scale(.94)}55%{filter:brightness(1.18);transform:scale(1.025)}100%{filter:none;transform:none}}
+@keyframes kmateBestPulseV30{0%{filter:brightness(1.9);transform:scale(.93)}55%{filter:brightness(1.22);transform:scale(1.03)}100%{filter:none;transform:none}}
+@keyframes kmateArrowReplayV30{0%{opacity:0;transform:scale(.97)}45%{opacity:1}100%{opacity:1;transform:none}}
+
+@media(max-width:760px){
+  .live-coach-active .board-coach-stage{
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+    height:clamp(470px,65dvh,610px);
+    min-height:0;
+    overflow:hidden;
+  }
+  .live-coach-active .live-boardwrap{
+    width:min(86vw,calc(32.5dvh - 10px),290px);
+    max-width:100%;
+    max-height:100%;
+    align-self:center;
+    justify-self:center;
+  }
+  .live-coach-active .live-coach-board-panel{
+    width:100%;
+    height:100%;
+    min-height:0;
+    max-height:none;
+    overflow:auto;
+    padding:10px 10px 0;
+  }
+  .live-coach-active .live-coach-head{align-items:center}
+  .live-coach-active .live-coach-head h2{margin-top:2px;font-size:16px}
+  .live-coach-active .live-coach-pause-banner{margin:6px 0 2px;padding:6px 7px}
+  .live-coach-active .live-coach-pause-banner span{font-size:7px}
+  .live-coach-active .live-coach-pause-banner b{font-size:7.5px}
+  .live-coach-active .live-coach-summary{max-height:47px;font-size:8.8px}
+  .live-coach-active .live-coach-comparison p{max-height:72px;font-size:8.5px}
+  .live-coach-active .live-coach-actions{bottom:0;margin-left:-10px;margin-right:-10px;padding:9px 10px 8px;gap:4px}
+  .live-coach-active .live-coach-actions .btn{min-height:36px;padding:0 6px;font-size:8px}
+  .live-coach-active .live-coach-actions .live-coach-resume{min-width:105px;font-size:9.5px}
+}
+
+@media(max-width:430px){
+  .live-coach-active .board-coach-stage{height:clamp(465px,64dvh,570px)}
+  .live-coach-active .live-boardwrap{width:min(80vw,calc(32dvh - 10px),270px)}
+}
+
+@media(max-height:720px) and (max-width:760px){
+  .live-coach-active .board-coach-stage{height:clamp(430px,62dvh,490px)}
+  .live-coach-active .live-boardwrap{width:min(67vw,calc(31dvh - 8px),225px)}
+  .live-coach-active .live-coach-principles{display:none}
+}
+/* End K-Mate v30 */

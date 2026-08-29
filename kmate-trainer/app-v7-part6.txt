@@ -33,6 +33,7 @@
   $('#principlesSetupButton')?.addEventListener('click', cancelPrincipleReview);
   $('#principlesDialog')?.addEventListener('cancel', (event) => event.preventDefault());
   $('#liveCoachContinueButton')?.addEventListener('click', () => continueAfterLiveCoach());
+  $('#liveCoachReplayHighlightsButton')?.addEventListener('click', replayLiveCoachBoardHighlights);
   $('#liveCoachSpeakButton')?.addEventListener('click', handleLiveCoachSpeak);
   $('#coachMyVoiceInfo')?.addEventListener('click', () => openDialog('voiceCloneDialog'));
   $('#replayDialog')?.addEventListener('close', () => {
@@ -85,7 +86,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '29.0-commercial-beta',
+  version: '30.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -105,7 +106,7 @@ window.__KMATE__ = {
     clockPaused,
     principleReviewPending,
     principles: currentPositionPrinciples.map((principle) => ({ key: principle.key, title: principle.title })),
-    liveCoach: { awaiting: liveCoachState.awaiting, open: liveCoachState.open, inline: true, panelVisible: Boolean($('#liveCoachBoardPanel') && !$('#liveCoachBoardPanel').hidden), moveId: liveCoachState.moveId, ignoredPrinciples: liveCoachState.ignoredPrinciples.map((principle) => principle.key) },
+    liveCoach: { awaiting: liveCoachState.awaiting, open: liveCoachState.open, inline: true, autoResume: false, slowNoticeShown: Boolean(liveCoachState.slowNoticeShown), panelVisible: Boolean($('#liveCoachBoardPanel') && !$('#liveCoachBoardPanel').hidden), moveId: liveCoachState.moveId, ignoredPrinciples: liveCoachState.ignoredPrinciples.map((principle) => principle.key) },
     thinking,
     finalized,
     reason: currentSession?.reason || null,
@@ -148,6 +149,10 @@ if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
       };
       startPosition();
       return { principles: currentPositionPrinciples.map((principle) => principle.key), paused: clockPaused };
+    },
+    forceLiveCoachSlowState: () => {
+      const record = liveCoachState.record || currentSession?.userMoves?.[currentSession.userMoves.length - 1];
+      return record ? markLiveCoachAnalysisSlow(record) : false;
     },
     forceLiveCoachIntervention: () => {
       const record = currentSession?.userMoves?.[currentSession.userMoves.length - 1];

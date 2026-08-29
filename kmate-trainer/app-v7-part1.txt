@@ -852,7 +852,7 @@ function previewCaptureSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260829-29';
+  url.search = '?v=20260829-30';
   url.hash = '';
   return url.href;
 }
@@ -3536,6 +3536,8 @@ function setLiveCoachBoardOpen(open) {
 
 function renderLiveCoachPending(record) {
   if (!record) return;
+  const pauseText = $('#liveCoachPauseText');
+  if (pauseText) pauseText.textContent = 'Both clocks remain paused until you tap Resume game.';
   const rating = $('#liveCoachRating');
   if (rating) {
     rating.className = 'move-quality-badge quality-pending';
@@ -3562,6 +3564,38 @@ function resetLiveCoachFlow({ closeModal = false, closePanel = false } = {}) {
   if (closeModal || closePanel) setLiveCoachBoardOpen(false);
 }
 
+
+function markLiveCoachAnalysisSlow(moveRecord) {
+  if (!liveCoachState.awaiting || finalized || liveCoachState.moveId !== moveRecord?.id) return false;
+  if (currentSession && !liveCoachState.slowNoticeShown) {
+    currentSession.liveCoachAnalysisTimeouts = (currentSession.liveCoachAnalysisTimeouts || 0) + 1;
+  }
+  liveCoachState.slowNoticeShown = true;
+  const rating = $('#liveCoachRating');
+  if (rating) {
+    rating.className = 'move-quality-badge quality-pending';
+    rating.textContent = 'Still analyzing';
+  }
+  if ($('#liveCoachTitle')) $('#liveCoachTitle').textContent = `Taking a closer look at ${moveRecord?.san || 'your move'}`;
+  if ($('#liveCoachSummary')) $('#liveCoachSummary').textContent = 'This position needs a little more calculation. The review will stay open and both clocks will remain paused. You may wait for the result or resume the game whenever you choose.';
+  if ($('#liveCoachPauseText')) $('#liveCoachPauseText').textContent = 'No automatic countdown: the game resumes only when you tap Resume game.';
+  if ($('#liveCoachWhy')) $('#liveCoachWhy').textContent = 'Stockfish is still checking whether the apparent evaluation change is stable and concrete.';
+  if ($('#liveCoachBestText')) $('#liveCoachBestText').textContent = 'The preferred move and its purpose will appear as soon as the comparison is reliable.';
+  setStatus('Live Coach is still analyzing. The clocks remain paused until you resume.', 'thinking');
+  setLiveCoachBoardOpen(true);
+  renderAll();
+  return true;
+}
+
+function replayLiveCoachBoardHighlights() {
+  const board = $('#board');
+  if (!board || !(liveCoachState.awaiting || liveCoachState.open)) return;
+  board.classList.remove('replay-live-coach-highlights');
+  void board.offsetWidth;
+  board.classList.add('replay-live-coach-highlights');
+  window.setTimeout(() => board.classList.remove('replay-live-coach-highlights'), 1050);
+}
+
 function queueLiveCoachReview(moveRecord) {
   resetLiveCoachFlow({ closePanel: true });
   pauseClockForTeaching();
@@ -3573,17 +3607,16 @@ function queueLiveCoachReview(moveRecord) {
     record: moveRecord || null,
     narration: null,
     ignoredPrinciples: [],
+    slowNoticeShown: false,
   };
   renderLiveCoachPending(moveRecord);
   liveCoachReviewTimer = window.setTimeout(() => {
-    if (!liveCoachState.awaiting || finalized || liveCoachState.moveId !== moveRecord?.id) return;
-    if (currentSession) currentSession.liveCoachAnalysisTimeouts = (currentSession.liveCoachAnalysisTimeouts || 0) + 1;
-    toast('Live Coach analysis took too long, so play is resuming');
-    continueAfterLiveCoach({ automatic: true });
+    markLiveCoachAnalysisSlow(moveRecord);
   }, 16000);
 }
 
 function renderLiveCoachIntervention(record, narration, ignoredPrinciples) {
+  if ($('#liveCoachPauseText')) $('#liveCoachPauseText').textContent = 'Take as long as you need. Both clocks remain paused until you tap Resume game.';
   const rating = $('#liveCoachRating');
   rating.className = `move-quality-badge quality-${narration.band.key}`;
   rating.textContent = narration.band.label;
@@ -3623,6 +3656,7 @@ function openLiveCoachIntervention(record) {
   setLiveCoachBoardOpen(true);
   setStatus(`${narration.band.label}: compare the orange played move with the green best move on the board.`, 'bad');
   renderAll();
+  replayLiveCoachBoardHighlights();
   $('#boardCoachStage')?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   if (settings.coachVoice !== false) window.setTimeout(() => speakLiveCoach(false), 180);
 }

@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=29.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=30.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -249,6 +249,10 @@
                 <div><div class="eyebrow">Live Coach · clock paused</div><h2 id="liveCoachTitle">Reviewing your move</h2></div>
                 <span class="move-quality-badge quality-pending" id="liveCoachRating">Analyzing</span>
               </div>
+              <div class="live-coach-pause-banner" id="liveCoachPauseBanner">
+                <span>Review at your own pace</span>
+                <b id="liveCoachPauseText">Both clocks remain paused until you tap Resume game.</b>
+              </div>
               <div class="live-coach-board-legend" aria-label="Board highlight legend">
                 <span class="played"><i></i>Your played move</span>
                 <span class="best"><i></i>Engine best move</span>
@@ -274,8 +278,9 @@
                 <div class="live-coach-line" id="liveCoachLine">Principal variation pending.</div>
               </section>
               <div class="dialogactions live-coach-actions">
+                <button class="btn" id="liveCoachReplayHighlightsButton" type="button">↻ Replay highlights</button>
                 <button class="btn" id="liveCoachSpeakButton" type="button">▶ Speak again</button>
-                <button class="btn primary" id="liveCoachContinueButton" type="button">Continue game</button>
+                <button class="btn primary live-coach-resume" id="liveCoachContinueButton" type="button">Resume game</button>
               </div>
             </section>
           </div>
@@ -650,6 +655,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=29.0.0"></script>
+  <script type="module" src="./app-v7.js?v=30.0.0"></script>
 </body>
 </html>
