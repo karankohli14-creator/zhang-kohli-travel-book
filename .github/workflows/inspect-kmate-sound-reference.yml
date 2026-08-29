@@ -1,0 +1,21 @@
+name: Inspect K-Mate sound reference
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-kmate-sound-reference.yml'
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read public YouTube oEmbed metadata
+        run: |
+          python - <<'PY'
+          import json
+          import urllib.parse
+          import urllib.request
+          video = 'https://www.youtube.com/watch?v=tncbdDB0-FQ'
+          url = 'https://www.youtube.com/oembed?' + urllib.parse.urlencode({'url': video, 'format': 'json'})
+          with urllib.request.urlopen(url, timeout=30) as response:
+              data = json.load(response)
+          print(json.dumps({key: data.get(key) for key in ('title','author_name','provider_name','thumbnail_url')}, indent=2))
+          PY
