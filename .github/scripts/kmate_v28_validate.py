@@ -23,13 +23,15 @@ assert 'function ensureDecodedWoodBuffers' in part1
 assert 'id="principlesDialog"' in index
 assert 'id="liveCoachDialog"' in index
 
+# Capture deliberately starts with a lighter pickup knock before the stronger
+# landing at ~60 ms, so its first 28 ms has a lower minimum than a normal move.
 expected = {
-    'kmate-reference-move-v28.wav': ((0.22, 0.24), 4.5),
-    'kmate-reference-capture-v28.wav': ((0.32, 0.34), 2.0),
-    'kmate-reference-check-v28.wav': ((0.40, 0.42), 2.0),
+    'kmate-reference-move-v28.wav': ((0.22, 0.24), 4.5, 18_000),
+    'kmate-reference-capture-v28.wav': ((0.32, 0.34), 2.0, 10_000),
+    'kmate-reference-check-v28.wav': ((0.40, 0.42), 2.0, 18_000),
 }
 audio_root = root / 'sounds' / 'live-v28'
-for filename, (bounds, minimum_ratio) in expected.items():
+for filename, (bounds, minimum_ratio, minimum_attack) in expected.items():
     path = audio_root / filename
     assert path.exists(), path
     assert path.stat().st_size > 40_000, (path, path.stat().st_size)
@@ -41,11 +43,19 @@ for filename, (bounds, minimum_ratio) in expected.items():
     mono = [(samples[index] + samples[index + 1]) / 2 for index in range(0, len(samples), 2)]
     absolute = [abs(value) for value in mono]
     attack_peak = max(absolute[:int(0.028 * 48_000)] or [0])
-    overall_peak_index = absolute.index(max(absolute)) / 48_000
+    overall_peak = max(absolute)
+    overall_peak_index = absolute.index(overall_peak) / 48_000
     tail = absolute[int(0.150 * 48_000):]
     tail_rms = math.sqrt(sum(value * value for value in tail) / max(1, len(tail)))
     ratio = attack_peak / max(1, tail_rms)
-    assert attack_peak > 18_000, (path, attack_peak)
+    assert attack_peak > minimum_attack, (path, attack_peak)
+    assert overall_peak > 18_000, (path, overall_peak)
     assert overall_peak_index < 0.075, (path, overall_peak_index)
     assert ratio > minimum_ratio, (path, ratio, attack_peak, tail_rms)
-    print(filename, {'duration': duration, 'attack_peak': attack_peak, 'peak_time': overall_peak_index, 'attack_tail_ratio': ratio})
+    print(filename, {
+        'duration': duration,
+        'pickup_peak': attack_peak,
+        'overall_peak': overall_peak,
+        'peak_time': overall_peak_index,
+        'attack_tail_ratio': ratio,
+    })
