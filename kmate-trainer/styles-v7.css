@@ -894,3 +894,45 @@ body.dragging-piece #board .sq.drag-target{cursor:copy}
   .live-coach-active .live-coach-principles{display:none}
 }
 /* End K-Mate v30 */
+
+
+/* K-Mate v31 — spoken Live Coach and always-on principle diagnosis */
+.live-coach-audio-toggle{border-color:#80d8a43d;background:#80d8a408}
+.live-coach-audio-toggle.disabled{opacity:.48}
+.live-coach-head-tools{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.live-coach-voice-toggle{min-height:31px;padding:0 9px;border:1px solid #ffffff1b;border-radius:10px;background:#ffffff07;color:var(--muted);font-size:9px;font-weight:950;cursor:pointer;white-space:nowrap}
+.live-coach-voice-toggle.active{border-color:#80d8a466;background:#80d8a414;color:#c7f8dc}
+.live-coach-voice-toggle.speaking{box-shadow:0 0 0 3px #80d8a411;animation:kmateVoicePulseV31 1.1s ease-in-out infinite}
+@keyframes kmateVoicePulseV31{50%{filter:brightness(1.2);transform:translateY(-1px)}}
+.live-coach-audio-status{margin:6px 0 1px;padding:6px 8px;border-left:3px solid #80d8a4;border-radius:7px;background:#80d8a40b;color:#cfe7d9;font-size:9px;line-height:1.35}
+.live-coach-audio-status.speaking{border-color:#b9f474;background:#b9f4740d;color:#eaffd1}
+.live-coach-audio-status.muted{border-color:#ffffff30;background:#ffffff05;color:var(--muted)}
+.live-coach-board-panel.voice-speaking{border-color:#80d8a45e;box-shadow:0 20px 55px #0007,0 0 0 3px #80d8a409}
+
+.live-coach-principle-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.live-coach-principle-heading small,.live-coach-principle-heading b{display:block}
+.live-coach-principle-heading b{margin-top:2px;color:#fff4c8;font-size:13px}
+.live-coach-principle-heading>span{flex:0 0 auto;padding:4px 7px;border:1px solid #f4cc7040;border-radius:99px;background:#f4cc700c;color:#f9dd98;font-size:7px;font-weight:950;letter-spacing:.055em;text-transform:uppercase}
+.principle-diagnosis-card{display:grid;gap:5px!important;padding:10px!important;border:1px solid #ffffff13!important;border-left:4px solid #f4cc70!important;border-radius:11px!important;background:linear-gradient(145deg,#ffffff08,#0002)!important}
+.principle-diagnosis-title{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.principle-diagnosis-title b{color:#fff4cf;font-size:11px}
+.principle-diagnosis-title em{flex:0 0 auto;padding:3px 6px;border:1px solid #ffffff18;border-radius:99px;background:#ffffff08;color:#dbe4dd;font:850 7px/1 system-ui,sans-serif;font-style:normal;white-space:nowrap}
+.principle-diagnosis-card[data-confidence="High confidence"]{border-left-color:#ff9d4d!important}.principle-diagnosis-card[data-confidence="High confidence"] .principle-diagnosis-title em{border-color:#ff9d4d55;background:#ff9d4d12;color:#ffc28e}
+.principle-diagnosis-card[data-confidence="Medium confidence"]{border-left-color:#f4cc70!important}
+.principle-diagnosis-card[data-confidence="Guiding principle"]{border-left-color:#70b8ff!important}.principle-diagnosis-card[data-confidence="Guiding principle"] .principle-diagnosis-title em{border-color:#70b8ff55;background:#70b8ff12;color:#a9d5ff}
+.principle-diagnosis-evidence{color:#eef4ef!important;font-size:9.5px!important;line-height:1.38!important}
+.principle-diagnosis-card>small{color:#aebcb2;font-size:8.5px;line-height:1.35}
+.principle-diagnosis-card mark{justify-self:start;padding:3px 6px;border:1px solid #80d8a43f;border-radius:99px;background:#80d8a40d;color:#bff3d4;font-size:7px;font-weight:900}
+.live-coach-principle-note{margin:7px 0 0!important;color:#abb8ae!important;font-size:8px!important;line-height:1.35!important}
+
+@media(max-width:760px){
+  .live-coach-head-tools{gap:4px}.live-coach-voice-toggle{min-height:27px;padding:0 6px;font-size:7px}
+  .live-coach-audio-status{margin-top:4px;padding:4px 6px;font-size:7.5px}
+  .live-coach-principle-heading b{font-size:10px}.live-coach-principle-heading>span{padding:3px 5px;font-size:5.8px}
+  .principle-diagnosis-card{gap:3px!important;padding:6px!important}
+  .principle-diagnosis-title b{font-size:8.5px}.principle-diagnosis-title em{font-size:5.8px}
+  .principle-diagnosis-evidence{font-size:7.5px!important;line-height:1.28!important}
+  .principle-diagnosis-card>small{font-size:6.8px}.principle-diagnosis-card mark{font-size:5.8px}
+  .live-coach-principle-note{font-size:6.5px!important}
+}
+/* End K-Mate v31 */

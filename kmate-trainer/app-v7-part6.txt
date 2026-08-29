@@ -35,6 +35,8 @@
   $('#liveCoachContinueButton')?.addEventListener('click', () => continueAfterLiveCoach());
   $('#liveCoachReplayHighlightsButton')?.addEventListener('click', replayLiveCoachBoardHighlights);
   $('#liveCoachSpeakButton')?.addEventListener('click', handleLiveCoachSpeak);
+  $('#liveCoachVoiceToggle')?.addEventListener('click', toggleLiveCoachVoice);
+  $('#liveCoachVoice')?.addEventListener('change', handleLiveCoachVoiceSetting);
   $('#coachMyVoiceInfo')?.addEventListener('click', () => openDialog('voiceCloneDialog'));
   $('#replayDialog')?.addEventListener('close', () => {
     stopReplayAuto();
@@ -86,7 +88,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '30.0-commercial-beta',
+  version: '31.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -106,7 +108,7 @@ window.__KMATE__ = {
     clockPaused,
     principleReviewPending,
     principles: currentPositionPrinciples.map((principle) => ({ key: principle.key, title: principle.title })),
-    liveCoach: { awaiting: liveCoachState.awaiting, open: liveCoachState.open, inline: true, autoResume: false, slowNoticeShown: Boolean(liveCoachState.slowNoticeShown), panelVisible: Boolean($('#liveCoachBoardPanel') && !$('#liveCoachBoardPanel').hidden), moveId: liveCoachState.moveId, ignoredPrinciples: liveCoachState.ignoredPrinciples.map((principle) => principle.key) },
+    liveCoach: { awaiting: liveCoachState.awaiting, open: liveCoachState.open, inline: true, autoResume: false, voiceEnabled: settings.coachVoice !== false, voiceSpeaking: Boolean(liveCoachUtterance || window.speechSynthesis?.speaking), slowNoticeShown: Boolean(liveCoachState.slowNoticeShown), panelVisible: Boolean($('#liveCoachBoardPanel') && !$('#liveCoachBoardPanel').hidden), moveId: liveCoachState.moveId, ignoredPrinciples: liveCoachState.ignoredPrinciples.map((principle) => principle.key), principleDiagnoses: liveCoachState.ignoredPrinciples.map((principle) => ({ key: principle.key, confidence: principle.confidence, evidence: principle.evidence, reviewed: Boolean(principle.reviewed) })) },
     thinking,
     finalized,
     reason: currentSession?.reason || null,
@@ -133,10 +135,30 @@ if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
       handleTimeout(color);
       return true;
     },
+    startLiveCoachPrincipleDemo: () => {
+      settings.side = 'w';
+      settings.timeControl = '3+0';
+      settings.liveCoach = true;
+      settings.coachVoice = true;
+      settings.principleReview = false;
+      settings.autoHints = false;
+      settings.sound = true;
+      settings.soundTheme = 'reference-crisp';
+      queuedCustomPosition = {
+        id: 'live-coach-principle-demo', custom: true, generated: false, phase: 'middlegame', opening: 'Teaching demo', rating: 1600,
+        title: 'Voice and principle diagnosis demo', theme: 'Candidate moves and piece activity',
+        tags: ['calculation', 'piece activity', 'prophylaxis'],
+        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        description: 'A deterministic local test position for spoken Live Coach principle diagnosis.',
+      };
+      startPosition();
+      return { principleReview: settings.principleReview, voice: settings.coachVoice, paused: clockPaused };
+    },
     startTeachingDemo: () => {
       settings.side = 'w';
       settings.timeControl = '3+0';
       settings.liveCoach = true;
+      settings.coachVoice = true;
       settings.principleReview = true;
       settings.autoHints = false;
       settings.soundTheme = 'reference-crisp';

@@ -366,6 +366,7 @@ let currentPositionPrinciples = [];
 let liveCoachState = { awaiting: false, open: false, sessionId: null, moveId: null, record: null, narration: null, ignoredPrinciples: [] };
 let liveCoachReviewTimer = null;
 let liveCoachUtterance = null;
+let liveCoachVoicePrimed = false;
 let replayState = { session: null, frames: [], index: 0, timer: null, auto: false, showBest: false, bestLineKey: null, bestLineFrames: [], bestLineIndex: -1, bestLineTimer: null, bestLinePlaying: false };
 let coachSpeechUtterance = null;
 let coachSpeechTimer = null;
@@ -852,7 +853,7 @@ function previewCaptureSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260829-30';
+  url.search = '?v=20260829-31';
   url.hash = '';
   return url.href;
 }
@@ -990,6 +991,7 @@ function applySettingsToControls() {
   if ($('#blindCalibration')) $('#blindCalibration').checked = Boolean(settings.blindCalibration);
   if ($('#autoHints')) $('#autoHints').checked = Boolean(settings.autoHints);
   if ($('#liveCoach')) $('#liveCoach').checked = Boolean(settings.liveCoach);
+  if ($('#liveCoachVoice')) $('#liveCoachVoice').checked = settings.coachVoice !== false;
   if ($('#principleReview')) $('#principleReview').checked = Boolean(settings.principleReview);
   if ($('#soundStyleSelect')) $('#soundStyleSelect').value = selectedSoundTheme();
   updateSoundProfileDescription();
@@ -1004,6 +1006,7 @@ function updateControls(persist = true) {
   settings.blindCalibration = Boolean($('#blindCalibration')?.checked);
   settings.autoHints = Boolean($('#autoHints')?.checked);
   settings.liveCoach = Boolean($('#liveCoach')?.checked);
+  settings.coachVoice = Boolean($('#liveCoachVoice')?.checked);
   settings.principleReview = Boolean($('#principleReview')?.checked);
   settings.soundTheme = normalizeSoundTheme($('#soundStyleSelect')?.value || settings.soundTheme || 'desk-balanced');
   updateSoundProfileDescription();
@@ -1011,6 +1014,12 @@ function updateControls(persist = true) {
   $('#opponentValue').textContent = settings.opponentRating >= 3500 ? '3500 · MAX' : settings.opponentRating;
   $('#timeValue').textContent = timeControl().label;
   $('#opponentLabel').textContent = ratingDescriptor(settings.opponentRating);
+
+  const liveCoachVoiceControl = $('#liveCoachVoice');
+  if (liveCoachVoiceControl) {
+    liveCoachVoiceControl.disabled = !settings.liveCoach;
+    liveCoachVoiceControl.closest('label')?.classList.toggle('disabled', !settings.liveCoach);
+  }
 
   const openingDisabled = settings.phase === 'endgame';
   $('#openingSelect').disabled = openingDisabled;
@@ -1608,6 +1617,7 @@ function cancelPrincipleReview() {
 function startPosition({ preservePrevious = false } = {}) {
   unlockMoveAudio(false);
   ensureAudioContext();
+  primeLiveCoachVoice();
   resetLiveCoachFlow({ closeModal: true });
   principleReviewPending = false;
   closeDialog('principlesDialog');
@@ -3455,37 +3465,176 @@ function coachNarrationForRecord(record, session, decisionNumber) {
 const LIVE_COACH_ERROR_KEYS = Object.freeze(new Set(['inaccuracy', 'miss', 'mistake', 'blunder']));
 
 function ignoredPrinciplesForMove(record, session) {
-  const available = new Map((session?.positionPrinciples || []).map((principle) => [principle.key, principle]));
-  if (!available.size) return [];
   const comparison = strongestAlternativeAchievement(record, session);
   const best = comparison.best.move;
   const selectedMove = comparison.selected.move;
-  const keys = [];
-  const add = (key) => { if (available.has(key) && !keys.includes(key)) keys.push(key); };
+  const tags = new Set(session?.tags || []);
+  const reviewedKeys = new Set((session?.positionPrinciples || []).map((principle) => principle.key));
+  const diagnoses = new Map();
+  const bestSan = comparison.best.san || readableEngineMove(record?.bestMove);
+  const selectedSan = comparison.selected.san || record?.san || readableEngineMove(record?.uci);
+  const loss = Math.max(0, Number(record?.cpLoss) || 0);
+  const phase = session?.phase || 'middlegame';
+  const values = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
-  if (best?.san?.includes('+') || best?.san?.includes('#') || (best?.captured && !selectedMove?.captured)) add('forcing-scan');
-  if (best?.captured && !selectedMove?.captured) add('loose-pieces');
-  if (best?.san?.startsWith('O-O') || (session.tags || []).includes('king safety')) add('king-safety');
-  if ((session.tags || []).includes('prophylaxis') || (Number.isFinite(record.bestScore) && Number.isFinite(record.selectedScore) && record.bestScore >= -35 && record.selectedScore <= -120)) add('opponent-threat');
-  if ((session.tags || []).some((tag) => ['piece activity', 'space'].includes(tag))) add('piece-activity');
-  if ((session.tags || []).includes('pawn breaks')) add('pawn-breaks');
-  if ((session.tags || []).includes('pawn structure')) add('pawn-structure');
-  if ((session.tags || []).includes('conversion')) add('conversion');
-  if ((session.tags || []).includes('endgame transition')) add('endgame-transition');
-  if ((session.tags || []).includes('rook activity')) add('rook-activity');
-  if ((session.tags || []).includes('passed pawns')) add('passed-pawns');
-  if ((session.tags || []).includes('king activity')) add('king-activity');
-  if ((session.tags || []).includes('opposition')) add('opposition');
-  add('candidate-comparison');
-  if (!keys.length) add('opponent-threat');
-  return keys.slice(0, 3).map((key) => available.get(key));
+  const add = (key, score, evidence, confidence = null) => {
+    const principle = CHESS_PRINCIPLE_BY_KEY[key];
+    if (!principle || !evidence) return;
+    const reviewed = Boolean(session?.principleReview && reviewedKeys.has(key));
+    const positionRelevant = reviewedKeys.has(key);
+    const adjustedScore = Number(score) + (reviewed ? 6 : positionRelevant ? 2 : 0);
+    const confidenceLabel = confidence || (adjustedScore >= 88 ? 'High confidence' : adjustedScore >= 65 ? 'Medium confidence' : 'Guiding principle');
+    const existing = diagnoses.get(key);
+    if (!existing || adjustedScore > existing.score) {
+      diagnoses.set(key, { ...principle, score: adjustedScore, evidence, confidence: confidenceLabel, reviewed, positionRelevant });
+    }
+  };
+
+  if (best?.san?.includes('#') && !selectedMove?.san?.includes('#')) {
+    add('forcing-scan', 100, `${bestSan} began a forced mating sequence, while ${selectedSan} did not use the forcing opportunity.`, 'High confidence');
+  } else if (best?.san?.includes('+') && !selectedMove?.san?.includes('+')) {
+    add('forcing-scan', 94, `${bestSan} was a forcing check. Looking at checks before quiet moves would have brought it into the candidate set.`, 'High confidence');
+  }
+
+  const bestCaptureValue = values[best?.captured] || 0;
+  const selectedCaptureValue = values[selectedMove?.captured] || 0;
+  if (best?.captured && bestCaptureValue > selectedCaptureValue) {
+    add('forcing-scan', 92, `${bestSan} was the stronger tactical capture, but ${selectedSan} did not win the same material or initiative.`, 'High confidence');
+    add('loose-pieces', 90, `Stockfish found that the ${pieceName(best.captured)} was tactically available in the best line.`, 'High confidence');
+  }
+
+  if (best?.san?.startsWith('O-O') && !selectedMove?.san?.startsWith('O-O')) {
+    add('king-safety', 95, `${bestSan} would have secured the king and connected the rooks before starting another plan.`, 'High confidence');
+  } else if (tags.has('king safety') && loss > 110) {
+    add('king-safety', 72, `King safety was a central theme of this position, and ${selectedSan} did not address it as directly as ${bestSan}.`);
+  }
+
+  if (Number.isFinite(record?.bestScore) && Number.isFinite(record?.selectedScore)) {
+    if (record.bestScore >= -35 && record.selectedScore <= -120) {
+      add('opponent-threat', 96, `${selectedSan} changed a defensible position into a clear disadvantage, indicating that an opposing threat or tactical resource was not neutralized.`, 'High confidence');
+    }
+    if (record.bestScore >= 120 && record.selectedScore < 40) {
+      add('conversion', 91, `${selectedSan} let a clear advantage drift toward equality; ${bestSan} kept the cleaner conversion route.`, 'High confidence');
+    }
+    if (record.bestScore > 0 && record.selectedScore < 0) {
+      add('opponent-threat', 88, `${selectedSan} reversed which side had the easier position, so the opponent’s counterplay needed more attention.`, 'High confidence');
+    }
+  }
+
+  if (selectedMove?.piece === 'p' && best?.piece !== 'p' && (tags.has('pawn structure') || tags.has('pawn breaks'))) {
+    add('pawn-structure', 76, `${selectedSan} made a permanent pawn commitment while ${bestSan} improved the position without creating the same structural obligation.`);
+  }
+  if (best?.piece === 'p' && ['c', 'd', 'e', 'f'].includes(best.to?.[0]) && !sameUciMove(record?.uci, record?.bestMove) && tags.has('pawn breaks')) {
+    add('pawn-breaks', 78, `${bestSan} was the prepared central or flank break that changed the lines in your favour.`);
+  }
+
+  const bestDevelops = best && ['n', 'b'].includes(best.piece)
+    && ((best.color === 'w' && best.from?.[1] === '1') || (best.color === 'b' && best.from?.[1] === '8'));
+  if (bestDevelops && !(['n', 'b'].includes(selectedMove?.piece)
+      && ((selectedMove.color === 'w' && selectedMove.from?.[1] === '1') || (selectedMove.color === 'b' && selectedMove.from?.[1] === '8')))) {
+    add('piece-activity', 82, `${bestSan} developed a piece into the game, while ${selectedSan} left that coordination problem unresolved.`);
+  } else if ((tags.has('piece activity') || tags.has('space')) && loss > 110) {
+    add('piece-activity', 68, `${bestSan} coordinated the pieces more efficiently than ${selectedSan}, which is important in this activity-focused structure.`);
+  }
+
+  if (best?.piece === 'r' && tags.has('rook activity')) {
+    add('rook-activity', 78, `${bestSan} activated a rook on a more useful line instead of allowing it to remain passive.`);
+  }
+  if (phase === 'endgame' && best?.piece === 'k' && selectedMove?.piece !== 'k') {
+    add('king-activity', 86, `${bestSan} activated the king toward the critical squares, while ${selectedSan} used a different piece.`, 'High confidence');
+  }
+  if (phase === 'endgame' && tags.has('opposition')) {
+    add('opposition', 70, `The king geometry in this ending makes opposition and entry-square calculation especially important.`);
+  }
+  if (tags.has('passed pawns') && (best?.piece === 'p' || best?.captured)) {
+    add('passed-pawns', 72, `${bestSan} handled the passed-pawn race or blockade more directly than ${selectedSan}.`);
+  }
+
+  if (tags.has('endgame transition') && selectedMove?.captured) {
+    add('endgame-transition', 70, `${selectedSan} changed the material balance and therefore required checking the resulting ending before exchanging.`);
+  }
+  if (best && ['d4', 'e4', 'd5', 'e5'].includes(best.to) && !['d4', 'e4', 'd5', 'e5'].includes(selectedMove?.to)) {
+    add('central-control', 66, `${bestSan} used a central square to improve coordination and restrict counterplay.`);
+  }
+
+  // Every substantial engine loss contains at least a candidate-selection lesson,
+  // even when no single classical rule fully explains the concrete tactic.
+  add(
+    'candidate-comparison',
+    loss > 220 ? 62 : 54,
+    `${bestSan} was substantially stronger than ${selectedSan}. Comparing one forcing candidate with one improving candidate would have made the difference easier to notice.`,
+    loss > 220 ? 'Medium confidence' : 'Guiding principle',
+  );
+
+  return [...diagnoses.values()]
+    .sort((first, second) => second.score - first.score)
+    .slice(0, 3);
+}
+
+function updateLiveCoachAudioControls(message = '') {
+  const enabled = settings.coachVoice !== false;
+  const speaking = Boolean(liveCoachUtterance || window.speechSynthesis?.speaking);
+  const setup = $('#liveCoachVoice');
+  if (setup) setup.checked = enabled;
+  const toggle = $('#liveCoachVoiceToggle');
+  if (toggle) {
+    toggle.textContent = enabled ? '🔊 Voice on' : '🔇 Voice off';
+    toggle.setAttribute('aria-pressed', String(enabled));
+    toggle.classList.toggle('active', enabled);
+    toggle.classList.toggle('speaking', speaking);
+  }
+  const speakButton = $('#liveCoachSpeakButton');
+  if (speakButton && !speaking) speakButton.textContent = '▶ Hear coach';
+  const status = $('#liveCoachAudioStatus');
+  if (status) {
+    status.textContent = message || (speaking
+      ? 'Coach is speaking. Tap Stop voice to pause the narration.'
+      : enabled
+        ? 'Voice on · narration begins automatically. Tap Hear coach whenever you need a replay.'
+        : 'Voice off · the complete written review remains available.');
+    status.classList.toggle('speaking', speaking);
+    status.classList.toggle('muted', !enabled);
+  }
+  $('#liveCoachBoardPanel')?.classList.toggle('voice-speaking', speaking);
+}
+
+function primeLiveCoachVoice() {
+  if (liveCoachVoicePrimed || settings.coachVoice === false || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return false;
+  try {
+    window.speechSynthesis.resume?.();
+    const primer = new SpeechSynthesisUtterance(' ');
+    primer.volume = 0;
+    primer.rate = 1;
+    primer.lang = chooseCoachVoice()?.lang || 'en-GB';
+    liveCoachVoicePrimed = true;
+    window.speechSynthesis.speak(primer);
+    return true;
+  } catch (error) {
+    console.warn('Unable to prime Live Coach voice.', error);
+    return false;
+  }
+}
+
+function playLiveCoachCue() {
+  if (!soundEnabled()) return false;
+  const ctx = ensureAudioContext();
+  if (!ctx) return false;
+  try { ctx.resume?.(); } catch {}
+  const now = ctx.currentTime + 0.008;
+  scheduleChessKnock(ctx, now, 0.12, 0.022, 3100);
+  scheduleChessKnock(ctx, now + 0.070, 0.16, 0.028, 2500);
+  scheduleChessTone(ctx, now + 0.095, 520, 690, 0.048, 0.095, 'sine');
+  scheduleChessTone(ctx, now + 0.178, 690, 820, 0.040, 0.105, 'sine');
+  lastSoundKind = 'coach';
+  return true;
 }
 
 function stopLiveCoachSpeech() {
   try { window.speechSynthesis?.cancel(); } catch {}
   liveCoachUtterance = null;
   const button = $('#liveCoachSpeakButton');
-  if (button) button.textContent = '▶ Speak again';
+  if (button) button.textContent = '▶ Hear coach';
+  updateLiveCoachAudioControls();
 }
 
 function liveCoachSpeechText() {
@@ -3494,15 +3643,19 @@ function liveCoachSpeechText() {
   const why = $('#liveCoachWhy')?.textContent?.trim() || '';
   const best = $('#liveCoachBestText')?.textContent?.trim() || '';
   const principles = $('#liveCoachPrinciplesText')?.textContent?.trim() || '';
-  return [rating ? `${rating}.` : '', summary, why ? `About your move. ${why}` : '', best ? `The stronger move. ${best}` : '', principles ? `Principles to revisit. ${principles}` : ''].filter(Boolean).join(' ');
+  return [rating ? `${rating}.` : '', summary, why ? `About your move. ${why}` : '', best ? `The stronger move. ${best}` : '', principles ? `Principle diagnosis. ${principles}` : ''].filter(Boolean).join(' ');
 }
 
 function speakLiveCoach(force = false) {
-  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return false;
+  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+    updateLiveCoachAudioControls('Spoken coaching is unavailable in this browser; the complete written review remains below.');
+    return false;
+  }
   if (!force && settings.coachVoice === false) return false;
   stopLiveCoachSpeech();
   const text = speechFriendlyText(liveCoachSpeechText());
   if (!text) return false;
+  try { window.speechSynthesis.resume?.(); } catch {}
   const utterance = new SpeechSynthesisUtterance(text);
   const voice = chooseCoachVoice();
   utterance.lang = voice?.lang || 'en-GB';
@@ -3513,18 +3666,43 @@ function speakLiveCoach(force = false) {
   utterance.onstart = () => {
     liveCoachUtterance = utterance;
     const button = $('#liveCoachSpeakButton');
-    if (button) button.textContent = '■ Stop';
+    if (button) button.textContent = '■ Stop voice';
+    updateLiveCoachAudioControls('Coach is speaking: move assessment, best alternative, then principle diagnosis.');
   };
-  utterance.onend = utterance.onerror = () => {
-    liveCoachUtterance = null;
-    const button = $('#liveCoachSpeakButton');
-    if (button) button.textContent = '▶ Speak again';
+  utterance.onend = () => {
+    if (liveCoachUtterance === utterance) liveCoachUtterance = null;
+    updateLiveCoachAudioControls('Narration complete. Tap Hear coach to listen again, or Resume game when ready.');
+  };
+  utterance.onerror = () => {
+    if (liveCoachUtterance === utterance) liveCoachUtterance = null;
+    updateLiveCoachAudioControls('Automatic narration was blocked. Tap Hear coach to start it with a direct user gesture.');
   };
   liveCoachUtterance = utterance;
   window.speechSynthesis.speak(utterance);
   return true;
 }
 
+function toggleLiveCoachVoice() {
+  settings.coachVoice = settings.coachVoice === false;
+  if (!settings.coachVoice) stopLiveCoachSpeech();
+  else {
+    primeLiveCoachVoice();
+    updateLiveCoachAudioControls('Voice enabled.');
+    if (liveCoachState.open) window.setTimeout(() => speakLiveCoach(true), 80);
+  }
+  saveStore();
+  updateCoachVoiceControls();
+  updateLiveCoachAudioControls();
+}
+
+function handleLiveCoachVoiceSetting(event) {
+  settings.coachVoice = Boolean(event?.target?.checked);
+  if (settings.coachVoice) primeLiveCoachVoice();
+  else stopLiveCoachSpeech();
+  saveStore();
+  updateCoachVoiceControls();
+  updateLiveCoachAudioControls();
+}
 
 function setLiveCoachBoardOpen(open) {
   const visible = Boolean(open);
@@ -3554,6 +3732,7 @@ function renderLiveCoachPending(record) {
   if ($('#liveCoachPrinciplesText')) $('#liveCoachPrinciplesText').textContent = '';
   if ($('#liveCoachLine')) $('#liveCoachLine').textContent = 'Principal variation pending.';
   setLiveCoachBoardOpen(true);
+  updateLiveCoachAudioControls(settings.coachVoice === false ? 'Voice off · the written analysis will remain here until you resume.' : 'Voice on · narration will begin when the analysis is ready.');
 }
 
 function resetLiveCoachFlow({ closeModal = false, closePanel = false } = {}) {
@@ -3633,22 +3812,38 @@ function renderLiveCoachIntervention(record, narration, ignoredPrinciples) {
   const principlesSection = $('#liveCoachPrinciples');
   const principleList = $('#liveCoachPrincipleList');
   const principlesText = $('#liveCoachPrinciplesText');
-  const showPrinciples = Boolean(settings.principleReview && ignoredPrinciples.length);
+  const principleHeadline = $('#liveCoachPrincipleHeadline');
+  const principleNote = $('#liveCoachPrincipleNote');
+  const showPrinciples = Boolean(ignoredPrinciples.length);
   principlesSection.hidden = !showPrinciples;
   if (showPrinciples) {
-    principleList.innerHTML = ignoredPrinciples.map((principle) => `<article><b>${escapeHtml(principle.title)}</b><span>${escapeHtml(principle.rule)}</span></article>`).join('');
-    principlesText.textContent = ignoredPrinciples.map((principle) => principle.title).join('; ');
+    const reviewedCount = ignoredPrinciples.filter((principle) => principle.reviewed).length;
+    principleHeadline.textContent = reviewedCount
+      ? `${ignoredPrinciples.length} likely lesson${ignoredPrinciples.length === 1 ? '' : 's'} · ${reviewedCount} reviewed before play`
+      : `${ignoredPrinciples.length} likely lesson${ignoredPrinciples.length === 1 ? '' : 's'} from this move`;
+    principleList.innerHTML = ignoredPrinciples.map((principle) => `
+      <article class="principle-diagnosis-card" data-confidence="${escapeHtml(principle.confidence)}">
+        <div class="principle-diagnosis-title"><b>${escapeHtml(principle.title)}</b><em>${escapeHtml(principle.confidence)}</em></div>
+        <span class="principle-diagnosis-evidence">${escapeHtml(principle.evidence)}</span>
+        <small>${escapeHtml(principle.rule)}</small>
+        ${principle.reviewed ? '<mark>Reviewed before this game</mark>' : principle.positionRelevant ? '<mark>Relevant to this position</mark>' : ''}
+      </article>`).join('');
+    principleNote.textContent = 'The Stockfish comparison supplies the concrete evidence. The principle diagnosis is a coaching inference explaining the likely human decision-making lesson.';
+    principlesText.textContent = ignoredPrinciples.map((principle) => `${principle.title}. ${principle.evidence}`).join(' ');
   } else {
     principleList.innerHTML = '';
     principlesText.textContent = '';
+    principleHeadline.textContent = 'No single classical principle identified';
   }
+  updateLiveCoachAudioControls();
 }
 
 function openLiveCoachIntervention(record) {
   const decisionNumber = Math.max(1, (currentSession?.userMoves || []).findIndex((move) => move.id === record.id) + 1);
   const narration = coachNarrationForRecord(record, currentSession, decisionNumber);
-  const ignoredPrinciples = settings.principleReview ? ignoredPrinciplesForMove(record, currentSession) : [];
+  const ignoredPrinciples = ignoredPrinciplesForMove(record, currentSession);
   record.ignoredPrinciples = ignoredPrinciples.map((principle) => principle.key);
+  record.principleDiagnoses = ignoredPrinciples.map((principle) => ({ key: principle.key, title: principle.title, confidence: principle.confidence, evidence: principle.evidence, reviewed: principle.reviewed }));
   record.liveCoachIntervention = true;
   if (currentSession) currentSession.liveCoachInterventions = (currentSession.liveCoachInterventions || 0) + 1;
   liveCoachState = { ...liveCoachState, awaiting: false, open: true, record, narration, ignoredPrinciples };
@@ -3657,8 +3852,10 @@ function openLiveCoachIntervention(record) {
   setStatus(`${narration.band.label}: compare the orange played move with the green best move on the board.`, 'bad');
   renderAll();
   replayLiveCoachBoardHighlights();
+  playLiveCoachCue();
+  updateLiveCoachAudioControls();
   $('#boardCoachStage')?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-  if (settings.coachVoice !== false) window.setTimeout(() => speakLiveCoach(false), 180);
+  if (settings.coachVoice !== false) window.setTimeout(() => speakLiveCoach(false), 420);
 }
 
 function handleLiveCoachAnalysis(session, record) {
@@ -3690,8 +3887,17 @@ function continueAfterLiveCoach({ automatic = false } = {}) {
 }
 
 function handleLiveCoachSpeak() {
-  if (liveCoachUtterance || window.speechSynthesis?.speaking) stopLiveCoachSpeech();
-  else speakLiveCoach(true);
+  if (liveCoachUtterance || window.speechSynthesis?.speaking) {
+    stopLiveCoachSpeech();
+    return;
+  }
+  if (settings.coachVoice === false) {
+    settings.coachVoice = true;
+    saveStore();
+    updateCoachVoiceControls();
+  }
+  primeLiveCoachVoice();
+  speakLiveCoach(true);
 }
 
 function sessionSequence(session) {

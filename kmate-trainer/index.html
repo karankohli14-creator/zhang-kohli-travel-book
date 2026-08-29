@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=30.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=31.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -155,6 +155,11 @@
             <span><b>Live Coach after bad moves</b><small>After an Inaccurate, Miss, or Blunder, pause both clocks, keep the board visible, and compare your move with the best move directly on the board.</small></span>
           </label>
 
+          <label class="calibration-toggle live-coach-audio-toggle">
+            <input id="liveCoachVoice" type="checkbox">
+            <span><b>Speak Live Coach reviews aloud</b><small>Play a short coaching cue, then narrate the move, the stronger alternative, and the likely chess principle that was overlooked. A Hear coach button remains available if autoplay is blocked.</small></span>
+          </label>
+
           <div class="field sound-style-field" id="soundStyleField">
             <div class="fieldhead sound-style-head">
               <label for="soundStyleSelect">Wood sound library</label>
@@ -247,7 +252,10 @@
             <section class="live-coach-board-panel" id="liveCoachBoardPanel" hidden aria-live="polite" aria-label="Live Coach board review">
               <div class="live-coach-head">
                 <div><div class="eyebrow">Live Coach · clock paused</div><h2 id="liveCoachTitle">Reviewing your move</h2></div>
-                <span class="move-quality-badge quality-pending" id="liveCoachRating">Analyzing</span>
+                <div class="live-coach-head-tools">
+                  <button class="live-coach-voice-toggle" id="liveCoachVoiceToggle" type="button" aria-pressed="true">🔊 Voice on</button>
+                  <span class="move-quality-badge quality-pending" id="liveCoachRating">Analyzing</span>
+                </div>
               </div>
               <div class="live-coach-pause-banner" id="liveCoachPauseBanner">
                 <span>Review at your own pace</span>
@@ -257,6 +265,7 @@
                 <span class="played"><i></i>Your played move</span>
                 <span class="best"><i></i>Engine best move</span>
               </div>
+              <div class="live-coach-audio-status" id="liveCoachAudioStatus" role="status">Voice on · narration begins when the analysis is ready.</div>
               <p class="live-coach-summary" id="liveCoachSummary">K-Mate is comparing your move with the strongest continuation.</p>
               <div class="live-coach-comparison">
                 <article class="your-move">
@@ -269,8 +278,12 @@
                 </article>
               </div>
               <section class="live-coach-principles" id="liveCoachPrinciples" hidden>
-                <small>Principles this move appears to have overlooked</small>
+                <div class="live-coach-principle-heading">
+                  <div><small>Likely chess principle overlooked</small><b id="liveCoachPrincipleHeadline">Coach diagnosis</b></div>
+                  <span>Engine-supported inference</span>
+                </div>
                 <div class="live-coach-principle-list" id="liveCoachPrincipleList"></div>
+                <p class="live-coach-principle-note" id="liveCoachPrincipleNote">The concrete Stockfish line is the evidence; the principle label explains the likely human lesson.</p>
                 <span id="liveCoachPrinciplesText" hidden></span>
               </section>
               <section class="live-coach-line-wrap">
@@ -279,7 +292,7 @@
               </section>
               <div class="dialogactions live-coach-actions">
                 <button class="btn" id="liveCoachReplayHighlightsButton" type="button">↻ Replay highlights</button>
-                <button class="btn" id="liveCoachSpeakButton" type="button">▶ Speak again</button>
+                <button class="btn" id="liveCoachSpeakButton" type="button">▶ Hear coach</button>
                 <button class="btn primary live-coach-resume" id="liveCoachContinueButton" type="button">Resume game</button>
               </div>
             </section>
@@ -655,6 +668,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=30.0.0"></script>
+  <script type="module" src="./app-v7.js?v=31.0.0"></script>
 </body>
 </html>
