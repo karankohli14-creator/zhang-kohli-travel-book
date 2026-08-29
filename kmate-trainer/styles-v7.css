@@ -719,3 +719,39 @@ body.dragging-piece #board .sq.drag-target{cursor:copy}
   .sound-preview-actions .sound-preview{min-width:61px;padding:0 8px;font-size:10px}
 }
 /* End K-Mate v27 */
+
+
+/* K-Mate v28 — pre-game principles and clock-pausing Live Coach */
+.principles-toggle{border-color:#70b8ff38;background:#70b8ff08}
+.live-coach-toggle{border-color:#f4cc7044;background:#f4cc7009}
+.principles-modal{width:min(700px,calc(100% - 18px));max-height:92dvh;overflow:auto}
+.principles-list{display:grid;gap:8px;margin:16px 0}
+.principle-card{display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;padding:12px;border:1px solid #ffffff14;border-radius:14px;background:#ffffff05;text-align:left}
+.principle-card>span{display:grid;place-items:center;width:31px;height:31px;border:1px solid #70b8ff55;border-radius:10px;background:#70b8ff12;color:#a9d5ff;font-weight:950}
+.principle-card b,.principle-card p{display:block}.principle-card p{margin:3px 0 0;color:#cad5ce;font-size:12px;line-height:1.45}
+.principles-note{padding:10px 12px;border-left:3px solid var(--gold);border-radius:8px;background:#f4cc700b;color:#dce4dd!important;font-size:11px}
+.live-coach-modal{width:min(760px,calc(100% - 18px));max-height:94dvh;overflow:auto}
+.live-coach-modal .modal-card{padding:22px}
+.live-coach-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.live-coach-head h2{margin:5px 0 0}
+.live-coach-summary{margin:13px 0!important;padding:11px 12px;border:1px solid #ffffff13;border-radius:13px;background:#ffffff05;color:#dce5de!important;line-height:1.48}
+.live-coach-comparison{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.live-coach-comparison article{min-width:0;padding:13px;border:1px solid #ffffff14;border-radius:14px;background:#ffffff05;text-align:left}
+.live-coach-comparison .your-move{border-left:4px solid #ffad59}
+.live-coach-comparison .best-move{border-left:4px solid #8ee7a2}
+.live-coach-comparison small,.live-coach-comparison b{display:block}.live-coach-comparison small{color:var(--muted);font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.live-coach-comparison b{margin-top:4px;font-size:20px}.live-coach-comparison p{margin:7px 0 0!important;color:#d1dcd4!important;font-size:12px;line-height:1.48}
+.live-coach-principles{margin-top:10px;padding:12px;border:1px solid #f4cc7045;border-radius:14px;background:#f4cc7009;text-align:left}
+.live-coach-principles>small,.live-coach-line-wrap>small{display:block;color:var(--gold);font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.live-coach-principle-list{display:grid;gap:6px;margin-top:8px}.live-coach-principle-list article{padding:8px 9px;border:1px solid #ffffff10;border-radius:10px;background:#0002}.live-coach-principle-list b,.live-coach-principle-list span{display:block}.live-coach-principle-list span{margin-top:2px;color:#cbd6ce;font-size:10px;line-height:1.35}
+.live-coach-line-wrap{margin-top:10px;padding:11px 12px;border:1px solid #75d6ff32;border-radius:13px;background:#168ec60d;text-align:left}
+.live-coach-line{margin-top:5px;color:#ccefff;font:750 11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
+.live-coach-actions{margin-top:14px}.live-coach-actions .btn{flex:1}
+@media(max-width:560px){
+  .principles-modal .modal-card,.live-coach-modal .modal-card{padding:15px}
+  .principle-card{grid-template-columns:29px minmax(0,1fr);padding:9px}.principle-card>span{width:27px;height:27px}.principle-card p{font-size:10px}
+  .live-coach-comparison{grid-template-columns:1fr;gap:6px}
+  .live-coach-summary{font-size:11px}
+  .live-coach-comparison article{padding:10px}.live-coach-comparison b{font-size:17px}.live-coach-comparison p{font-size:10.5px}
+  .live-coach-principles,.live-coach-line-wrap{padding:9px}
+}
+/* End K-Mate v28 */

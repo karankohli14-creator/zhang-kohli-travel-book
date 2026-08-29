@@ -189,6 +189,56 @@ const THEME_ADVICE = {
   opposition: 'Review direct and distant opposition, including side opposition.',
 };
 
+
+const CHESS_PRINCIPLES = Object.freeze([
+  Object.freeze({ key: 'opponent-threat', title: 'Ask what the opponent threatens', rule: 'Before starting your own plan, identify the opponent’s strongest check, capture, threat, and pawn break.', tags: ['prophylaxis', 'king safety', 'calculation'] }),
+  Object.freeze({ key: 'forcing-scan', title: 'Checks, captures, and threats first', rule: 'Scan forcing moves for both sides before spending time on a quiet positional move.', tags: ['calculation'] }),
+  Object.freeze({ key: 'loose-pieces', title: 'Count loose and overloaded pieces', rule: 'Undefended pieces and overloaded defenders are tactical targets, even when no immediate capture is obvious.', tags: ['calculation', 'piece activity'] }),
+  Object.freeze({ key: 'candidate-comparison', title: 'Compare at least two serious candidates', rule: 'Do not stop at the first playable move. Compare the strongest forcing move with the best improving move.', tags: ['calculation', 'conversion'] }),
+  Object.freeze({ key: 'king-safety', title: 'King safety before ambition', rule: 'When a king is exposed, address checks, open lines, and defensive piece placement before launching another plan.', tags: ['king safety'] }),
+  Object.freeze({ key: 'piece-activity', title: 'Improve the least active piece', rule: 'Before another pawn move, ask which piece is contributing least and whether it can enter the game with tempo.', tags: ['piece activity', 'space'] }),
+  Object.freeze({ key: 'pawn-breaks', title: 'Prepare pawn breaks', rule: 'A pawn break should open a useful file or diagonal and should be checked against the opponent’s counter-break.', tags: ['pawn breaks', 'space'] }),
+  Object.freeze({ key: 'pawn-structure', title: 'Treat pawn moves as permanent', rule: 'Before advancing or exchanging a pawn, identify the weak squares, files, and endgame structure that remain.', tags: ['pawn structure', 'pawn breaks'] }),
+  Object.freeze({ key: 'conversion', title: 'Simplify only when the edge survives', rule: 'When ahead, trade counterplay rather than automatically trading pieces; calculate the resulting ending first.', tags: ['conversion'] }),
+  Object.freeze({ key: 'endgame-transition', title: 'Evaluate the ending before exchanging', rule: 'Before trading queens or minor pieces, compare king activity, pawn majorities, and the resulting rook activity.', tags: ['endgame transition', 'conversion'] }),
+  Object.freeze({ key: 'rook-activity', title: 'Active rooks belong on open lines', rule: 'Prioritize open files, checking distance, seventh-rank activity, and cutting off the opposing king.', tags: ['rook activity'] }),
+  Object.freeze({ key: 'passed-pawns', title: 'Passed pawns must be calculated', rule: 'Count the pawn race, identify the best blockading square, and place rooks behind passed pawns when possible.', tags: ['passed pawns'] }),
+  Object.freeze({ key: 'king-activity', title: 'The king is an endgame piece', rule: 'When queens are gone, activate the king toward critical entry squares instead of leaving it as a spectator.', tags: ['king activity'] }),
+  Object.freeze({ key: 'opposition', title: 'Check the opposition', rule: 'In king-and-pawn endings, test direct, distant, and side opposition before moving the king.', tags: ['opposition'] }),
+  Object.freeze({ key: 'central-control', title: 'Use the centre to coordinate pieces', rule: 'Central squares matter because they increase piece mobility and restrict the opponent’s counterplay.', tags: ['piece activity', 'space'] }),
+]);
+const CHESS_PRINCIPLE_BY_KEY = Object.freeze(Object.fromEntries(CHESS_PRINCIPLES.map((principle) => [principle.key, principle])));
+
+function relevantPrinciplesForPosition(position, g, limit = 5) {
+  const tags = new Set(position?.tags || []);
+  const phase = position?.phase || 'middlegame';
+  const boardInfo = { queens: 0, rooks: 0, pieces: 0 };
+  g?.board?.().forEach((row) => row.forEach((piece) => {
+    if (!piece) return;
+    boardInfo.pieces += 1;
+    if (piece.type === 'q') boardInfo.queens += 1;
+    if (piece.type === 'r') boardInfo.rooks += 1;
+  }));
+  return CHESS_PRINCIPLES.map((principle, index) => {
+    let score = 0;
+    if (principle.key === 'opponent-threat') score += 45;
+    if (principle.key === 'forcing-scan') score += 42;
+    if (principle.key === 'candidate-comparison') score += 38;
+    for (const tag of principle.tags || []) if (tags.has(tag)) score += 75;
+    if (phase === 'middlegame' && ['king-safety', 'piece-activity', 'central-control', 'pawn-breaks'].includes(principle.key)) score += 22;
+    if (phase === 'late-middlegame' && ['candidate-comparison', 'endgame-transition', 'rook-activity', 'pawn-structure'].includes(principle.key)) score += 28;
+    if (phase === 'endgame' && ['king-activity', 'rook-activity', 'passed-pawns', 'opposition', 'conversion'].includes(principle.key)) score += 42;
+    if (boardInfo.queens >= 1 && principle.key === 'king-safety') score += 25;
+    if (boardInfo.queens === 0 && principle.key === 'king-activity') score += 28;
+    if (boardInfo.rooks >= 2 && principle.key === 'rook-activity') score += 20;
+    if (g?.isCheck?.() && ['forcing-scan', 'king-safety'].includes(principle.key)) score += 100;
+    return { ...principle, score, order: index };
+  })
+    .sort((first, second) => second.score - first.score || first.order - second.order)
+    .slice(0, Math.max(3, Math.min(7, Number(limit) || 5)))
+    .map(({ score: _score, order: _order, ...principle }) => principle);
+}
+
 const STORAGE_KEY = 'kmate-position-v7';
 const LEGACY_KEY = 'kmate-position-v6';
 
@@ -210,10 +260,13 @@ const defaultSettings = {
   timeControl: '3+0',
   side: 'random',
   sound: true,
-  soundTheme: 'desk-balanced',
+  soundTheme: 'reference-crisp',
+  referenceCrispMigrationDone: false,
   trainingGoal: 'all',
   blindCalibration: false,
   autoHints: false,
+  liveCoach: false,
+  principleReview: false,
   coachVoice: true,
   coachVoiceURI: 'british-woman',
   coachVoiceRate: 0.92,
@@ -257,6 +310,14 @@ if (legacySoundProfileMap[store.settings.soundTheme]) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch {}
 }
 
+if (!store.settings.referenceCrispMigrationDone) {
+  if (!store.settings.soundTheme || store.settings.soundTheme === 'desk-balanced') {
+    store.settings.soundTheme = 'reference-crisp';
+  }
+  store.settings.referenceCrispMigrationDone = true;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch {}
+}
+
 let repairedStoredMoveRatings = false;
 for (const session of store.sessions) repairedStoredMoveRatings = reconcileSessionAnalysis(session) || repairedStoredMoveRatings;
 if (repairedStoredMoveRatings) {
@@ -290,6 +351,9 @@ let soundSpriteUri = null;
 let soundPlaybackBackend = 'not-unlocked';
 let lastSoundKind = null;
 let soundBlockedNoticeShown = false;
+let decodedWoodProfileKey = null;
+let decodedWoodBuffers = null;
+let decodedWoodLoadPromise = null;
 let queuedCustomPosition = null;
 let activeOpponentRating = 1600;
 let recommendationState = null;
@@ -297,6 +361,11 @@ let ratedMoveSquare = null;
 let hintRequestId = 0;
 let hintState = { fen: null, status: 'idle', level: 0, strategicText: '', exactText: '', candidate: null, requestedReveal: false, counted: false, revealCounted: false };
 let timeoutHandling = false;
+let principleReviewPending = false;
+let currentPositionPrinciples = [];
+let liveCoachState = { awaiting: false, open: false, sessionId: null, moveId: null, record: null, narration: null, ignoredPrinciples: [] };
+let liveCoachReviewTimer = null;
+let liveCoachUtterance = null;
 let replayState = { session: null, frames: [], index: 0, timer: null, auto: false, showBest: false, bestLineKey: null, bestLineFrames: [], bestLineIndex: -1, bestLineTimer: null, bestLinePlaying: false };
 let coachSpeechUtterance = null;
 let coachSpeechTimer = null;
@@ -422,6 +491,7 @@ const SOUND_SPRITE_SEGMENTS = Object.freeze({
 });
 const SOUND_PROFILE_GROUPS = Object.freeze(["Desk knocks", "Hardwood character", "Board & table", "Dry & minimal", "Warm & distinctive"]);
 const SOUND_PROFILES = Object.freeze({
+  "reference-crisp": Object.freeze({ label: "00 · Reference-style crisp desk knock", group: "Desk knocks", description: "Original close-mic hard wooden desk knock with an immediate attack and almost no reverberation; it is not copied from the linked video.", eventUrls: Object.freeze({ move: new URL('./sounds/live-v28/kmate-reference-move-v28.wav?v=28.0.0', document.baseURI).href, capture: new URL('./sounds/live-v28/kmate-reference-capture-v28.wav?v=28.0.0', document.baseURI).href, check: new URL('./sounds/live-v28/kmate-reference-check-v28.wav?v=28.0.0', document.baseURI).href }) }),
   "desk-balanced": Object.freeze({ label: "01 \u00b7 Balanced desk", group: "Desk knocks", description: "Neutral close wooden knock with a clean body.", url: new URL("./sounds/wood-v27/kmate-desk-balanced-v27.wav?v=27.0.0", document.baseURI).href }),
   "desk-bright": Object.freeze({ label: "02 \u00b7 Bright desktop", group: "Desk knocks", description: "Higher, snappier desktop attack with a short tail.", url: new URL("./sounds/wood-v27/kmate-desk-bright-v27.wav?v=27.0.0", document.baseURI).href }),
   "desk-deep": Object.freeze({ label: "03 \u00b7 Deep desktop", group: "Desk knocks", description: "Lower, heavier desk resonance without a long boom.", url: new URL("./sounds/wood-v27/kmate-desk-deep-v27.wav?v=27.0.0", document.baseURI).href }),
@@ -456,7 +526,7 @@ let soundAudiblyConfirmed = false;
 
 function normalizeSoundTheme(theme) {
   const normalized = LEGACY_SOUND_THEME_MAP[theme] || theme;
-  return SOUND_PROFILES[normalized] ? normalized : 'desk-balanced';
+  return SOUND_PROFILES[normalized] ? normalized : 'reference-crisp';
 }
 
 function selectedSoundTheme() {
@@ -486,9 +556,76 @@ function populateSoundProfiles() {
 }
 
 function updateSoundProfileDescription() {
-  const profile = SOUND_PROFILES[selectedSoundTheme()] || SOUND_PROFILES['desk-balanced'];
+  const profile = SOUND_PROFILES[selectedSoundTheme()] || SOUND_PROFILES['reference-crisp'];
   const description = $('#soundStyleDescription');
   if (description) description.textContent = `${profile.description} Each option has a matching two-hit capture and wooden check cue.`;
+}
+
+
+function selectedSoundProfile() {
+  return SOUND_PROFILES[selectedSoundTheme()] || SOUND_PROFILES['reference-crisp'];
+}
+
+function resetDecodedWoodAudio() {
+  decodedWoodProfileKey = null;
+  decodedWoodBuffers = null;
+  decodedWoodLoadPromise = null;
+}
+
+function decodeAudioDataCompat(ctx, bytes) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (value) => { if (!settled) { settled = true; resolve(value); } };
+    const fail = (error) => { if (!settled) { settled = true; reject(error); } };
+    try {
+      const result = ctx.decodeAudioData(bytes.slice(0), done, fail);
+      if (result?.then) result.then(done, fail);
+    } catch (error) { fail(error); }
+  });
+}
+
+async function ensureDecodedWoodBuffers() {
+  const profileKey = selectedSoundTheme();
+  const profile = SOUND_PROFILES[profileKey];
+  if (!profile?.eventUrls) return null;
+  if (decodedWoodProfileKey === profileKey && decodedWoodBuffers) return decodedWoodBuffers;
+  if (decodedWoodProfileKey === profileKey && decodedWoodLoadPromise) return decodedWoodLoadPromise;
+  const ctx = ensureAudioContext();
+  if (!ctx) throw new Error('Web Audio is unavailable');
+  if (ctx.state === 'suspended') await ctx.resume();
+  decodedWoodProfileKey = profileKey;
+  decodedWoodLoadPromise = Promise.all(Object.entries(profile.eventUrls).map(async ([kind, url]) => {
+    const response = await fetch(url, { cache: 'force-cache' });
+    if (!response.ok) throw new Error(`Unable to load ${kind} wood sound: ${response.status}`);
+    const buffer = await decodeAudioDataCompat(ctx, await response.arrayBuffer());
+    return [kind, buffer];
+  })).then((entries) => {
+    if (decodedWoodProfileKey !== profileKey) return null;
+    decodedWoodBuffers = Object.fromEntries(entries);
+    return decodedWoodBuffers;
+  }).finally(() => {
+    if (decodedWoodProfileKey === profileKey) decodedWoodLoadPromise = null;
+  });
+  return decodedWoodLoadPromise;
+}
+
+function playDecodedWoodSound(kind = 'move') {
+  const ctx = ensureAudioContext();
+  const buffer = decodedWoodBuffers?.[kind];
+  if (!ctx || !buffer) return false;
+  const source = ctx.createBufferSource();
+  const gain = ctx.createGain();
+  source.buffer = buffer;
+  gain.gain.setValueAtTime(kind === 'capture' ? 1.00 : kind === 'check' ? 0.96 : 0.98, ctx.currentTime);
+  source.connect(gain);
+  gain.connect(ctx.destination);
+  source.start(ctx.currentTime + 0.001);
+  htmlAudioUnlocked = true;
+  soundAudiblyConfirmed = true;
+  soundPlaybackBackend = 'decoded-wav-buffer';
+  lastSoundKind = kind;
+  updateSoundToggle();
+  return true;
 }
 
 function ensureHtmlMoveAudio() {
@@ -508,6 +645,24 @@ function ensureHtmlMoveAudio() {
 
 async function unlockMoveAudio(audible = false) {
   if (!soundEnabled()) return false;
+  const profile = selectedSoundProfile();
+  if (profile?.eventUrls) {
+    try {
+      await ensureDecodedWoodBuffers();
+      htmlAudioUnlocked = true;
+      soundPlaybackBackend = 'decoded-wav-buffer';
+      soundBlockedNoticeShown = false;
+      if (audible) playDecodedWoodSound('move');
+      updateSoundToggle();
+      return true;
+    } catch (error) {
+      console.warn('Decoded desk-knock audio could not unlock.', error);
+      soundPlaybackBackend = 'web-audio-fallback';
+      ensureAudioContext();
+      return false;
+    }
+  }
+
   const audio = ensureHtmlMoveAudio();
   if (htmlAudioUnlocked && (!audible || soundAudiblyConfirmed)) return true;
   const segment = SOUND_SPRITE_SEGMENTS.move;
@@ -576,6 +731,23 @@ function playHtmlMoveSound(kind) {
 function playMoveSound(kind = 'move') {
   if (!soundEnabled()) return;
   lastSoundKind = kind;
+  const profile = selectedSoundProfile();
+  if (profile?.eventUrls && ['move', 'capture', 'check'].includes(kind)) {
+    if (decodedWoodProfileKey === selectedSoundTheme() && decodedWoodBuffers?.[kind]) {
+      playDecodedWoodSound(kind);
+      return;
+    }
+    ensureDecodedWoodBuffers()
+      .then(() => {
+        if (!playDecodedWoodSound(kind)) playSynthMoveSound(kind);
+      })
+      .catch((error) => {
+        console.warn('Crisp desk knock failed; using synthesizer fallback.', error);
+        soundPlaybackBackend = 'web-audio-fallback';
+        playSynthMoveSound(kind);
+      });
+    return;
+  }
   if (!SOUND_SPRITE_SEGMENTS[kind]) {
     playSynthMoveSound(kind);
     return;
@@ -646,6 +818,7 @@ async function setSoundTheme(theme, previewKind = null) {
     htmlAudioUnlocked = false;
     soundAudiblyConfirmed = false;
     soundPlaybackBackend = 'not-unlocked';
+    resetDecodedWoodAudio();
   }
   saveStore();
   updateSoundToggle();
@@ -657,7 +830,8 @@ async function setSoundTheme(theme, previewKind = null) {
     const unlocked = await unlockMoveAudio(false);
     if (unlocked) {
       lastSoundKind = previewKind;
-      playHtmlMoveSound(previewKind);
+      if (selectedSoundProfile()?.eventUrls) playDecodedWoodSound(previewKind);
+      else playHtmlMoveSound(previewKind);
       const kindLabel = previewKind === 'capture' ? 'capture' : 'move';
       toast(`${SOUND_THEME_LABELS[settings.soundTheme]} · ${kindLabel}`);
     }
@@ -678,7 +852,7 @@ function previewCaptureSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260829-27';
+  url.search = '?v=20260829-28';
   url.hash = '';
   return url.href;
 }
@@ -711,6 +885,7 @@ let clocks = { w: 0, b: 0 };
 let clockInterval = null;
 let clockLast = 0;
 let clockRunning = false;
+let clockPaused = false;
 let turnStartRemaining = 0;
 
 function saveStore() {
@@ -814,6 +989,8 @@ function applySettingsToControls() {
   if ($('#goalSelect')) $('#goalSelect').value = settings.trainingGoal || 'all';
   if ($('#blindCalibration')) $('#blindCalibration').checked = Boolean(settings.blindCalibration);
   if ($('#autoHints')) $('#autoHints').checked = Boolean(settings.autoHints);
+  if ($('#liveCoach')) $('#liveCoach').checked = Boolean(settings.liveCoach);
+  if ($('#principleReview')) $('#principleReview').checked = Boolean(settings.principleReview);
   if ($('#soundStyleSelect')) $('#soundStyleSelect').value = selectedSoundTheme();
   updateSoundProfileDescription();
   updateControls(false);
@@ -826,6 +1003,8 @@ function updateControls(persist = true) {
   settings.trainingGoal = $('#goalSelect')?.value || settings.trainingGoal || 'all';
   settings.blindCalibration = Boolean($('#blindCalibration')?.checked);
   settings.autoHints = Boolean($('#autoHints')?.checked);
+  settings.liveCoach = Boolean($('#liveCoach')?.checked);
+  settings.principleReview = Boolean($('#principleReview')?.checked);
   settings.soundTheme = normalizeSoundTheme($('#soundStyleSelect')?.value || settings.soundTheme || 'desk-balanced');
   updateSoundProfileDescription();
   $('#positionValue').textContent = settings.positionRating;
@@ -1252,17 +1431,18 @@ function chooseUserColor() {
   return Math.random() < 0.5 ? 'w' : 'b';
 }
 
-function initClocks() {
+function initClocks({ paused = false } = {}) {
   stopClock();
   const control = timeControl();
   clockRunning = control.base > 0;
+  clockPaused = Boolean(paused);
   clocks = {
     w: control.base * 1000,
     b: control.base * 1000,
   };
   clockLast = performance.now();
   turnStartRemaining = clocks[game.turn()];
-  if (clockRunning) {
+  if (clockRunning && !clockPaused) {
     clockInterval = window.setInterval(tickClock, 100);
   }
   renderClocks();
@@ -1273,8 +1453,33 @@ function stopClock() {
   clockInterval = null;
 }
 
+
+
+function pauseClockForTeaching() {
+  if (clockPaused) return;
+  if (clockRunning) syncClock();
+  if (finalized) return;
+  clockPaused = true;
+  stopClock();
+  clockLast = performance.now();
+  turnStartRemaining = clocks[game?.turn?.()] ?? 0;
+  renderClocks();
+}
+
+function resumeClockFromTeaching() {
+  if (!game || finalized) {
+    clockPaused = false;
+    return;
+  }
+  clockPaused = false;
+  clockLast = performance.now();
+  turnStartRemaining = clocks[game.turn()] ?? 0;
+  if (clockRunning && !clockInterval) clockInterval = window.setInterval(tickClock, 100);
+  renderClocks();
+}
+
 function syncClock() {
-  if (!clockRunning || !game || finalized || game.isGameOver()) return;
+  if (!clockRunning || clockPaused || !game || finalized || game.isGameOver()) return;
   const now = performance.now();
   const active = game.turn();
   const elapsed = Math.max(0, now - clockLast);
@@ -1310,8 +1515,8 @@ function spentThisTurn(color) {
 function renderClocks() {
   const userMs = clocks[userColor] ?? 0;
   const engineMs = clocks[engineColor] ?? 0;
-  renderClockElement($('#userClock'), userMs, game && !finalized && game.turn() === userColor);
-  renderClockElement($('#engineClock'), engineMs, game && !finalized && game.turn() === engineColor);
+  renderClockElement($('#userClock'), userMs, game && !finalized && !clockPaused && game.turn() === userColor);
+  renderClockElement($('#engineClock'), engineMs, game && !finalized && !clockPaused && game.turn() === engineColor);
 }
 
 function renderClockElement(element, milliseconds, active) {
@@ -1366,15 +1571,54 @@ function handleTimeout(loser) {
   timeoutHandling = false;
 }
 
+function renderPrinciplesDialog() {
+  const list = $('#principlesList');
+  const title = $('#principlesPositionTitle');
+  const subtitle = $('#principlesPositionSubtitle');
+  if (!list || !title || !subtitle) return;
+  title.textContent = current?.title || 'Position principles';
+  subtitle.textContent = `${phaseLabel(current?.phase || 'middlegame')} · ${current?.opening || 'Various'} · ${currentPositionPrinciples.length} principles`;
+  list.innerHTML = currentPositionPrinciples.map((principle, index) => `<article class="principle-card"><span>${index + 1}</span><div><b>${escapeHtml(principle.title)}</b><p>${escapeHtml(principle.rule)}</p></div></article>`).join('');
+}
+
+function beginPreparedPosition() {
+  if (!game || finalized) return;
+  principleReviewPending = false;
+  closeDialog('principlesDialog');
+  resumeClockFromTeaching();
+  if (currentSession) currentSession.principlesReviewedAt = settings.principleReview ? new Date().toISOString() : null;
+  setStatus(game.turn() === userColor ? 'Choose a piece, then a legal destination.' : 'The opponent moves first.', game.turn() === userColor ? '' : 'thinking');
+  renderAll();
+  prepareHintForTurn();
+  if (game.isGameOver()) finishIfNeeded();
+  else if (game.turn() === engineColor) askEngine();
+}
+
+function startAfterPrincipleReview() {
+  beginPreparedPosition();
+}
+
+function cancelPrincipleReview() {
+  principleReviewPending = false;
+  closeDialog('principlesDialog');
+  if (game && !finalized) finalizeSession('abandoned', 'principle review canceled', false);
+  showView('setup');
+}
+
 function startPosition({ preservePrevious = false } = {}) {
   unlockMoveAudio(false);
   ensureAudioContext();
+  resetLiveCoachFlow({ closeModal: true });
+  principleReviewPending = false;
+  closeDialog('principlesDialog');
+  clockPaused = false;
   if (!preservePrevious && game && !finalized) finalizeSession('abandoned', 'new position', false);
   requestId += 1;
   stockfishEngine?.stop();
   thinking = false;
   current = pickPosition();
   game = new Chess(current.fen);
+  currentPositionPrinciples = relevantPrinciplesForPosition(current, game, 5);
   activeOpponentRating = settings.blindCalibration ? chooseCalibrationRating(settings.opponentRating) : settings.opponentRating;
   userColor = current.custom ? game.turn() : chooseUserColor();
   engineColor = userColor === 'w' ? 'b' : 'w';
@@ -1406,6 +1650,11 @@ function startPosition({ preservePrevious = false } = {}) {
     trainingGoal: settings.trainingGoal,
     blindCalibration: Boolean(settings.blindCalibration),
     autoHints: Boolean(settings.autoHints),
+    liveCoach: Boolean(settings.liveCoach),
+    principleReview: Boolean(settings.principleReview),
+    positionPrinciples: currentPositionPrinciples.map((principle) => ({ ...principle })),
+    liveCoachInterventions: 0,
+    liveCoachAnalysisTimeouts: 0,
     hintsUsed: 0,
     candidateReveals: 0,
     perceivedRating: null,
@@ -1437,16 +1686,16 @@ function startPosition({ preservePrevious = false } = {}) {
   if ($('#moveQualityBadge')) $('#moveQualityBadge').hidden = true;
 
   showView('game');
-  initClocks();
-  setStatus(game.turn() === userColor ? 'Choose a piece, then a legal destination.' : 'The opponent moves first.', game.turn() === userColor ? '' : 'thinking');
-  renderAll();
-  prepareHintForTurn();
-
-  if (game.isGameOver()) {
-    finishIfNeeded();
-  } else if (game.turn() === engineColor) {
-    askEngine();
+  initClocks({ paused: Boolean(settings.principleReview) });
+  if (settings.principleReview) {
+    principleReviewPending = true;
+    renderPrinciplesDialog();
+    setStatus('Review the position principles. The clock has not started.', 'thinking');
+    renderAll();
+    openDialog('principlesDialog');
+    return;
   }
+  beginPreparedPosition();
 }
 
 function orderedSquares() {
@@ -1617,11 +1866,12 @@ function renderBoard() {
 
 function renderTurns() {
   if (!game) return;
-  const userLive = !thinking && !finalized && game.turn() === userColor;
-  const engineLive = !finalized && game.turn() === engineColor;
-  $('#userTurn').textContent = finalized ? 'Finished' : userLive ? 'Your move' : 'Waiting';
+  const teachingPause = Boolean(principleReviewPending || liveCoachState.awaiting || liveCoachState.open);
+  const userLive = !teachingPause && !thinking && !finalized && game.turn() === userColor;
+  const engineLive = !teachingPause && !finalized && game.turn() === engineColor;
+  $('#userTurn').textContent = finalized ? 'Finished' : principleReviewPending ? 'Review principles' : liveCoachState.awaiting ? 'Coach reviewing' : liveCoachState.open ? 'Coach paused' : userLive ? 'Your move' : 'Waiting';
   $('#userTurn').classList.toggle('live', userLive);
-  $('#engineTurn').textContent = finalized ? 'Finished' : thinking ? 'Thinking…' : engineLive ? 'To move' : 'Waiting';
+  $('#engineTurn').textContent = finalized ? 'Finished' : principleReviewPending ? 'Clock paused' : (liveCoachState.awaiting || liveCoachState.open) ? 'Clock paused' : thinking ? 'Thinking…' : engineLive ? 'To move' : 'Waiting';
   $('#engineTurn').classList.toggle('live', engineLive);
   $('#userBar').classList.toggle('active', userLive);
   $('#engineBar').classList.toggle('active', engineLive);
@@ -1725,7 +1975,7 @@ function renderAll() {
   renderMaterialAdvantage();
   renderHintPanel();
   renderClocks();
-  $('#takebackButton').disabled = thinking || finalized || !game?.history().length;
+  $('#takebackButton').disabled = thinking || finalized || principleReviewPending || liveCoachState.awaiting || liveCoachState.open || !game?.history().length;
 }
 
 function setStatus(text, type = '') {
@@ -2089,6 +2339,16 @@ function makeUserMove(moveObject) {
   lastMove = { from: move.from, to: move.to, actor: 'user', san: move.san };
   playMoveSound(game.isCheck() ? 'check' : move.captured ? 'capture' : 'move');
   beginNextTurn();
+  if (settings.liveCoach) {
+    queueLiveCoachReview(moveRecord);
+    setStatus('Live Coach is reviewing your move. The clock is paused.', 'thinking');
+    renderAll();
+    if (finishIfNeeded()) {
+      resetLiveCoachFlow({ closeModal: true });
+      return;
+    }
+    return;
+  }
   setStatus(`${game.isCheck() ? 'Check. ' : ''}Opponent is considering the position.`, 'thinking');
   renderAll();
   if (finishIfNeeded()) return;
@@ -2308,6 +2568,7 @@ function applyMoveAnalysisResult(sessionId, moveId, data) {
     renderMoveList();
     showMoveQualityBadge(targetMove);
     updateStoredCurrentSession();
+    if (!finalized) handleLiveCoachAnalysis(targetSession, targetMove);
     if (finalized) {
       renderPostGameReview(currentSession);
       if ($('#replayDialog')?.open && replayState.session?.id === sessionId) renderCoachReplay();
@@ -2421,6 +2682,10 @@ function finalizeSession(outcome, reason, completed) {
   requestId += 1;
   stockfishEngine?.stop();
   stopClock();
+  clockPaused = false;
+  principleReviewPending = false;
+  closeDialog('principlesDialog');
+  resetLiveCoachFlow({ closeModal: true });
   currentSession.outcome = outcome;
   currentSession.reason = reason;
   currentSession.completed = completed;
@@ -3103,6 +3368,184 @@ function coachNarrationForRecord(record, session, decisionNumber) {
     line,
     band,
   };
+}
+
+
+const LIVE_COACH_ERROR_KEYS = Object.freeze(new Set(['inaccuracy', 'miss', 'mistake', 'blunder']));
+
+function ignoredPrinciplesForMove(record, session) {
+  const available = new Map((session?.positionPrinciples || []).map((principle) => [principle.key, principle]));
+  if (!available.size) return [];
+  const comparison = strongestAlternativeAchievement(record, session);
+  const best = comparison.best.move;
+  const selectedMove = comparison.selected.move;
+  const keys = [];
+  const add = (key) => { if (available.has(key) && !keys.includes(key)) keys.push(key); };
+
+  if (best?.san?.includes('+') || best?.san?.includes('#') || (best?.captured && !selectedMove?.captured)) add('forcing-scan');
+  if (best?.captured && !selectedMove?.captured) add('loose-pieces');
+  if (best?.san?.startsWith('O-O') || (session.tags || []).includes('king safety')) add('king-safety');
+  if ((session.tags || []).includes('prophylaxis') || (Number.isFinite(record.bestScore) && Number.isFinite(record.selectedScore) && record.bestScore >= -35 && record.selectedScore <= -120)) add('opponent-threat');
+  if ((session.tags || []).some((tag) => ['piece activity', 'space'].includes(tag))) add('piece-activity');
+  if ((session.tags || []).includes('pawn breaks')) add('pawn-breaks');
+  if ((session.tags || []).includes('pawn structure')) add('pawn-structure');
+  if ((session.tags || []).includes('conversion')) add('conversion');
+  if ((session.tags || []).includes('endgame transition')) add('endgame-transition');
+  if ((session.tags || []).includes('rook activity')) add('rook-activity');
+  if ((session.tags || []).includes('passed pawns')) add('passed-pawns');
+  if ((session.tags || []).includes('king activity')) add('king-activity');
+  if ((session.tags || []).includes('opposition')) add('opposition');
+  add('candidate-comparison');
+  if (!keys.length) add('opponent-threat');
+  return keys.slice(0, 3).map((key) => available.get(key));
+}
+
+function stopLiveCoachSpeech() {
+  try { window.speechSynthesis?.cancel(); } catch {}
+  liveCoachUtterance = null;
+  const button = $('#liveCoachSpeakButton');
+  if (button) button.textContent = '▶ Speak again';
+}
+
+function liveCoachSpeechText() {
+  const rating = $('#liveCoachRating')?.textContent?.trim() || '';
+  const summary = $('#liveCoachSummary')?.textContent?.trim() || '';
+  const why = $('#liveCoachWhy')?.textContent?.trim() || '';
+  const best = $('#liveCoachBestText')?.textContent?.trim() || '';
+  const principles = $('#liveCoachPrinciplesText')?.textContent?.trim() || '';
+  return [rating ? `${rating}.` : '', summary, why ? `About your move. ${why}` : '', best ? `The stronger move. ${best}` : '', principles ? `Principles to revisit. ${principles}` : ''].filter(Boolean).join(' ');
+}
+
+function speakLiveCoach(force = false) {
+  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return false;
+  if (!force && settings.coachVoice === false) return false;
+  stopLiveCoachSpeech();
+  const text = speechFriendlyText(liveCoachSpeechText());
+  if (!text) return false;
+  const utterance = new SpeechSynthesisUtterance(text);
+  const voice = chooseCoachVoice();
+  utterance.lang = voice?.lang || 'en-GB';
+  utterance.rate = Math.max(0.82, Math.min(1.06, Number(settings.coachVoiceRate) || 0.92));
+  utterance.pitch = 1;
+  utterance.volume = 1;
+  if (voice) utterance.voice = voice;
+  utterance.onstart = () => {
+    liveCoachUtterance = utterance;
+    const button = $('#liveCoachSpeakButton');
+    if (button) button.textContent = '■ Stop';
+  };
+  utterance.onend = utterance.onerror = () => {
+    liveCoachUtterance = null;
+    const button = $('#liveCoachSpeakButton');
+    if (button) button.textContent = '▶ Speak again';
+  };
+  liveCoachUtterance = utterance;
+  window.speechSynthesis.speak(utterance);
+  return true;
+}
+
+function resetLiveCoachFlow({ closeModal = false } = {}) {
+  if (liveCoachReviewTimer) window.clearTimeout(liveCoachReviewTimer);
+  liveCoachReviewTimer = null;
+  stopLiveCoachSpeech();
+  liveCoachState = { awaiting: false, open: false, sessionId: null, moveId: null, record: null, narration: null, ignoredPrinciples: [] };
+  if (closeModal) closeDialog('liveCoachDialog');
+}
+
+function queueLiveCoachReview(moveRecord) {
+  resetLiveCoachFlow({ closeModal: true });
+  pauseClockForTeaching();
+  liveCoachState = {
+    awaiting: true,
+    open: false,
+    sessionId: currentSession?.id || null,
+    moveId: moveRecord?.id || null,
+    record: moveRecord || null,
+    narration: null,
+    ignoredPrinciples: [],
+  };
+  liveCoachReviewTimer = window.setTimeout(() => {
+    if (!liveCoachState.awaiting || finalized || liveCoachState.moveId !== moveRecord?.id) return;
+    if (currentSession) currentSession.liveCoachAnalysisTimeouts = (currentSession.liveCoachAnalysisTimeouts || 0) + 1;
+    toast('Live Coach analysis took too long, so play is resuming');
+    continueAfterLiveCoach({ automatic: true });
+  }, 16000);
+}
+
+function renderLiveCoachIntervention(record, narration, ignoredPrinciples) {
+  const rating = $('#liveCoachRating');
+  rating.className = `move-quality-badge quality-${narration.band.key}`;
+  rating.textContent = narration.band.label;
+  $('#liveCoachTitle').textContent = `Pause after ${record.san}`;
+  $('#liveCoachSummary').textContent = narration.text;
+  $('#liveCoachYourMove').textContent = narration.yourSan;
+  $('#liveCoachWhy').textContent = narration.whyText;
+  $('#liveCoachBestMove').textContent = narration.bestSan;
+  $('#liveCoachBestText').textContent = narration.bestText;
+  const line = $('#liveCoachLine');
+  const lineText = narration.line?.length ? narration.line.join('  ') : 'The principal variation is not available yet.';
+  line.textContent = lineText;
+
+  const principlesSection = $('#liveCoachPrinciples');
+  const principleList = $('#liveCoachPrincipleList');
+  const principlesText = $('#liveCoachPrinciplesText');
+  const showPrinciples = Boolean(settings.principleReview && ignoredPrinciples.length);
+  principlesSection.hidden = !showPrinciples;
+  if (showPrinciples) {
+    principleList.innerHTML = ignoredPrinciples.map((principle) => `<article><b>${escapeHtml(principle.title)}</b><span>${escapeHtml(principle.rule)}</span></article>`).join('');
+    principlesText.textContent = ignoredPrinciples.map((principle) => principle.title).join('; ');
+  } else {
+    principleList.innerHTML = '';
+    principlesText.textContent = '';
+  }
+}
+
+function openLiveCoachIntervention(record) {
+  const decisionNumber = Math.max(1, (currentSession?.userMoves || []).findIndex((move) => move.id === record.id) + 1);
+  const narration = coachNarrationForRecord(record, currentSession, decisionNumber);
+  const ignoredPrinciples = settings.principleReview ? ignoredPrinciplesForMove(record, currentSession) : [];
+  record.ignoredPrinciples = ignoredPrinciples.map((principle) => principle.key);
+  record.liveCoachIntervention = true;
+  if (currentSession) currentSession.liveCoachInterventions = (currentSession.liveCoachInterventions || 0) + 1;
+  liveCoachState = { ...liveCoachState, awaiting: false, open: true, record, narration, ignoredPrinciples };
+  renderLiveCoachIntervention(record, narration, ignoredPrinciples);
+  setStatus(`${narration.band.label}: Live Coach paused the clock.`, 'bad');
+  renderAll();
+  openDialog('liveCoachDialog');
+  if (settings.coachVoice !== false) window.setTimeout(() => speakLiveCoach(false), 180);
+}
+
+function handleLiveCoachAnalysis(session, record) {
+  if (!settings.liveCoach || finalized) return;
+  if (!liveCoachState.awaiting || liveCoachState.sessionId !== session?.id || liveCoachState.moveId !== record?.id) return;
+  if (liveCoachReviewTimer) window.clearTimeout(liveCoachReviewTimer);
+  liveCoachReviewTimer = null;
+  const band = qualityForMoveRecord(record);
+  if (LIVE_COACH_ERROR_KEYS.has(band.key)) {
+    openLiveCoachIntervention(record);
+    return;
+  }
+  const label = band.label;
+  resetLiveCoachFlow({ closeModal: true });
+  resumeClockFromTeaching();
+  setStatus(`${label}. Opponent is considering the position.`, 'thinking');
+  renderAll();
+  if (!game?.isGameOver() && game?.turn() === engineColor) askEngine();
+}
+
+function continueAfterLiveCoach({ automatic = false } = {}) {
+  const hadTeachingPause = liveCoachState.awaiting || liveCoachState.open || clockPaused;
+  resetLiveCoachFlow({ closeModal: true });
+  if (!hadTeachingPause || finalized || !game) return;
+  resumeClockFromTeaching();
+  setStatus(automatic ? 'Play resumed. Opponent is considering the position.' : 'Coach review complete. Opponent is considering the position.', 'thinking');
+  renderAll();
+  if (!game.isGameOver() && game.turn() === engineColor) askEngine();
+}
+
+function handleLiveCoachSpeak() {
+  if (liveCoachUtterance || window.speechSynthesis?.speaking) stopLiveCoachSpeech();
+  else speakLiveCoach(true);
 }
 
 function sessionSequence(session) {
@@ -4455,6 +4898,8 @@ function bindControls() {
   $('#goalSelect')?.addEventListener('change', () => updateControls());
   $('#blindCalibration')?.addEventListener('change', () => updateControls());
   $('#autoHints')?.addEventListener('change', () => updateControls());
+  $('#liveCoach')?.addEventListener('change', () => updateControls());
+  $('#principleReview')?.addEventListener('change', () => updateControls());
   $('#positionRating').addEventListener('input', () => updateControls());
   $('#opponentRating').addEventListener('input', () => updateControls());
 

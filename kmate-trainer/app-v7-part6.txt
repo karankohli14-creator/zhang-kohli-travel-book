@@ -29,6 +29,12 @@
   $('#soundStyleSelect')?.addEventListener('change', handleSoundThemeChange);
   $('#previewSoundButton')?.addEventListener('click', previewSoundTheme);
   $('#previewCaptureButton')?.addEventListener('click', previewCaptureSoundTheme);
+  $('#principlesStartButton')?.addEventListener('click', startAfterPrincipleReview);
+  $('#principlesSetupButton')?.addEventListener('click', cancelPrincipleReview);
+  $('#principlesDialog')?.addEventListener('cancel', (event) => event.preventDefault());
+  $('#liveCoachContinueButton')?.addEventListener('click', () => continueAfterLiveCoach());
+  $('#liveCoachSpeakButton')?.addEventListener('click', handleLiveCoachSpeak);
+  $('#liveCoachDialog')?.addEventListener('cancel', (event) => { event.preventDefault(); continueAfterLiveCoach(); });
   $('#coachMyVoiceInfo')?.addEventListener('click', () => openDialog('voiceCloneDialog'));
   $('#replayDialog')?.addEventListener('close', () => {
     stopReplayAuto();
@@ -80,7 +86,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '27.0-commercial-beta',
+  version: '28.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -97,6 +103,11 @@ window.__KMATE__ = {
     turn: game?.turn() || null,
     lastMove: lastMove ? { ...lastMove } : null,
     clocks: { ...clocks },
+    clockPaused,
+    principleReviewPending,
+    principles: currentPositionPrinciples.map((principle) => ({ key: principle.key, title: principle.title })),
+    liveCoach: { awaiting: liveCoachState.awaiting, open: liveCoachState.open, moveId: liveCoachState.moveId, ignoredPrinciples: liveCoachState.ignoredPrinciples.map((principle) => principle.key) },
+    thinking,
     finalized,
     reason: currentSession?.reason || null,
     replay: { open: Boolean($('#replayDialog')?.open), index: replayState.index, frames: replayState.frames.length, showBest: replayState.showBest, bestLinePlaying: replayState.bestLinePlaying, bestLineIndex: replayState.bestLineIndex, bestLineFrames: replayState.bestLineFrames.length, coachVoice: settings.coachVoice !== false, coachSpeaking: Boolean(coachSpeechUtterance || window.speechSynthesis?.speaking), resolvedVoice: chooseCoachVoice()?.name || null, voiceURI: settings.coachVoiceURI || 'british-woman', voiceProfile: settings.coachVoiceURI === 'british-woman' ? 'generic British woman' : 'device voice', rate: Number(settings.coachVoiceRate) || 0.92, avatar: settings.coachAvatar || 'grandmaster' },
@@ -121,6 +132,48 @@ if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
       clocks[color] = 0;
       handleTimeout(color);
       return true;
+    },
+    startTeachingDemo: () => {
+      settings.side = 'w';
+      settings.timeControl = '3+0';
+      settings.liveCoach = true;
+      settings.principleReview = true;
+      settings.autoHints = false;
+      settings.soundTheme = 'reference-crisp';
+      queuedCustomPosition = {
+        id: 'teaching-demo', custom: true, generated: false, phase: 'middlegame', opening: 'Teaching demo', rating: 1600,
+        title: 'Live Coach teaching demo', theme: 'Candidate moves and piece activity',
+        tags: ['calculation', 'piece activity', 'prophylaxis'],
+        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        description: 'A deterministic local test position for the Live Coach and principle review.',
+      };
+      startPosition();
+      return { principles: currentPositionPrinciples.map((principle) => principle.key), paused: clockPaused };
+    },
+    forceLiveCoachIntervention: () => {
+      const record = currentSession?.userMoves?.[currentSession.userMoves.length - 1];
+      if (!record) return false;
+      const g = new Chess(record.fenBefore);
+      const alternatives = g.moves({ verbose: true }).filter((move) => uciFromMove(move) !== record.uci);
+      const preferred = alternatives.find((move) => move.from === 'd2' && move.to === 'd4') || alternatives[0];
+      if (!preferred) return false;
+      const bestMove = uciFromMove(preferred);
+      const lineGame = new Chess(record.fenBefore);
+      const bestLine = [];
+      let applied = lineGame.move({ from: preferred.from, to: preferred.to, promotion: preferred.promotion || 'q' });
+      if (applied) bestLine.push(uciFromMove(applied));
+      while (bestLine.length < 6 && !lineGame.isGameOver()) {
+        const next = lineGame.moves({ verbose: true })[0];
+        if (!next) break;
+        applied = lineGame.move({ from: next.from, to: next.to, promotion: next.promotion || 'q' });
+        if (!applied) break;
+        bestLine.push(uciFromMove(applied));
+      }
+      applyMoveAnalysisResult(currentSession.id, record.id, {
+        cpLoss: 280, bestMove, bestLine, selectedLine: [record.uci], bestScore: 165, selectedScore: -115,
+        depth: 18, exactBest: false, analysisConsistency: 'test-injection', source: 'Local v28 teaching test',
+      });
+      return { moveId: record.id, bestMove };
     },
     openReplay: () => openCoachReplay(currentSession),
     speakCoach: () => speakCoachFrame(true),
