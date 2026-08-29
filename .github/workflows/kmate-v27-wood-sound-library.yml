@@ -1,0 +1,153 @@
+name: K-Mate v27 wood sound library
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v27-wood-sound-library.yml'
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate 25 wooden desk-knock profiles and patch K-Mate
+        run: |
+          python -m py_compile .github/scripts/kmate_v27_wood_sound_library.py
+          python .github/scripts/kmate_v27_wood_sound_library.py
+      - name: Validate application and generated audio library
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{number}.txt').read_text() for number in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v27-combined.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v27-combined.js
+          grep -q "version: '27.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+          grep -q "function populateSoundProfiles" kmate-trainer/app-v7-part1.txt
+          grep -q "previewCaptureSoundTheme" kmate-trainer/app-v7-part1.txt
+          grep -q "id=\"previewCaptureButton\"" kmate-trainer/index.html
+          grep -q "sound-preview-actions" kmate-trainer/styles-v7.css
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import math
+          import struct
+          import wave
+
+          files = sorted(Path('kmate-trainer/sounds/wood-v27').glob('*.wav'))
+          assert len(files) == 25, len(files)
+          hashes = set()
+          for path in files:
+              assert path.stat().st_size > 390_000, (path, path.stat().st_size)
+              hashes.add(hashlib.sha256(path.read_bytes()).hexdigest())
+              with wave.open(str(path), 'rb') as wav:
+                  assert wav.getnchannels() == 2
+                  assert wav.getsampwidth() == 2
+                  assert wav.getframerate() == 48_000
+                  duration = wav.getnframes() / wav.getframerate()
+                  assert 2.09 <= duration <= 2.11, (path, duration)
+                  samples = struct.unpack('<' + 'h' * wav.getnframes() * 2, wav.readframes(wav.getnframes()))
+              mono = [(abs(samples[i]) + abs(samples[i + 1])) / 2 for i in range(0, len(samples), 2)]
+              def peak(start, length):
+                  lo = int(start * 48_000)
+                  hi = min(len(mono), lo + int(length * 48_000))
+                  return max(mono[lo:hi] or [0])
+              move_peak = peak(0.085, 0.10)
+              capture_peak = peak(0.625, 0.28)
+              check_peak = peak(1.39, 0.32)
+              assert move_peak > 7_500, (path, move_peak)
+              assert capture_peak > 8_000, (path, capture_peak)
+              assert check_peak > 6_500, (path, check_peak)
+          assert len(hashes) == 25
+          PY
+      - name: Install Playwright API and serve K-Mate
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          BROWSER_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$BROWSER_PATH"
+          echo "BROWSER_PATH=$BROWSER_PATH" >> "$GITHUB_ENV"
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v27-server.log 2>&1 &
+      - name: Verify 25 options and move/capture previews on mobile
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_PATH, args: ['--no-sandbox'] });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+            await context.addInitScript(() => {
+              HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+              HTMLMediaElement.prototype.pause = function () {};
+              HTMLMediaElement.prototype.load = function () {};
+            });
+            const page = await context.newPage();
+            page.setDefaultTimeout(120000);
+            const fatalErrors = [];
+            page.on('pageerror', error => fatalErrors.push(`pageerror: ${error.message}`));
+            page.on('console', message => {
+              if (message.type() !== 'error') return;
+              const text = message.text();
+              if (text.includes('Failed to load resource') && text.includes('404')) return;
+              fatalErrors.push(`console: ${text}`);
+            });
+
+            await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
+
+            const library = await page.evaluate(() => ({
+              options: document.querySelectorAll('#soundStyleSelect option').length,
+              groups: document.querySelectorAll('#soundStyleSelect optgroup').length,
+              values: [...document.querySelectorAll('#soundStyleSelect option')].map(option => option.value),
+              noOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+            }));
+            assert.strictEqual(library.options, 25);
+            assert.strictEqual(library.groups, 5);
+            assert.strictEqual(new Set(library.values).size, 25);
+            assert.ok(library.noOverflow);
+
+            await page.selectOption('#soundStyleSelect', 'desk-balanced');
+            await page.click('#previewSoundButton');
+            await page.waitForTimeout(140);
+            let sound = await page.evaluate(() => window.__KMATE__.state().sound);
+            assert.strictEqual(sound.theme, 'desk-balanced');
+            assert.strictEqual(sound.lastKind, 'move');
+            assert.strictEqual(sound.backend, 'sampled-wav-sprite');
+            assert.ok(sound.unlocked);
+
+            await page.selectOption('#soundStyleSelect', 'snappy-capture');
+            await page.click('#previewCaptureButton');
+            await page.waitForTimeout(140);
+            sound = await page.evaluate(() => window.__KMATE__.state().sound);
+            assert.strictEqual(sound.theme, 'snappy-capture');
+            assert.strictEqual(sound.lastKind, 'capture');
+            assert.strictEqual(sound.backend, 'sampled-wav-sprite');
+
+            const selectedFile = await page.evaluate(async () => {
+              const response = await fetch('./sounds/wood-v27/kmate-snappy-capture-v27.wav?v=27.0.0', { cache: 'no-store' });
+              const bytes = await response.arrayBuffer();
+              return { ok: response.ok, size: bytes.byteLength, description: document.querySelector('#soundStyleDescription')?.textContent || '' };
+            });
+            assert.ok(selectedFile.ok);
+            assert.ok(selectedFile.size > 390_000, selectedFile);
+            assert.ok(selectedFile.description.includes('two-hit capture'));
+
+            if (fatalErrors.length) throw new Error(fatalErrors.join('\n'));
+            console.log(JSON.stringify({ ok: true, library, sound, selectedFile }, null, 2));
+            await browser.close();
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Commit and publish K-Mate v27
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add kmate-trainer/index.html kmate-trainer/styles-v7.css kmate-trainer/app-v7.js kmate-trainer/app-v7-part1.txt kmate-trainer/app-v7-part6.txt kmate-trainer/sounds/wood-v27
+          git commit -m 'K-Mate v27: add 25 crisp wooden desk-knock sounds'
+          git pull --rebase origin main
+          git push
