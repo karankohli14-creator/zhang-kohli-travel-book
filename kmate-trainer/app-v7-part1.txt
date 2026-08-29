@@ -852,7 +852,7 @@ function previewCaptureSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260829-28';
+  url.search = '?v=20260829-29';
   url.hash = '';
   return url.href;
 }
@@ -1792,6 +1792,83 @@ function endBoardDrag() {
   }
 }
 
+
+function activeLiveCoachRecord() {
+  if (!(liveCoachState.awaiting || liveCoachState.open)) return null;
+  return liveCoachState.record || null;
+}
+
+function liveCoachBoardMoves() {
+  const record = activeLiveCoachRecord();
+  if (!record) return null;
+  const played = normalizeUciMove(record.uci);
+  const best = normalizeUciMove(record.bestMove);
+  return {
+    played,
+    playedFrom: played ? played.slice(0, 2) : null,
+    playedTo: played ? played.slice(2, 4) : null,
+    best,
+    bestFrom: best ? best.slice(0, 2) : null,
+    bestTo: best ? best.slice(2, 4) : null,
+  };
+}
+
+function decorateLiveCoachSquare(button, square) {
+  const moves = liveCoachBoardMoves();
+  if (!moves) return;
+  if (square === moves.playedFrom) button.classList.add('live-played-from');
+  if (square === moves.playedTo) button.classList.add('live-played-to');
+  if (square === moves.bestFrom) button.classList.add('live-best-from');
+  if (square === moves.bestTo) button.classList.add('live-best-to');
+
+  const labels = [];
+  if (square === moves.playedTo) labels.push({ key: 'played', text: 'PLAYED' });
+  if (moves.best && square === moves.bestTo) labels.push({ key: 'best', text: 'BEST' });
+  for (const label of labels) {
+    const marker = document.createElement('span');
+    marker.className = `live-coach-square-label ${label.key}`;
+    marker.textContent = label.text;
+    marker.setAttribute('aria-hidden', 'true');
+    button.append(marker);
+  }
+}
+
+function boardSquareCenter(square) {
+  const squares = orderedSquares();
+  const index = squares.indexOf(square);
+  if (index < 0) return null;
+  return {
+    x: ((index % 8) + 0.5) * 12.5,
+    y: (Math.floor(index / 8) + 0.5) * 12.5,
+  };
+}
+
+function renderLiveCoachBoardArrows(board) {
+  const moves = liveCoachBoardMoves();
+  if (!board || !moves?.playedFrom || !moves?.playedTo) return;
+  const playedFrom = boardSquareCenter(moves.playedFrom);
+  const playedTo = boardSquareCenter(moves.playedTo);
+  const bestFrom = moves.bestFrom ? boardSquareCenter(moves.bestFrom) : null;
+  const bestTo = moves.bestTo ? boardSquareCenter(moves.bestTo) : null;
+  if (!playedFrom || !playedTo) return;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'live-coach-board-arrows');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('aria-hidden', 'true');
+  const sameMove = Boolean(moves.best && sameUciMove(moves.played, moves.best));
+  svg.innerHTML = `
+    <defs>
+      <marker id="km-live-played-arrow" viewBox="0 0 10 10" refX="8.3" refY="5" markerWidth="4.6" markerHeight="4.6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#ff9d4d"/></marker>
+      <marker id="km-live-best-arrow" viewBox="0 0 10 10" refX="8.3" refY="5" markerWidth="4.6" markerHeight="4.6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#7cf58a"/></marker>
+    </defs>
+    <line class="played-arrow" x1="${playedFrom.x}" y1="${playedFrom.y}" x2="${playedTo.x}" y2="${playedTo.y}" marker-end="url(#km-live-played-arrow)"/>
+    ${!sameMove && bestFrom && bestTo ? `<line class="best-arrow" x1="${bestFrom.x}" y1="${bestFrom.y}" x2="${bestTo.x}" y2="${bestTo.y}" marker-end="url(#km-live-best-arrow)"/>` : ''}
+  `;
+  board.append(svg);
+}
+
 function renderBoard() {
   const board = $('#board');
   board.innerHTML = '';
@@ -1814,6 +1891,7 @@ function renderBoard() {
       button.dataset.moveQuality = ratedMoveSquare.label || ratedMoveSquare.key;
       button.title = `${ratedMoveSquare.label || 'Analyzing'} move destination`;
     }
+    decorateLiveCoachSquare(button, square);
     const legal = legalMoves.find((move) => move.to === square);
     if (legal) button.classList.add(piece ? 'capture' : 'legal');
     if (checkSquare === square) button.classList.add('check');
@@ -1862,19 +1940,22 @@ function renderBoard() {
     });
     board.append(button);
   });
+  renderLiveCoachBoardArrows(board);
 }
 
 function renderTurns() {
   if (!game) return;
-  const teachingPause = Boolean(principleReviewPending || liveCoachState.awaiting || liveCoachState.open);
-  const userLive = !teachingPause && !thinking && !finalized && game.turn() === userColor;
-  const engineLive = !teachingPause && !finalized && game.turn() === engineColor;
-  $('#userTurn').textContent = finalized ? 'Finished' : principleReviewPending ? 'Review principles' : liveCoachState.awaiting ? 'Coach reviewing' : liveCoachState.open ? 'Coach paused' : userLive ? 'Your move' : 'Waiting';
+  const coachPause = !finalized && Boolean(liveCoachState.awaiting || liveCoachState.open);
+  const userLive = !thinking && !finalized && !coachPause && game.turn() === userColor;
+  const engineLive = !finalized && !coachPause && game.turn() === engineColor;
+  $('#userTurn').textContent = finalized ? 'Finished' : coachPause ? 'Coach review' : userLive ? 'Your move' : 'Waiting';
   $('#userTurn').classList.toggle('live', userLive);
-  $('#engineTurn').textContent = finalized ? 'Finished' : principleReviewPending ? 'Clock paused' : (liveCoachState.awaiting || liveCoachState.open) ? 'Clock paused' : thinking ? 'Thinking…' : engineLive ? 'To move' : 'Waiting';
+  $('#engineTurn').textContent = finalized ? 'Finished' : coachPause ? 'Clock paused' : thinking ? 'Thinking…' : engineLive ? 'To move' : 'Waiting';
   $('#engineTurn').classList.toggle('live', engineLive);
   $('#userBar').classList.toggle('active', userLive);
   $('#engineBar').classList.toggle('active', engineLive);
+  $('#gameView')?.classList.toggle('live-coach-active', coachPause);
+  $('#boardCoachStage')?.classList.toggle('coach-open', coachPause);
 }
 
 function moveRatingForRecord(record) {
@@ -3444,16 +3525,45 @@ function speakLiveCoach(force = false) {
   return true;
 }
 
-function resetLiveCoachFlow({ closeModal = false } = {}) {
+
+function setLiveCoachBoardOpen(open) {
+  const visible = Boolean(open);
+  const panel = $('#liveCoachBoardPanel');
+  if (panel) panel.hidden = !visible;
+  $('#gameView')?.classList.toggle('live-coach-active', visible);
+  $('#boardCoachStage')?.classList.toggle('coach-open', visible);
+}
+
+function renderLiveCoachPending(record) {
+  if (!record) return;
+  const rating = $('#liveCoachRating');
+  if (rating) {
+    rating.className = 'move-quality-badge quality-pending';
+    rating.textContent = 'Analyzing';
+  }
+  if ($('#liveCoachTitle')) $('#liveCoachTitle').textContent = `Checking ${record.san}`;
+  if ($('#liveCoachSummary')) $('#liveCoachSummary').textContent = 'Both clocks are paused while Stockfish compares your move with the strongest continuation. Your played move is already highlighted on the board.';
+  if ($('#liveCoachYourMove')) $('#liveCoachYourMove').textContent = record.san || readableEngineMove(record.uci);
+  if ($('#liveCoachWhy')) $('#liveCoachWhy').textContent = 'The coach is measuring the evaluation change and looking for the concrete reason behind it.';
+  if ($('#liveCoachBestMove')) $('#liveCoachBestMove').textContent = 'Analyzing…';
+  if ($('#liveCoachBestText')) $('#liveCoachBestText').textContent = 'The best move and its purpose will appear here when analysis finishes.';
+  if ($('#liveCoachPrinciples')) $('#liveCoachPrinciples').hidden = true;
+  if ($('#liveCoachPrincipleList')) $('#liveCoachPrincipleList').innerHTML = '';
+  if ($('#liveCoachPrinciplesText')) $('#liveCoachPrinciplesText').textContent = '';
+  if ($('#liveCoachLine')) $('#liveCoachLine').textContent = 'Principal variation pending.';
+  setLiveCoachBoardOpen(true);
+}
+
+function resetLiveCoachFlow({ closeModal = false, closePanel = false } = {}) {
   if (liveCoachReviewTimer) window.clearTimeout(liveCoachReviewTimer);
   liveCoachReviewTimer = null;
   stopLiveCoachSpeech();
   liveCoachState = { awaiting: false, open: false, sessionId: null, moveId: null, record: null, narration: null, ignoredPrinciples: [] };
-  if (closeModal) closeDialog('liveCoachDialog');
+  if (closeModal || closePanel) setLiveCoachBoardOpen(false);
 }
 
 function queueLiveCoachReview(moveRecord) {
-  resetLiveCoachFlow({ closeModal: true });
+  resetLiveCoachFlow({ closePanel: true });
   pauseClockForTeaching();
   liveCoachState = {
     awaiting: true,
@@ -3464,6 +3574,7 @@ function queueLiveCoachReview(moveRecord) {
     narration: null,
     ignoredPrinciples: [],
   };
+  renderLiveCoachPending(moveRecord);
   liveCoachReviewTimer = window.setTimeout(() => {
     if (!liveCoachState.awaiting || finalized || liveCoachState.moveId !== moveRecord?.id) return;
     if (currentSession) currentSession.liveCoachAnalysisTimeouts = (currentSession.liveCoachAnalysisTimeouts || 0) + 1;
@@ -3509,9 +3620,10 @@ function openLiveCoachIntervention(record) {
   if (currentSession) currentSession.liveCoachInterventions = (currentSession.liveCoachInterventions || 0) + 1;
   liveCoachState = { ...liveCoachState, awaiting: false, open: true, record, narration, ignoredPrinciples };
   renderLiveCoachIntervention(record, narration, ignoredPrinciples);
-  setStatus(`${narration.band.label}: Live Coach paused the clock.`, 'bad');
+  setLiveCoachBoardOpen(true);
+  setStatus(`${narration.band.label}: compare the orange played move with the green best move on the board.`, 'bad');
   renderAll();
-  openDialog('liveCoachDialog');
+  $('#boardCoachStage')?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   if (settings.coachVoice !== false) window.setTimeout(() => speakLiveCoach(false), 180);
 }
 

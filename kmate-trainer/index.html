@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=28.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=29.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -152,7 +152,7 @@
 
           <label class="calibration-toggle live-coach-toggle">
             <input id="liveCoach" type="checkbox">
-            <span><b>Live Coach after bad moves</b><small>After an Inaccurate, Miss, or Blunder, pause both clocks and explain your move, the best move, and the principles overlooked.</small></span>
+            <span><b>Live Coach after bad moves</b><small>After an Inaccurate, Miss, or Blunder, pause both clocks, keep the board visible, and compare your move with the best move directly on the board.</small></span>
           </label>
 
           <div class="field sound-style-field" id="soundStyleField">
@@ -241,7 +241,44 @@
             <span class="hint-mode-label" id="hintModeLabel">On-demand hints</span>
           </section>
 
-          <div class="boardwrap"><div class="board" id="board" aria-label="Interactive chessboard"></div></div>
+          <div class="board-coach-stage" id="boardCoachStage">
+            <div class="boardwrap live-boardwrap"><div class="board" id="board" aria-label="Interactive chessboard"></div></div>
+
+            <section class="live-coach-board-panel" id="liveCoachBoardPanel" hidden aria-live="polite" aria-label="Live Coach board review">
+              <div class="live-coach-head">
+                <div><div class="eyebrow">Live Coach · clock paused</div><h2 id="liveCoachTitle">Reviewing your move</h2></div>
+                <span class="move-quality-badge quality-pending" id="liveCoachRating">Analyzing</span>
+              </div>
+              <div class="live-coach-board-legend" aria-label="Board highlight legend">
+                <span class="played"><i></i>Your played move</span>
+                <span class="best"><i></i>Engine best move</span>
+              </div>
+              <p class="live-coach-summary" id="liveCoachSummary">K-Mate is comparing your move with the strongest continuation.</p>
+              <div class="live-coach-comparison">
+                <article class="your-move">
+                  <small>Your move</small><b id="liveCoachYourMove">—</b>
+                  <p id="liveCoachWhy">Analysis pending.</p>
+                </article>
+                <article class="best-move">
+                  <small>Best move</small><b id="liveCoachBestMove">—</b>
+                  <p id="liveCoachBestText">Analysis pending.</p>
+                </article>
+              </div>
+              <section class="live-coach-principles" id="liveCoachPrinciples" hidden>
+                <small>Principles this move appears to have overlooked</small>
+                <div class="live-coach-principle-list" id="liveCoachPrincipleList"></div>
+                <span id="liveCoachPrinciplesText" hidden></span>
+              </section>
+              <section class="live-coach-line-wrap">
+                <small>Illustrative best continuation</small>
+                <div class="live-coach-line" id="liveCoachLine">Principal variation pending.</div>
+              </section>
+              <div class="dialogactions live-coach-actions">
+                <button class="btn" id="liveCoachSpeakButton" type="button">▶ Speak again</button>
+                <button class="btn primary" id="liveCoachContinueButton" type="button">Continue game</button>
+              </div>
+            </section>
+          </div>
 
           <div class="playerbar bottom" id="userBar">
             <div class="identity">
@@ -386,39 +423,6 @@
       <div class="dialogactions">
         <button class="btn" id="principlesSetupButton" type="button">Change setup</button>
         <button class="btn primary" id="principlesStartButton" type="button">I reviewed them — start clock</button>
-      </div>
-    </div>
-  </dialog>
-
-  <dialog id="liveCoachDialog" class="modal live-coach-modal">
-    <div class="modal-card">
-      <div class="live-coach-head">
-        <div><div class="eyebrow">Live Coach · clock paused</div><h2 id="liveCoachTitle">Reviewing your move</h2></div>
-        <span class="move-quality-badge quality-pending" id="liveCoachRating">Analyzing</span>
-      </div>
-      <p class="live-coach-summary" id="liveCoachSummary">K-Mate is comparing your move with the strongest continuation.</p>
-      <div class="live-coach-comparison">
-        <article class="your-move">
-          <small>Your move</small><b id="liveCoachYourMove">—</b>
-          <p id="liveCoachWhy">Analysis pending.</p>
-        </article>
-        <article class="best-move">
-          <small>Best move</small><b id="liveCoachBestMove">—</b>
-          <p id="liveCoachBestText">Analysis pending.</p>
-        </article>
-      </div>
-      <section class="live-coach-principles" id="liveCoachPrinciples" hidden>
-        <small>Principles this move appears to have overlooked</small>
-        <div class="live-coach-principle-list" id="liveCoachPrincipleList"></div>
-        <span id="liveCoachPrinciplesText" hidden></span>
-      </section>
-      <section class="live-coach-line-wrap">
-        <small>Illustrative best continuation</small>
-        <div class="live-coach-line" id="liveCoachLine">Principal variation pending.</div>
-      </section>
-      <div class="dialogactions live-coach-actions">
-        <button class="btn" id="liveCoachSpeakButton" type="button">▶ Speak again</button>
-        <button class="btn primary" id="liveCoachContinueButton" type="button">Continue game</button>
       </div>
     </div>
   </dialog>
@@ -646,6 +650,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=28.0.0"></script>
+  <script type="module" src="./app-v7.js?v=29.0.0"></script>
 </body>
 </html>

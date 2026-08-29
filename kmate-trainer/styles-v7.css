@@ -755,3 +755,74 @@ body.dragging-piece #board .sq.drag-target{cursor:copy}
   .live-coach-principles,.live-coach-line-wrap{padding:9px}
 }
 /* End K-Mate v28 */
+
+
+/* K-Mate v29 — inline Live Coach with the board always visible */
+.board-coach-stage{min-width:0}
+.live-coach-board-panel[hidden]{display:none!important}
+.live-coach-board-panel{min-width:0;padding:17px;border:1px solid #f4cc7040;border-radius:18px;background:radial-gradient(circle at 100% 0,#7cf58a14,transparent 18rem),linear-gradient(145deg,#17231a,#0c140f);box-shadow:0 20px 55px #0007;overflow:auto}
+.live-coach-board-legend{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0 2px}
+.live-coach-board-legend span{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #ffffff15;border-radius:99px;background:#ffffff06;color:#dce4de;font-size:9px;font-weight:900;letter-spacing:.045em;text-transform:uppercase}
+.live-coach-board-legend i{display:block;width:10px;height:10px;border-radius:3px;box-shadow:0 0 0 2px #0003}
+.live-coach-board-legend .played i{background:#ff9d4d}.live-coach-board-legend .best i{background:#7cf58a}
+.live-coach-active .playgrid{grid-template-columns:minmax(0,1fr)}
+.live-coach-active .sidepanel{display:none}
+.live-coach-active .boardcol{width:100%;max-width:1120px;margin:0 auto}
+.live-coach-active .board-coach-stage{display:grid;grid-template-columns:minmax(300px,.92fr) minmax(360px,1.08fr);gap:13px;align-items:start;padding:10px;border:1px solid #ffffff13;border-radius:20px;background:#09110c;box-shadow:0 24px 70px #0007}
+.live-coach-active .live-boardwrap{padding:4px;border:1px solid #ffffff18;border-radius:15px;background:#101a13;box-shadow:0 18px 46px #0009}
+.live-coach-active .live-boardwrap #board{border-radius:10px}
+.live-coach-active .live-coach-board-panel{max-height:calc(min(760px,100dvh - 170px))}
+.live-coach-active .hint-card{display:none}
+.live-coach-active .playerbar{max-width:1120px}
+
+#board{position:relative}
+#board .sq.live-played-from{box-shadow:inset 0 0 0 4px #ff9d4dcc,inset 0 0 0 999px #ff9d4d22!important}
+#board .sq.live-played-to{z-index:5;box-shadow:inset 0 0 0 6px #ff9d4d,inset 0 0 0 999px #ff9d4d38,0 0 17px #ff9d4d88!important}
+#board .sq.live-best-from{box-shadow:inset 0 0 0 4px #7cf58acc,inset 0 0 0 999px #7cf58a20!important}
+#board .sq.live-best-to{z-index:5;box-shadow:inset 0 0 0 6px #7cf58a,inset 0 0 0 999px #7cf58a35,0 0 18px #7cf58a8a!important}
+#board .sq.live-played-from.live-best-from{box-shadow:inset 0 0 0 4px #f4cc70,inset 0 0 0 999px #f4cc702b!important}
+.live-coach-square-label{position:absolute;z-index:10;left:3px;bottom:3px;display:grid;place-items:center;min-width:27px;height:16px;padding:0 4px;border:1px solid #fff8;border-radius:99px;color:#10130f;font:950 6.5px/1 system-ui,sans-serif;letter-spacing:.045em;pointer-events:none;box-shadow:0 3px 8px #0008}
+.live-coach-square-label.played{background:#ff9d4d}.live-coach-square-label.best{left:auto;right:3px;background:#7cf58a}
+.live-coach-board-arrows{position:absolute;inset:0;z-index:7;width:100%;height:100%;overflow:visible;pointer-events:none}
+.live-coach-board-arrows line{vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 2px 2px #000b)}
+.live-coach-board-arrows .played-arrow{stroke:#ff9d4d;stroke-width:2.5;stroke-dasharray:3.5 2.1;opacity:.94}
+.live-coach-board-arrows .best-arrow{stroke:#7cf58a;stroke-width:2.8;opacity:.96}
+
+@media(max-width:760px){
+  .live-coach-active .playtop{margin-bottom:7px}
+  .live-coach-active .playtop h1{font-size:22px}
+  .live-coach-active .board-coach-stage{grid-template-columns:minmax(0,1fr);gap:7px;padding:6px;border-radius:14px}
+  .live-coach-active .live-boardwrap{width:min(66vw,270px);margin:0 auto;padding:2px;border-radius:10px}
+  .live-coach-active .live-coach-board-panel{max-height:min(37dvh,300px);padding:10px;border-radius:13px}
+  .live-coach-active .playerbar{min-height:52px;padding:6px 9px}
+  .live-coach-active .playerbar .avatar{width:34px;height:34px;font-size:22px}
+  .live-coach-active .clock{min-width:75px;padding:5px 7px;font-size:20px}
+  .live-coach-active .status{display:none}
+  .live-coach-active .live-coach-head h2{font-size:17px}
+  .live-coach-active .live-coach-summary{max-height:54px;overflow:auto;margin:7px 0!important;padding:7px 8px;font-size:9.5px;line-height:1.3}
+  .live-coach-active .live-coach-board-legend{margin:5px 0 1px;gap:4px}
+  .live-coach-active .live-coach-board-legend span{padding:3px 6px;font-size:7px}
+  .live-coach-active .live-coach-comparison{grid-template-columns:1fr 1fr;gap:5px}
+  .live-coach-active .live-coach-comparison article{padding:7px;border-radius:9px}
+  .live-coach-active .live-coach-comparison small{font-size:7px}.live-coach-active .live-coach-comparison b{font-size:14px}
+  .live-coach-active .live-coach-comparison p{max-height:65px;overflow:auto;margin-top:3px!important;font-size:8.3px;line-height:1.25}
+  .live-coach-active .live-coach-principles,.live-coach-active .live-coach-line-wrap{margin-top:6px;padding:7px;border-radius:9px}
+  .live-coach-active .live-coach-principle-list{gap:4px;margin-top:5px}.live-coach-active .live-coach-principle-list article{padding:5px 6px}.live-coach-active .live-coach-principle-list span{font-size:7.5px}
+  .live-coach-active .live-coach-line{font-size:8px;line-height:1.35}
+  .live-coach-active .live-coach-actions{margin-top:7px;gap:5px}.live-coach-active .live-coach-actions .btn{min-height:34px;padding:0 8px;font-size:9px}
+  .live-coach-square-label{min-width:23px;height:14px;font-size:5.5px}
+  .live-coach-board-arrows .played-arrow{stroke-width:2.1}.live-coach-board-arrows .best-arrow{stroke-width:2.35}
+}
+
+@media(max-width:430px){
+  .live-coach-active .live-boardwrap{width:min(64vw,250px)}
+  .live-coach-active .live-coach-board-panel{max-height:min(36dvh,285px)}
+}
+
+@media(max-height:720px) and (max-width:760px){
+  .live-coach-active .live-boardwrap{width:min(54vw,205px)}
+  .live-coach-active .live-coach-board-panel{max-height:250px}
+  .live-coach-active .playerbar{min-height:46px}
+  .live-coach-active .live-coach-summary{display:none}
+}
+/* End K-Mate v29 */
