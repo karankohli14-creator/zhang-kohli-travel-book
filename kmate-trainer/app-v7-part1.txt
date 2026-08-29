@@ -367,9 +367,10 @@ function playSynthMoveSound(kind = 'move') {
   const now = ctx.currentTime + 0.006;
 
   if (kind === 'capture') {
-    scheduleChessKnock(ctx, now, 0.17, 0.082, 850);
-    scheduleChessTone(ctx, now, 215, 105, 0.105, 0.105, 'triangle');
-    scheduleChessTone(ctx, now + 0.018, 145, 82, 0.075, 0.095, 'sine');
+    scheduleChessKnock(ctx, now, 0.14, 0.026, 2850);
+    scheduleChessTone(ctx, now, 980, 430, 0.095, 0.052, 'triangle');
+    scheduleChessKnock(ctx, now + 0.067, 0.22, 0.038, 2050);
+    scheduleChessTone(ctx, now + 0.067, 410, 165, 0.120, 0.085, 'triangle');
     return;
   }
   if (kind === 'check') {
@@ -395,14 +396,15 @@ function playSynthMoveSound(kind = 'move') {
     return;
   }
 
-  // A short wooden-board click for ordinary moves.
-  scheduleChessKnock(ctx, now, 0.125, 0.055, 1250);
-  scheduleChessTone(ctx, now, 310, 185, 0.075, 0.072, 'triangle');
+  // A dry, fast wooden-board contact for ordinary moves.
+  scheduleChessKnock(ctx, now, 0.18, 0.030, 2950);
+  scheduleChessTone(ctx, now, 1020, 460, 0.095, 0.050, 'triangle');
+  scheduleChessTone(ctx, now + 0.003, 340, 185, 0.060, 0.075, 'sine');
 }
 
 const SOUND_SPRITE_SEGMENTS = {
-  move: { start: 0.08, duration: 0.46, volume: 0.88 },
-  capture: { start: 0.70, duration: 0.62, volume: 0.92 },
+  move: { start: 0.08, duration: 0.46, volume: 0.97 },
+  capture: { start: 0.70, duration: 0.62, volume: 1.00 },
   check: { start: 1.48, duration: 0.76, volume: 0.90 },
   win: { start: 2.48, duration: 1.00, volume: 0.90 },
   loss: { start: 3.75, duration: 0.94, volume: 0.88 },
@@ -410,14 +412,14 @@ const SOUND_SPRITE_SEGMENTS = {
   timeout: { start: 5.95, duration: 1.18, volume: 0.94 },
 };
 const SOUND_THEME_LABELS = {
-  soft: 'Soft wood',
-  tournament: 'Tournament wood',
-  minimal: 'Minimal click',
+  soft: 'Crisp soft wood',
+  tournament: 'Crisp tournament wood',
+  minimal: 'Dry click',
 };
 const SOUND_SPRITE_URLS = {
-  soft: new URL('./sounds/kmate-soft-v23.wav?v=23.0.0', document.baseURI).href,
-  tournament: new URL('./sounds/kmate-tournament-v23.wav?v=23.0.0', document.baseURI).href,
-  minimal: new URL('./sounds/kmate-minimal-v23.wav?v=23.0.0', document.baseURI).href,
+  soft: new URL('./sounds/kmate-soft-v26.wav?v=26.0.0', document.baseURI).href,
+  tournament: new URL('./sounds/kmate-tournament-v26.wav?v=26.0.0', document.baseURI).href,
+  minimal: new URL('./sounds/kmate-minimal-v26.wav?v=26.0.0', document.baseURI).href,
 };
 let soundAudiblyConfirmed = false;
 
@@ -586,7 +588,7 @@ function previewSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260828-25-1';
+  url.search = '?v=20260829-26';
   url.hash = '';
   return url.href;
 }
