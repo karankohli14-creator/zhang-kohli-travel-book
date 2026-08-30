@@ -9,11 +9,10 @@
     closeDialog('resultDialog');
     openCoachReplay(currentSession);
   });
-  $('#replayBackToReview')?.addEventListener('click', () => {
-    closeDialog('replayDialog');
-    renderPostGameReview(currentSession);
-    openDialog('resultDialog');
-  });
+  $('#replayBackToReview')?.addEventListener('click', returnToSessionSummary);
+  $('#replayCloseButton')?.addEventListener('click', returnToSessionSummary);
+  $('#replayHomeButton')?.addEventListener('click', goHomeFromReview);
+  $('#replayNewPositionButton')?.addEventListener('click', generateNewPositionFromReview);
   $('#replayFirst')?.addEventListener('click', () => setReplayIndex(0));
   $('#replayPrevious')?.addEventListener('click', () => setReplayIndex(replayState.index - 1));
   $('#replayNext')?.addEventListener('click', () => setReplayIndex(replayState.index + 1));
@@ -52,14 +51,8 @@
     if (session) openCoachReplay(session);
   });
 
-  $('#resultNext').addEventListener('click', () => {
-    closeDialog('resultDialog');
-    startPosition({ preservePrevious: true });
-  });
-  $('#resultSetup').addEventListener('click', () => {
-    closeDialog('resultDialog');
-    showView('setup');
-  });
+  $('#resultNext').addEventListener('click', generateNewPositionFromReview);
+  $('#resultSetup').addEventListener('click', goHomeFromReview);
   $('#resultInsights').addEventListener('click', () => {
     closeDialog('resultDialog');
     showView('insights');
@@ -106,9 +99,9 @@ function renderCompactPrincipleReview() {
   list.replaceChildren(fragment);
   list.dataset.compacting = '0';
   const title = $('#principlesPositionTitle');
-  if (title) title.textContent = `${principles.length} key principles for this position`;
+  if (title) title.textContent = `Before you play: ${principles.length} key principles`;
   const subtitle = $('#principlesPositionSubtitle');
-  if (subtitle) subtitle.textContent = 'Keep these in mind, then calculate the concrete position.';
+  if (subtitle) subtitle.textContent = '';
 }
 
 function initializeCompactPrincipleReview() {
@@ -148,18 +141,17 @@ function showSetupFlowPage(page = 'intro', { focus = true } = {}) {
   if (focus) setupFlowPageElement(setupFlowPage)?.querySelector('button, select, input')?.focus?.({ preventScroll: true });
 }
 
-function makeSetupScreen(page, stepLabel, title, subtitle) {
+function makeSetupScreen(page, title = '') {
   const section = document.createElement('section');
   section.className = 'setup-flow-page';
   section.dataset.setupPage = page;
   section.hidden = true;
   section.innerHTML = `
     <header class="setup-screen-header">
-      <div class="setup-screen-brand"><span class="brandmark">♞</span><span><b>K-Mate</b><small>${stepLabel}</small></span></div>
+      <div class="setup-screen-copy">${title ? `<h1>${title}</h1>` : ''}</div>
       <div class="setup-progress" aria-label="Setup progress">
         <i data-setup-step="intro"></i><i data-setup-step="challenge"></i><i data-setup-step="coach"></i>
       </div>
-      <div class="setup-screen-copy"><h1>${title}</h1><p>${subtitle}</p></div>
     </header>
     <div class="setup-screen-content"></div>
     <footer class="setup-screen-footer"></footer>
@@ -182,9 +174,9 @@ function initializePagedSetup() {
   flow.className = 'setup-flow';
   flow.id = 'setupFlow';
 
-  const introPage = makeSetupScreen('intro', 'Train positions, not openings', 'Get better at the part of chess that decides games.', 'Choose a real middlegame or endgame, play it under pressure, and get precise coaching only when it matters.');
-  const challengePage = makeSetupScreen('challenge', 'Step 1 of 2', 'Set your chess challenge', 'Phase · opening · ratings · clock');
-  const coachPage = makeSetupScreen('coach', 'Step 2 of 2', 'Choose your coaching', 'Hints · principles · Live Coach · sound');
+  const introPage = makeSetupScreen('intro');
+  const challengePage = makeSetupScreen('challenge', 'Set your chess challenge');
+  const coachPage = makeSetupScreen('coach', 'Choose your coaching');
 
   flow.append(introPage, challengePage, coachPage);
   setup.prepend(flow);
@@ -253,14 +245,14 @@ function initializePagedSetup() {
 
   challengePage.querySelector('.setup-screen-footer').innerHTML = `
     <button class="btn app-flow-secondary" id="challengeBackButton" type="button">← Back</button>
-    <button class="btn primary app-flow-primary" id="challengeNextButton" type="button">Coaching setup →</button>
+    <button class="btn primary app-flow-primary" id="challengeNextButton" type="button">Next: coaching →</button>
   `;
   const coachFooter = coachPage.querySelector('.setup-screen-footer');
   const back = document.createElement('button');
   back.className = 'btn app-flow-secondary';
   back.id = 'coachBackButton';
   back.type = 'button';
-  back.textContent = '← Challenge';
+  back.textContent = '← Back';
   coachFooter.prepend(back);
 
   // Old scrolling setup shell and supplementary cards are no longer part of the visual flow.
@@ -307,11 +299,26 @@ syncGameViewportLayout();
 renderSummary();
 renderInsights();
 updateCoachVoiceControls();
-$('#startButton').disabled = true;
-$('#startButton').textContent = 'Loading Stockfish 18…';
+setGeneratePositionButtonReady();
+const generatePositionButton = $('#startButton');
+if (generatePositionButton) {
+  const keepGeneratePositionReady = new MutationObserver(() => {
+    if (!document.body.classList.contains('game-mode')
+      && generatePositionButton.dataset.starting !== '1'
+      && (generatePositionButton.disabled || generatePositionButton.textContent.trim() !== 'Generate position')) {
+      window.queueMicrotask(setGeneratePositionButtonReady);
+    }
+  });
+  keepGeneratePositionReady.observe(generatePositionButton, { attributes: true, childList: true, subtree: true });
+}
+stockfishEngine?.ready?.then(setGeneratePositionButtonReady).catch((error) => {
+  stockfishLoadError = error;
+  console.warn('Stockfish is still unavailable; K-Mate will retain its fallback play.', error);
+  setGeneratePositionButtonReady();
+});
 
 window.__KMATE__ = {
-  version: '39.0-commercial-beta',
+  version: '40.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },

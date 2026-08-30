@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=39.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=40.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -136,28 +136,28 @@
 
           <label class="calibration-toggle">
             <input id="blindCalibration" type="checkbox">
-            <span><b>Blind Elo calibration</b><small>Hide the opponent setting, estimate it after the position, and help validate K-Mate’s scale.</small></span>
+            <span><b>Blind Elo calibration</b><small>Hide the rating, then estimate it after the game.</small></span>
           </label>
 
           <label class="calibration-toggle hint-toggle">
             <input id="autoHints" type="checkbox">
-            <span><b>Automatic hints before every move</b><small>Show a strategic idea at the start of each turn. The exact candidate remains hidden unless you reveal it.</small></span>
+            <span><b>Automatic hints before every move</b><small>Show one strategic idea before each move.</small></span>
           </label>
 
 
           <label class="calibration-toggle principles-toggle">
             <input id="principleReview" type="checkbox">
-            <span><b>Review relevant principles before play</b><small>K-Mate selects five principles for the exact position and starts the clock only after you review them.</small></span>
+            <span><b>Review relevant principles before play</b><small>Review five one-line reminders before the clock starts.</small></span>
           </label>
 
           <label class="calibration-toggle live-coach-toggle">
             <input id="liveCoach" type="checkbox">
-            <span><b>Live Coach after bad moves only</b><small>Open the coach only for an Inaccuracy, Mistake, Miss, or Blunder. Best, Excellent, and Good moves never change the board layout.</small></span>
+            <span><b>Live Coach after bad moves only</b><small>Pause only after an inaccuracy, mistake, miss, or blunder.</small></span>
           </label>
 
           <label class="calibration-toggle live-coach-audio-toggle">
             <input id="liveCoachVoice" type="checkbox">
-            <span><b>Speak all coach reviews aloud</b><small>Use the device’s best available English voice for both Live Coach and post-game Coach Replay. On a Mac, test it once before playing so Safari or Chrome can authorize speech.</small></span>
+            <span><b>Speak all coach reviews aloud</b><small>Read Live Coach and post-game reviews aloud.</small></span>
           </label>
           <div class="coach-audio-check" id="coachAudioCheck">
             <button class="sound-preview coach-audio-test" id="coachVoiceTestButton" type="button">▶ Test coach voice</button>
@@ -186,7 +186,7 @@
           </div>
 
           <div id="loadError" class="error"></div>
-          <button class="btn primary start" id="startButton" type="button" disabled>Loading Stockfish 18…</button>
+          <button class="btn primary start" id="startButton" type="button">Generate position</button>
           <p class="fineprint">Opponent play uses Stockfish 18. The 1000–2200 band is deliberately strength-boosted to better match online rapid feel; 2300–3500 progressively approaches unrestricted engine play. 3500 means MAX engine strength, not an official human Elo.</p>
         </aside>
       </div>
@@ -449,14 +449,12 @@
 
   <dialog id="principlesDialog" class="modal principles-modal">
     <div class="modal-card">
-      <div class="eyebrow">Before the clock starts</div>
       <h2 id="principlesPositionTitle">Before you play: 5 key principles</h2>
-      <p id="principlesPositionSubtitle">Five quick reminders for this exact position.</p>
+      <p id="principlesPositionSubtitle" hidden></p>
       <div class="principles-list" id="principlesList"></div>
-      <p class="principles-note">Keep these principles in mind, but still calculate the concrete position. Principles guide candidate selection; they do not replace calculation.</p>
       <div class="dialogactions">
         <button class="btn" id="principlesSetupButton" type="button">Change setup</button>
-        <button class="btn primary" id="principlesStartButton" type="button">I reviewed them — start clock</button>
+        <button class="btn primary" id="principlesStartButton" type="button">Start clock</button>
       </div>
     </div>
   </dialog>
@@ -516,8 +514,8 @@
       <div class="dialogactions result-actions">
         <button class="btn replay-primary" type="button" id="resultReplay">Coach replay with Coach K</button>
         <button class="btn" type="button" id="resultInsights">View insights</button>
-        <button class="btn" type="button" id="resultSetup">Change setup</button>
-        <button class="btn primary" type="button" id="resultNext">Play another</button>
+        <button class="btn" type="button" id="resultSetup">Home</button>
+        <button class="btn primary" type="button" id="resultNext">New position</button>
       </div>
     </div>
   </dialog>
@@ -532,8 +530,7 @@
           <p id="replaySubtitle">Starting position</p>
         </div>
         <div class="replay-header-actions">
-          <button class="btn" id="replayBackToReview" type="button">Back to review</button>
-          <button class="roundbtn" type="button" data-close="replayDialog" aria-label="Close replay">×</button>
+          <button class="roundbtn" id="replayCloseButton" type="button" aria-label="Return to session summary" title="Return to session summary">×</button>
         </div>
       </header>
 
@@ -669,6 +666,11 @@
           <p class="replay-footnote" id="replayFootnote">Coach K uses equal-time, root-restricted Stockfish comparisons. Play the stored principal variation to see how the stronger move could continue.</p>
         </aside>
       </div>
+      <footer class="replay-exit-bar" aria-label="Coach replay navigation">
+        <button class="btn" id="replayBackToReview" type="button">Session summary</button>
+        <button class="btn" id="replayHomeButton" type="button">⌂ Home</button>
+        <button class="btn primary" id="replayNewPositionButton" type="button">New position</button>
+      </footer>
     </div>
   </dialog>
 
@@ -685,6 +687,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=39.0.0"></script>
+  <script type="module" src="./app-v7.js?v=40.0.0"></script>
 </body>
 </html>

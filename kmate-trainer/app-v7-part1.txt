@@ -869,7 +869,7 @@ function previewCaptureSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260830-35';
+  url.search = '?v=20260830-40';
   url.hash = '';
   return url.href;
 }
@@ -1707,10 +1707,15 @@ function renderPrinciplesDialog() {
   const list = $('#principlesList');
   const title = $('#principlesPositionTitle');
   const subtitle = $('#principlesPositionSubtitle');
-  if (!list || !title || !subtitle) return;
-  title.textContent = current?.title || 'Position principles';
-  subtitle.textContent = `${phaseLabel(current?.phase || 'middlegame')} · ${current?.opening || 'Various'} · ${currentPositionPrinciples.length} principles`;
-  list.innerHTML = currentPositionPrinciples.map((principle, index) => `<article class="principle-card"><span>${index + 1}</span><div><b>${escapeHtml(principle.title)}</b><p>${escapeHtml(principle.rule)}</p></div></article>`).join('');
+  if (!list || !title) return;
+  const principles = currentPositionPrinciples.slice(0, 5);
+  title.textContent = `Before you play: ${principles.length} key principles`;
+  if (subtitle) subtitle.textContent = '';
+  list.innerHTML = principles.map((principle, index) => `
+    <article class="principle-compact-row">
+      <span class="principle-compact-number">${index + 1}</span>
+      <b>${escapeHtml(principle.title)}</b>
+    </article>`).join('');
 }
 
 function beginPreparedPosition() {
@@ -3204,43 +3209,10 @@ function testCoachVoice() {
 }
 
 function primeCoachVoiceOnSessionStart() {
-  if (coachSessionPrimeAttempted || settings.coachVoice === false || !coachVoiceAvailable()) return false;
+  // Starting a position must never be gated by, or interrupted by, speech.
+  // The dedicated Test coach voice button remains the explicit audible check.
   coachSessionPrimeAttempted = true;
-  primeCoachAudioFromGesture();
-  const synth = window.speechSynthesis;
-  const utterance = new SpeechSynthesisUtterance('Coach voice ready.');
-  const voice = chooseCoachVoice();
-  utterance.lang = voice?.lang || 'en-GB';
-  utterance.rate = 0.98;
-  utterance.pitch = 1;
-  utterance.volume = 0.92;
-  if (voice) utterance.voice = voice;
-  utterance.onstart = () => {
-    coachSessionPrimeUtterance = utterance;
-    coachAudioReady = true;
-    setCoachAudioDeviceStatus(`Coach voice ready${voice?.name ? ` · ${voice.name}` : ''}.`, 'speaking');
-  };
-  utterance.onend = () => {
-    coachSessionPrimeUtterance = null;
-    coachAudioReady = true;
-    setCoachAudioDeviceStatus(`Coach audio ready${voice?.name ? ` · ${voice.name}` : ''}.`, 'ready');
-  };
-  utterance.onerror = (event) => {
-    coachSessionPrimeUtterance = null;
-    coachSessionPrimeAttempted = false;
-    setCoachAudioDeviceStatus(`The Mac blocked the automatic voice check${event?.error ? ` (${event.error})` : ''}. Press the 🔊 coach button once.`, 'error');
-  };
-  coachSessionPrimeUtterance = utterance;
-  try {
-    synth.resume?.();
-    synth.speak(utterance);
-  } catch (error) {
-    coachSessionPrimeUtterance = null;
-    coachSessionPrimeAttempted = false;
-    setCoachAudioDeviceStatus('The Mac blocked the automatic voice check. Press the 🔊 coach button once.', 'error');
-    console.warn('Session coach voice prime failed.', error);
-  }
-  return true;
+  return primeCoachAudioFromGesture();
 }
 
 function captureBoardViewportAnchor() {
@@ -6069,6 +6041,88 @@ try {
   console.warn('Analysis worker unavailable; gameplay will still use Stockfish.', error);
 }
 
+
+function setGeneratePositionButtonReady() {
+  const button = $('#startButton');
+  if (!button) return;
+  button.disabled = false;
+  button.removeAttribute('aria-busy');
+  button.dataset.starting = '0';
+  button.textContent = 'Generate position';
+  button.title = stockfishLoadError
+    ? 'The chess engine had a loading issue; K-Mate can still open the board and use its fallback play.'
+    : 'Create a fresh position and begin play';
+}
+
+function showGeneratePositionFailure(error) {
+  console.error('Unable to generate a K-Mate position.', error);
+  const box = $('#loadError');
+  if (box) {
+    box.textContent = `K-Mate could not open the position: ${error?.message || error}. Please try again.`;
+    box.classList.add('show');
+  }
+  toast('The position did not open. Please try again.');
+  setGeneratePositionButtonReady();
+}
+
+function handleGeneratePosition() {
+  const button = $('#startButton');
+  if (!button || button.dataset.starting === '1') return;
+  const box = $('#loadError');
+  if (box) {
+    box.textContent = '';
+    box.classList.remove('show');
+  }
+  button.dataset.starting = '1';
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  button.textContent = 'Creating position…';
+  // This primes browser permissions silently. It does not speak and cannot block
+  // the transition to the board.
+  primeCoachVoiceOnSessionStart();
+  try {
+    updateControls(true);
+    startPosition();
+    if (!game || !document.body.classList.contains('game-mode') || $('#gameView')?.hidden) {
+      throw new Error('The game view did not activate');
+    }
+    window.requestAnimationFrame(() => {
+      button.dataset.starting = '0';
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.textContent = 'Generate position';
+    });
+  } catch (error) {
+    showGeneratePositionFailure(error);
+  }
+}
+
+function stopReviewPlayback() {
+  stopReplayAuto();
+  stopBestLinePlayback({ reset: true, render: false });
+  stopCoachSpeech();
+  closeDialog('replayDialog');
+}
+
+function returnToSessionSummary() {
+  stopReviewPlayback();
+  if (currentSession) renderPostGameReview(currentSession);
+  openDialog('resultDialog');
+}
+
+function goHomeFromReview() {
+  stopReviewPlayback();
+  closeDialog('resultDialog');
+  showView('setup');
+  if (typeof resetSetupFlowForNavigation === 'function') resetSetupFlowForNavigation('intro');
+}
+
+function generateNewPositionFromReview() {
+  stopReviewPlayback();
+  closeDialog('resultDialog');
+  startPosition({ preservePrevious: true });
+}
+
 function bindControls() {
   $$('#phaseSeg button').forEach((button) => button.addEventListener('click', () => {
     settings.phase = button.dataset.phase;
@@ -6129,7 +6183,7 @@ updateSoundToggle();
 
 $$('[data-view]').forEach((button) => button.addEventListener('click', () => navigate(button.dataset.view)));
   $('#brandButton').addEventListener('click', () => navigate('setup'));
-  $('#startButton').addEventListener('click', () => { primeCoachVoiceOnSessionStart(); startPosition(); });
+  $('#startButton').addEventListener('click', handleGeneratePosition);
   $('#backButton').addEventListener('click', () => navigate('setup'));
   $('#flipButton').addEventListener('click', () => {
     orientation = orientation === 'w' ? 'b' : 'w';
