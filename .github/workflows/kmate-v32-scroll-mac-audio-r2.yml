@@ -1,0 +1,209 @@
+name: K-Mate v32 Mac audio and viewport verification r2
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v32-scroll-mac-audio-r2.yml'
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply K-Mate v32 fixes
+        run: |
+          python -m py_compile .github/scripts/kmate_v32_scroll_mac_audio.py
+          python .github/scripts/kmate_v32_scroll_mac_audio.py
+          rm -f .github/workflows/kmate-v31-live-coach-voice-principles.yml
+          rm -f .github/workflows/kmate-v32-scroll-mac-audio.yml
+
+      - name: Validate JavaScript and required features
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{number}.txt').read_text() for number in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v32.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v32.js
+          grep -q "version: '32.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+          grep -q 'id="coachVoiceTestButton"' kmate-trainer/index.html
+          grep -q 'id="coachReplayAudioStatus"' kmate-trainer/index.html
+          grep -q 'function restoreBoardViewportAnchor' kmate-trainer/app-v7-part1.txt
+          grep -q 'function splitCoachSpeechText' kmate-trainer/app-v7-part1.txt
+          grep -q 'function testCoachVoice' kmate-trainer/app-v7-part1.txt
+          grep -q 'viewportPreserved: true' kmate-trainer/app-v7-part6.txt
+          grep -q 'overflow-anchor:none' kmate-trainer/styles-v7.css
+          ! grep -q "scrollIntoView?.({ block: 'nearest'" kmate-trainer/app-v7-part1.txt
+
+      - name: Install browser test dependency and serve K-Mate
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          BROWSER_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$BROWSER_PATH"
+          echo "BROWSER_PATH=$BROWSER_PATH" >> "$GITHUB_ENV"
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v32-server.log 2>&1 &
+
+      - name: Test Mac speech recovery and stable board viewport
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+
+          (async () => {
+            const browser = await chromium.launch({
+              headless: true,
+              executablePath: process.env.BROWSER_PATH,
+              args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'],
+            });
+            const context = await browser.newContext({
+              viewport: { width: 1440, height: 900 },
+              userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
+            });
+            await context.addInitScript(() => {
+              window.__speechCalls = [];
+              window.__speechLastCancel = -10000;
+              const voices = [
+                { name: 'Serena Enhanced', lang: 'en-GB', voiceURI: 'serena-enhanced', localService: true },
+                { name: 'Samantha', lang: 'en-US', voiceURI: 'samantha', localService: true },
+              ];
+              class TestUtterance {
+                constructor(text) {
+                  this.text = text;
+                  this.voice = null;
+                  this.lang = '';
+                  this.rate = 1;
+                  this.pitch = 1;
+                  this.volume = 1;
+                  this.onstart = null;
+                  this.onend = null;
+                  this.onerror = null;
+                }
+              }
+              const synth = {
+                speaking: false,
+                pending: false,
+                getVoices: () => voices,
+                addEventListener: () => {},
+                resume() {},
+                cancel() {
+                  this.speaking = false;
+                  this.pending = false;
+                  window.__speechLastCancel = performance.now();
+                },
+                speak(utterance) {
+                  const delta = performance.now() - window.__speechLastCancel;
+                  const call = { text: utterance.text, voice: utterance.voice?.name || null, delta, dropped: delta < 85 };
+                  window.__speechCalls.push(call);
+                  if (call.dropped) return;
+                  this.pending = true;
+                  setTimeout(() => {
+                    this.pending = false;
+                    this.speaking = true;
+                    utterance.onstart?.();
+                    setTimeout(() => {
+                      this.speaking = false;
+                      utterance.onend?.();
+                    }, 65);
+                  }, 18);
+                },
+              };
+              Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: synth });
+              Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: TestUtterance });
+              Object.defineProperty(navigator, 'platform', { configurable: true, value: 'MacIntel' });
+              HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+              HTMLMediaElement.prototype.pause = function () {};
+              HTMLMediaElement.prototype.load = function () {};
+            });
+
+            const page = await context.newPage();
+            page.setDefaultTimeout(120000);
+            const fatalErrors = [];
+            page.on('pageerror', error => fatalErrors.push(`pageerror: ${error.message}`));
+            page.on('console', message => {
+              if (message.type() !== 'error') return;
+              const text = message.text();
+              if (text.includes('Failed to load resource') && text.includes('404')) return;
+              fatalErrors.push(`console: ${text}`);
+            });
+
+            await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
+
+            await page.click('#coachVoiceTestButton');
+            await page.waitForFunction(() => document.querySelector('#coachVoiceSetupStatus')?.dataset.state === 'ready');
+            const testStatus = (await page.locator('#coachVoiceSetupStatus').textContent()).trim();
+            assert.ok(/audio ready/i.test(testStatus), testStatus);
+            const testCall = await page.evaluate(() => window.__speechCalls.find(call => call.text.includes('coach audio is ready')) || null);
+            assert.ok(testCall && !testCall.dropped, testCall);
+            assert.strictEqual(testCall.voice, 'Serena Enhanced');
+
+            const demo = await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
+            assert.strictEqual(demo.voice, true);
+            await page.click('#board .sq[data-square="e2"]');
+            await page.click('#board .sq[data-square="e4"]');
+            await page.waitForFunction(() => window.__KMATE__.state().liveCoach.awaiting && window.__KMATE__.state().clockPaused);
+            const injected = await page.evaluate(() => window.__KMATE__.test.forceLiveCoachIntervention());
+            assert.ok(injected && injected.bestMove);
+            await page.waitForFunction(() => window.__KMATE__.state().liveCoach.open);
+            await page.waitForFunction(() => window.__speechCalls.some(call => /Principle diagnosis/i.test(call.text) && !call.dropped));
+
+            await page.evaluate(() => {
+              const board = document.querySelector('#board');
+              window.scrollBy(0, board.getBoundingClientRect().top - 126);
+            });
+            await page.waitForTimeout(80);
+            const before = await page.evaluate(() => window.__KMATE__.test.boardViewport());
+            assert.ok(before && Math.abs(before.top - 126) < 5, before);
+
+            await page.click('#liveCoachContinueButton');
+            await page.waitForFunction(() => !window.__KMATE__.state().liveCoach.open && !window.__KMATE__.state().clockPaused);
+            await page.waitForTimeout(380);
+            const after = await page.evaluate(() => window.__KMATE__.test.boardViewport());
+            assert.ok(after, after);
+            assert.ok(Math.abs(after.top - before.top) <= 9, { before, after });
+
+            const callsBeforeReplay = await page.evaluate(() => window.__speechCalls.length);
+            await page.evaluate(() => window.__KMATE__.test.openReplay());
+            await page.waitForSelector('#replayDialog[open]');
+            await page.waitForFunction(
+              (count) => window.__speechCalls.length > count && window.__speechCalls.slice(count).some(call => !call.dropped),
+              callsBeforeReplay,
+            );
+            const replayCalls = await page.evaluate((count) => window.__speechCalls.slice(count), callsBeforeReplay);
+            assert.ok(replayCalls.some(call => !call.dropped), replayCalls);
+
+            const inspection = await page.evaluate(() => ({
+              audio: window.__KMATE__.state().coachAudio,
+              liveCoach: window.__KMATE__.state().liveCoach,
+              replay: window.__KMATE__.state().replay,
+              speechCalls: window.__speechCalls.length,
+              noOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+            }));
+            assert.ok(inspection.audio.macLike, inspection);
+            assert.ok(inspection.audio.ready, inspection);
+            assert.ok(inspection.replay.open, inspection);
+            assert.ok(inspection.noOverflow, inspection);
+            if (fatalErrors.length) throw new Error(fatalErrors.join('\n'));
+
+            console.log(JSON.stringify({ ok: true, testStatus, before, after, replayCalls, inspection }, null, 2));
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Commit and publish K-Mate v32
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A kmate-trainer .github/workflows
+          git commit -m 'K-Mate v32: preserve board viewport and repair Mac coach audio'
+          git push
