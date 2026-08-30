@@ -29,7 +29,7 @@ jobs:
           node <<'NODE'
           const assert = require('assert');
           const { chromium } = require('playwright-core');
-          const URL = `https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/?v=20260830-45-public-${Date.now()}`;
+          const PUBLIC_URL = `https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/?v=20260830-45-public-${Date.now()}`;
 
           async function scenario(browser, name, contextOptions) {
             const context = await browser.newContext(contextOptions);
@@ -44,8 +44,10 @@ jobs:
               errors.push(`console: ${text}`);
             });
 
-            await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            const response = await page.goto(PUBLIC_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            assert.ok(response && response.ok(), `${name}: public URL returned HTTP ${response?.status()}`);
             assert.ok(!/404|file not found/i.test(await page.title()), `${name}: public URL returned a missing-page title`);
+            assert.strictEqual(new URL(page.url()).pathname, '/zhang-kohli-travel-book/kmate-trainer/');
             await page.waitForFunction(() => window.__KMATE__?.state && window.__KMATE_V45_HOTFIX__?.version === '45.0.1', null, { timeout: 45000 });
 
             const press = contextOptions.hasTouch
@@ -53,48 +55,50 @@ jobs:
               : selector => page.click(selector);
 
             await press('#introProceedButton');
-            await page.waitForFunction(() => document.body.dataset.setupPage === 'challenge');
+            await page.waitForSelector('.setup-flow-page[data-setup-page="challenge"].active:not([hidden])');
             await press('#challengeNextButton');
-            await page.waitForFunction(() => document.body.dataset.setupPage === 'coach');
+            await page.waitForSelector('.setup-flow-page[data-setup-page="coach"].active:not([hidden])');
             await page.waitForTimeout(650);
 
-            const live = await page.evaluate(() => {
-              const selectors = ['#coachBackButton', '#principleReview', '#liveCoach', '#startButton'];
-              return Object.fromEntries(selectors.map(selector => {
-                const element = document.querySelector(selector);
-                const rect = element?.getBoundingClientRect();
-                const hit = rect ? document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) : null;
-                return [selector, {
-                  visible: Boolean(rect && rect.width > 0 && rect.height > 0),
-                  enabled: Boolean(element && !element.disabled),
-                  inert: Boolean(element?.inert || element?.closest?.('[inert]')),
-                  ownsHit: Boolean(element && hit && (element === hit || element.contains(hit) || hit.contains(element))),
-                }];
-              }));
-            });
-            for (const [selector, state] of Object.entries(live)) {
-              assert.ok(state.visible && state.enabled && !state.inert && state.ownsHit, `${name}: ${selector} is not interactive: ${JSON.stringify(state)}`);
+            for (const selector of ['#coachBackButton', '#principleReview', '#liveCoach', '#startButton']) {
+              const locator = page.locator(selector);
+              assert.ok(await locator.isVisible(), `${name}: ${selector} is not visible`);
+              assert.ok(await locator.isEnabled(), `${name}: ${selector} is disabled`);
             }
 
-            const first = await page.isChecked('#principleReview');
+            const initialPrinciples = await page.isChecked('#principleReview');
             await press('#principleReview');
-            assert.notStrictEqual(await page.isChecked('#principleReview'), first, `${name}: checkbox did not change`);
-            if (await page.isChecked('#principleReview')) await press('#principleReview');
+            assert.notStrictEqual(await page.isChecked('#principleReview'), initialPrinciples, `${name}: principle checkbox did not toggle`);
+            await press('#principleReview');
+            assert.strictEqual(await page.isChecked('#principleReview'), initialPrinciples, `${name}: principle checkbox did not toggle back`);
 
+            const initialCoach = await page.isChecked('#liveCoach');
+            await press('#liveCoach');
+            assert.notStrictEqual(await page.isChecked('#liveCoach'), initialCoach, `${name}: Live Coach checkbox did not toggle`);
+
+            await press('#coachBackButton');
+            await page.waitForSelector('.setup-flow-page[data-setup-page="challenge"].active:not([hidden])');
+            await press('#challengeNextButton');
+            await page.waitForSelector('.setup-flow-page[data-setup-page="coach"].active:not([hidden])');
+
+            if (await page.isChecked('#principleReview')) await press('#principleReview');
             const startedAt = Date.now();
             await press('#startButton');
-            await page.waitForFunction(() => document.body.classList.contains('game-mode') && document.querySelectorAll('#board .piece').length >= 2, null, { timeout: 15000 });
-            const result = await page.evaluate(() => ({
-              hotfix: window.__KMATE_V45_HOTFIX__.version,
-              pieces: document.querySelectorAll('#board .piece').length,
-              gameMode: document.body.classList.contains('game-mode'),
-              path: location.pathname,
-            }));
-            result.elapsedMs = Date.now() - startedAt;
-            assert.strictEqual(result.path, '/zhang-kohli-travel-book/kmate-trainer/');
-            assert.ok(result.gameMode && result.pieces >= 2);
+            await page.waitForSelector('body.game-mode #board .piece', { timeout: 15000 });
+            const pieces = await page.locator('#board .piece').count();
+            const elapsedMs = Date.now() - startedAt;
+            assert.ok(pieces >= 2, `${name}: game board did not contain pieces`);
+            assert.ok(elapsedMs < 15000, `${name}: game took too long to open: ${elapsedMs} ms`);
             if (errors.length) throw new Error(`${name}: ${errors.join('\n')}`);
-            console.log(JSON.stringify({ name, publicUrl: URL, controls: live, result }, null, 2));
+
+            console.log(JSON.stringify({
+              name,
+              publicUrl: PUBLIC_URL,
+              HTTP: response.status(),
+              hotfix: '45.0.1',
+              pieces,
+              elapsedMs,
+            }, null, 2));
             await context.close();
           }
 
