@@ -1,0 +1,108 @@
+name: K-Mate v40 warm setup, reliable start, and review navigation r3
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v40-warm-setup-start-navigation-r3.yml'
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Make Generate position immune to stale engine-loading state
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/kmate_v40_warm_setup_start_navigation.py')
+          text = path.read_text()
+          old = '''    "setGeneratePositionButtonReady();\\nstockfishEngine?.ready?.then(setGeneratePositionButtonReady).catch((error) => {\\n  stockfishLoadError = error;\\n  console.warn('Stockfish is still unavailable; K-Mate will retain its fallback play.', error);\\n  setGeneratePositionButtonReady();\\n});",'''
+          new = '''    "setGeneratePositionButtonReady();\\nconst generatePositionButton = $('#startButton');\\nif (generatePositionButton) {\\n  const keepGeneratePositionReady = new MutationObserver(() => {\\n    if (!document.body.classList.contains('game-mode') && generatePositionButton.dataset.starting !== '1' && (generatePositionButton.disabled || generatePositionButton.textContent.trim() !== 'Generate position')) {\\n      window.queueMicrotask(setGeneratePositionButtonReady);\\n    }\\n  });\\n  keepGeneratePositionReady.observe(generatePositionButton, { attributes: true, childList: true, subtree: true });\\n}\\nstockfishEngine?.ready?.then(setGeneratePositionButtonReady).catch((error) => {\\n  stockfishLoadError = error;\\n  console.warn('Stockfish is still unavailable; K-Mate will retain its fallback play.', error);\\n  setGeneratePositionButtonReady();\\n});",'''
+          if old not in text:
+              raise SystemExit('Generate-position replacement marker missing')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Apply K-Mate v40
+        run: |
+          python -m py_compile .github/scripts/kmate_v40_warm_setup_start_navigation.py
+          python .github/scripts/kmate_v40_warm_setup_start_navigation.py
+          rm -f .github/workflows/kmate-v40-warm-setup-start-navigation.yml
+          rm -f .github/workflows/kmate-v40-warm-setup-start-navigation-r2.yml
+          rm -f .github/workflows/kmate-v39-setup-principles-cleanup.yml
+          rm -f .github/workflows/kmate-v39-setup-principles-cleanup-r2.yml
+          rm -f .github/workflows/kmate-v39-setup-principles-cleanup-r3.yml
+          rm -f .github/workflows/kmate-v39-setup-principles-cleanup-r4.yml
+          rm -f .github/workflows/kmate-v38-setup-visual-redesign.yml
+          rm -f .github/workflows/kmate-v37-true-noscroll-shell.yml
+
+      - name: Validate assembled application
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{number}.txt').read_text() for number in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v40.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v40.js
+          grep -q "version: '40.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+          grep -q "keepGeneratePositionReady" kmate-trainer/app-v7-part6.txt
+          grep -q "function handleGeneratePosition" kmate-trainer/app-v7-part1.txt
+          grep -q "function goHomeFromReview" kmate-trainer/app-v7-part1.txt
+          grep -q 'id="replayHomeButton"' kmate-trainer/index.html
+          grep -q 'id="replayNewPositionButton"' kmate-trainer/index.html
+          ! grep -q "SpeechSynthesisUtterance('Coach voice ready.')" kmate-trainer/app-v7-part1.txt
+
+      - name: Install Playwright and serve app
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          BROWSER_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$BROWSER_PATH"
+          echo "BROWSER_PATH=$BROWSER_PATH" >> "$GITHUB_ENV"
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v40-r3-server.log 2>&1 &
+
+      - name: Make start-button test fail fast with diagnostics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/kmate_v40_verify.js')
+          text = path.read_text()
+          old = '''  await page.waitForFunction(() => {
+    const button = document.querySelector('#startButton');
+    return button && !button.disabled && button.textContent.includes('Generate position');
+  });'''
+          new = '''  await page.waitForTimeout(500);
+  const startButtonState = await page.evaluate(() => {
+    const button = document.querySelector('#startButton');
+    return { exists: Boolean(button), disabled: button?.disabled, text: button?.textContent?.trim(), starting: button?.dataset?.starting, html: button?.outerHTML };
+  });
+  console.log('START_BUTTON_STATE', JSON.stringify(startButtonState));
+  assert.ok(startButtonState.exists && !startButtonState.disabled && startButtonState.text === 'Generate position', JSON.stringify(startButtonState));'''
+          if old not in text:
+              raise SystemExit('Desktop start-button wait marker missing')
+          text = text.replace(old, new, 1)
+          old_mobile = "  await page.waitForFunction(() => !document.querySelector('#startButton').disabled);"
+          new_mobile = "  await page.waitForTimeout(300);\n  assert.ok(!document.querySelector('#startButton').disabled, await page.evaluate(() => document.querySelector('#startButton').outerHTML));"
+          if old_mobile not in text:
+              raise SystemExit('Mobile start-button wait marker missing')
+          path.write_text(text.replace(old_mobile, new_mobile, 1))
+          PY
+
+      - name: Verify setup, immediate play, and post-game navigation
+        run: node .github/scripts/kmate_v40_verify.js
+
+      - name: Restore test helper, commit, and publish K-Mate v40
+        run: |
+          git restore .github/scripts/kmate_v40_verify.js
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A kmate-trainer .github/scripts/kmate_v40_warm_setup_start_navigation.py .github/workflows
+          git commit -m 'K-Mate v40: simplify setup, fix position start, and add review exits'
+          git pull --rebase origin main
+          git push
