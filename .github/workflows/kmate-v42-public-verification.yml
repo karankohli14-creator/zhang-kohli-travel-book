@@ -1,0 +1,61 @@
+name: Verify deployed K-Mate v42 interaction
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v42-public-verification.yml'
+permissions:
+  contents: write
+jobs:
+  public-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          BROWSER_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$BROWSER_PATH"
+          echo "BROWSER_PATH=$BROWSER_PATH" >> "$GITHUB_ENV"
+      - name: Wait for the fresh v42 path
+        run: |
+          URL='https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-v42/'
+          for attempt in $(seq 1 90); do
+            if curl -fsSL "${URL}?verify=${GITHUB_RUN_ID}-${attempt}" | grep -q 'app-v7.js?v=42.0.0'; then
+              exit 0
+            fi
+            sleep 4
+          done
+          exit 1
+      - name: Verify the frozen coaching screen is gone
+        env:
+          KMATE_BASE_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-v42/
+        run: node .github/scripts/kmate_v42_verify.js
+      - name: Publish verification marker
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          from datetime import datetime, timezone
+          Path('kmate-v42').mkdir(exist_ok=True)
+          Path('kmate-v42/verified.json').write_text(json.dumps({
+            'version': '42.0-commercial-beta',
+            'verified_at': datetime.now(timezone.utc).isoformat(),
+            'checks': [
+              'desktop coaching controls remain clickable',
+              'mobile coaching controls remain clickable',
+              'Back and Next navigation work by physical coordinates',
+              'Generate position opens positional play',
+              'pregame principle route opens the board',
+              'corrupt legacy generated-position cache is repaired'
+            ]
+          }, indent=2))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add kmate-v42/verified.json
+          git commit -m 'Verify deployed K-Mate v42 setup interaction'
+          git pull --rebase origin main
+          git push
