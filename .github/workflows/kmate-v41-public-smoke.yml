@@ -1,0 +1,96 @@
+name: K-Mate v41 public Generate position smoke test
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v41-public-smoke.yml'
+permissions:
+  contents: read
+jobs:
+  public-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          BROWSER_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$BROWSER_PATH"
+          echo "BROWSER_PATH=$BROWSER_PATH" >> "$GITHUB_ENV"
+      - name: Verify the deployed v41 button opens positional play
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+          const APP_URL = `https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/?v=20260830-41&smoke=${Date.now()}`;
+
+          function speechMock() {
+            const voices = [{ name: 'Serena Enhanced', lang: 'en-GB', voiceURI: 'serena-enhanced', localService: true }];
+            class TestUtterance { constructor(text) { this.text = text; this.onstart = null; this.onend = null; this.onerror = null; } }
+            const synth = { speaking: false, pending: false, getVoices: () => voices, addEventListener: () => {}, resume() {}, cancel() {}, speak(u) { u.onstart?.(); setTimeout(() => u.onend?.(), 20); } };
+            Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: synth });
+            Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: TestUtterance });
+          }
+
+          function corruptLegacyCache() {
+            localStorage.setItem('kmate-generation-tree-v23', JSON.stringify([
+              { id: 'legacy-bad-1', fen: 'not a fen', seedId: 'london-mid-1600', phase: 'middlegame', opening: 'London System', rating: 1600, depth: 9 },
+              { id: 'legacy-bad-2', fen: '8/8/8/8/8/8/8/8 w - - 0 1', seedId: 'london-mid-1600', phase: 'middlegame', opening: 'London System', rating: 1600, depth: 9 },
+            ]));
+          }
+
+          async function run(viewport, touch = false) {
+            const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_PATH, args: ['--no-sandbox'] });
+            const context = await browser.newContext({
+              viewport,
+              userAgent: touch
+                ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+                : undefined,
+            });
+            await context.addInitScript(speechMock);
+            await context.addInitScript(corruptLegacyCache);
+            const page = await context.newPage();
+            page.setDefaultTimeout(90000);
+            const errors = [];
+            page.on('pageerror', error => errors.push(error.stack || error.message));
+            page.on('console', message => {
+              if (message.type() === 'error' && !message.text().includes('404')) errors.push(message.text());
+            });
+            await page.goto(APP_URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1' && window.__KMATE__?.version === '41.0-commercial-beta');
+            await page.click('#introProceedButton');
+            await page.click('#challengeNextButton');
+            await page.waitForFunction(() => window.__KMATE__.state().setupFlow.page === 'coach');
+            if (touch) {
+              await page.evaluate(() => document.querySelector('#startButton').dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true })));
+            } else {
+              await page.click('#startButton');
+            }
+            await page.waitForFunction(() => document.body.classList.contains('game-mode') && !document.querySelector('#gameView').hidden && window.__KMATE__.state().current);
+            await page.waitForFunction(() => document.querySelectorAll('#board .piece').length >= 2);
+            const snapshot = await page.evaluate(() => ({
+              version: window.__KMATE__.version,
+              current: window.__KMATE__.state().current,
+              pieces: document.querySelectorAll('#board .piece').length,
+              gameMode: document.body.classList.contains('game-mode'),
+              cacheRepair: window.__KMATE__.state().generator.cacheRepair,
+              start: window.__KMATE__.state().start,
+              error: document.querySelector('#loadError')?.textContent?.trim() || '',
+            }));
+            console.log(JSON.stringify({ viewport, touch, snapshot }, null, 2));
+            assert.strictEqual(snapshot.version, '41.0-commercial-beta', JSON.stringify(snapshot));
+            assert.ok(snapshot.current && snapshot.gameMode && snapshot.pieces >= 2, JSON.stringify(snapshot));
+            assert.ok(snapshot.cacheRepair.removed >= 2, JSON.stringify(snapshot));
+            assert.strictEqual(snapshot.error, '', JSON.stringify(snapshot));
+            if (errors.length) throw new Error(errors.join('\n'));
+            await browser.close();
+            return snapshot;
+          }
+
+          (async () => {
+            const desktop = await run({ width: 1440, height: 900 }, false);
+            const mobile = await run({ width: 390, height: 844 }, true);
+            console.log(JSON.stringify({ ok: true, desktop, mobile }, null, 2));
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
