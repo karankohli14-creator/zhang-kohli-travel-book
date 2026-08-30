@@ -386,6 +386,10 @@ let coachAudioReady = false;
 let coachAudioDeviceState = 'untested';
 let coachAudioDeviceMessage = '';
 let liveCoachViewportRestoreSerial = 0;
+let coachSessionPrimeAttempted = false;
+let coachSessionPrimeUtterance = null;
+let gamePanelOpen = false;
+let gameBoardFitSerial = 0;
 let dragSourceSquare = null;
 let dragMoveCommitted = false;
 let dragSuppressClickUntil = 0;
@@ -865,7 +869,7 @@ function previewCaptureSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260830-32';
+  url.search = '?v=20260830-33';
   url.hash = '';
   return url.href;
 }
@@ -1074,13 +1078,116 @@ function updateControls(persist = true) {
   if (persist) saveStore();
 }
 
+function fitGameBoardToViewport() {
+  if (!document.body.classList.contains('game-mode')) return;
+  const stage = $('#boardCoachStage');
+  const wrap = stage?.querySelector('.live-boardwrap');
+  if (!stage || !wrap || stage.offsetParent === null) return;
+  const serial = ++gameBoardFitSerial;
+  window.requestAnimationFrame(() => {
+    if (serial !== gameBoardFitSerial || !document.body.classList.contains('game-mode')) return;
+    const style = getComputedStyle(stage);
+    const coachOpen = Boolean(liveCoachState.awaiting || liveCoachState.open || $('#gameView')?.classList.contains('live-coach-active'));
+    const stacked = coachOpen && window.matchMedia('(max-width:760px)').matches;
+    const gap = Number.parseFloat(stacked ? style.rowGap : style.columnGap) || 0;
+    let availableWidth = Math.max(0, stage.clientWidth);
+    let availableHeight = Math.max(0, stage.clientHeight);
+    if (coachOpen) {
+      if (stacked) availableHeight = Math.max(0, (availableHeight - gap) / 2);
+      else availableWidth = Math.max(0, (availableWidth - gap) / 2);
+    }
+    const size = Math.max(120, Math.floor(Math.min(availableWidth, availableHeight)));
+    wrap.style.setProperty('--kmate-board-size', `${size}px`);
+  });
+}
+
+function syncGameViewportLayout() {
+  const viewportHeight = Math.max(320, Math.round(window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 0));
+  document.documentElement.style.setProperty('--kmate-game-height', `${viewportHeight}px`);
+  fitGameBoardToViewport();
+}
+
+function setGamePanelOpen(open = !gamePanelOpen) {
+  const narrow = window.matchMedia('(max-width:980px)').matches;
+  gamePanelOpen = Boolean(open && narrow && document.body.classList.contains('game-mode'));
+  document.body.classList.toggle('game-panel-open', gamePanelOpen);
+  const button = $('#panelToggleButton');
+  if (button) {
+    button.setAttribute('aria-expanded', String(gamePanelOpen));
+    button.title = gamePanelOpen ? 'Close game details' : 'Game details';
+  }
+  const backdrop = $('#gamePanelBackdrop');
+  if (backdrop) backdrop.hidden = !gamePanelOpen;
+  fitGameBoardToViewport();
+}
+
+function fullscreenOrFocusActive() {
+  return Boolean(document.fullscreenElement || document.body.classList.contains('board-focus'));
+}
+
+function updateFullscreenControl() {
+  const button = $('#fullscreenButton');
+  if (!button) return;
+  const active = fullscreenOrFocusActive();
+  button.classList.toggle('active', active);
+  button.setAttribute('aria-pressed', String(active));
+  button.setAttribute('aria-label', active ? 'Exit full screen' : 'Enter full screen');
+  button.title = active ? 'Exit full screen' : 'Enter full screen';
+}
+
+async function toggleGameFullscreen() {
+  if (!document.body.classList.contains('game-mode')) return;
+  if (fullscreenOrFocusActive()) {
+    if (document.fullscreenElement) {
+      try { await document.exitFullscreen?.(); } catch {}
+    }
+    document.body.classList.remove('board-focus');
+    updateFullscreenControl();
+    syncGameViewportLayout();
+    return;
+  }
+
+  setGamePanelOpen(false);
+  document.body.classList.add('board-focus');
+  updateFullscreenControl();
+  syncGameViewportLayout();
+  try {
+    if (document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    }
+  } catch (error) {
+    console.info('Native full screen was unavailable; K-Mate kept the expanded focus layout.', error);
+    toast('Board focus mode is on');
+  }
+  updateFullscreenControl();
+  syncGameViewportLayout();
+}
+
+function handleGameFullscreenChange() {
+  if (!document.fullscreenElement) document.body.classList.remove('board-focus');
+  updateFullscreenControl();
+  syncGameViewportLayout();
+}
+
 function showView(view) {
+  const gameMode = view === 'game';
+  if (!gameMode) {
+    setGamePanelOpen(false);
+    document.body.classList.remove('board-focus');
+    if (document.fullscreenElement) {
+      try { document.exitFullscreen?.().catch(() => {}); } catch {}
+    }
+  }
+  document.documentElement.classList.toggle('game-mode', gameMode);
+  document.body.classList.toggle('game-mode', gameMode);
   $('#setupView').hidden = view !== 'setup';
-  $('#gameView').hidden = view !== 'game';
+  $('#gameView').hidden = !gameMode;
   $('#insightsView').hidden = view !== 'insights';
-  $$('.navbutton').forEach((button) => button.classList.toggle('active', button.dataset.view === view || (view === 'game' && button.dataset.view === 'setup')));
+  $$('.navbutton').forEach((button) => button.classList.toggle('active', button.dataset.view === view || (gameMode && button.dataset.view === 'setup')));
   if (view === 'insights') renderInsights();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  syncGameViewportLayout();
+  updateFullscreenControl();
 }
 
 function navigate(view) {
@@ -2082,6 +2189,7 @@ function renderAll() {
   renderHintPanel();
   renderClocks();
   $('#takebackButton').disabled = thinking || finalized || principleReviewPending || liveCoachState.awaiting || liveCoachState.open || !game?.history().length;
+  fitGameBoardToViewport();
 }
 
 function setStatus(text, type = '') {
@@ -2978,6 +3086,15 @@ function renderCoachAudioDeviceStatus() {
     element.textContent = message;
     element.dataset.state = state;
   }
+  const gameButton = $('#gameCoachAudioButton');
+  if (gameButton) {
+    const ready = available && enabled && (coachAudioReady || state === 'ready' || state === 'speaking');
+    gameButton.classList.toggle('audio-ready', ready);
+    gameButton.classList.toggle('audio-error', state === 'error');
+    gameButton.textContent = ready ? '🔊' : '▶';
+    gameButton.title = ready ? 'Coach voice ready — play test' : 'Test coach voice';
+    gameButton.setAttribute('aria-label', gameButton.title);
+  }
 }
 
 function primeCoachAudioFromGesture() {
@@ -3078,7 +3195,48 @@ function testCoachVoice() {
   return true;
 }
 
+function primeCoachVoiceOnSessionStart() {
+  if (coachSessionPrimeAttempted || settings.coachVoice === false || !coachVoiceAvailable()) return false;
+  coachSessionPrimeAttempted = true;
+  primeCoachAudioFromGesture();
+  const synth = window.speechSynthesis;
+  const utterance = new SpeechSynthesisUtterance('Coach voice ready.');
+  const voice = chooseCoachVoice();
+  utterance.lang = voice?.lang || 'en-GB';
+  utterance.rate = 0.98;
+  utterance.pitch = 1;
+  utterance.volume = 0.92;
+  if (voice) utterance.voice = voice;
+  utterance.onstart = () => {
+    coachSessionPrimeUtterance = utterance;
+    coachAudioReady = true;
+    setCoachAudioDeviceStatus(`Coach voice ready${voice?.name ? ` · ${voice.name}` : ''}.`, 'speaking');
+  };
+  utterance.onend = () => {
+    coachSessionPrimeUtterance = null;
+    coachAudioReady = true;
+    setCoachAudioDeviceStatus(`Coach audio ready${voice?.name ? ` · ${voice.name}` : ''}.`, 'ready');
+  };
+  utterance.onerror = (event) => {
+    coachSessionPrimeUtterance = null;
+    coachSessionPrimeAttempted = false;
+    setCoachAudioDeviceStatus(`The Mac blocked the automatic voice check${event?.error ? ` (${event.error})` : ''}. Press the 🔊 coach button once.`, 'error');
+  };
+  coachSessionPrimeUtterance = utterance;
+  try {
+    synth.resume?.();
+    synth.speak(utterance);
+  } catch (error) {
+    coachSessionPrimeUtterance = null;
+    coachSessionPrimeAttempted = false;
+    setCoachAudioDeviceStatus('The Mac blocked the automatic voice check. Press the 🔊 coach button once.', 'error');
+    console.warn('Session coach voice prime failed.', error);
+  }
+  return true;
+}
+
 function captureBoardViewportAnchor() {
+  if (document.body.classList.contains('game-mode')) return { locked: true, top: 0, scrollY: 0, visible: true };
   const board = $('#board');
   if (!board || board.offsetParent === null) return null;
   const rect = board.getBoundingClientRect();
@@ -3092,6 +3250,11 @@ function captureBoardViewportAnchor() {
 
 function restoreBoardViewportAnchor(anchor) {
   if (!anchor) return;
+  if (anchor.locked || document.body.classList.contains('game-mode')) {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    fitGameBoardToViewport();
+    return;
+  }
   const serial = ++liveCoachViewportRestoreSerial;
   const restore = () => {
     if (serial !== liveCoachViewportRestoreSerial) return;
@@ -3880,10 +4043,10 @@ function playLiveCoachCue() {
   if (!ctx) return false;
   try { ctx.resume?.(); } catch {}
   const now = ctx.currentTime + 0.008;
-  scheduleChessKnock(ctx, now, 0.12, 0.022, 3100);
-  scheduleChessKnock(ctx, now + 0.070, 0.16, 0.028, 2500);
-  scheduleChessTone(ctx, now + 0.095, 520, 690, 0.048, 0.095, 'sine');
-  scheduleChessTone(ctx, now + 0.178, 690, 820, 0.040, 0.105, 'sine');
+  scheduleChessKnock(ctx, now, 0.18, 0.022, 3300);
+  scheduleChessKnock(ctx, now + 0.070, 0.24, 0.030, 2700);
+  scheduleChessTone(ctx, now + 0.095, 520, 690, 0.065, 0.095, 'sine');
+  scheduleChessTone(ctx, now + 0.178, 690, 820, 0.055, 0.105, 'sine');
   lastSoundKind = 'coach';
   return true;
 }
@@ -4057,10 +4220,12 @@ function handleLiveCoachVoiceSetting(event) {
 
 function setLiveCoachBoardOpen(open) {
   const visible = Boolean(open);
+  if (visible) setGamePanelOpen(false);
   const panel = $('#liveCoachBoardPanel');
   if (panel) panel.hidden = !visible;
   $('#gameView')?.classList.toggle('live-coach-active', visible);
   $('#boardCoachStage')?.classList.toggle('coach-open', visible);
+  syncGameViewportLayout();
 }
 
 function renderLiveCoachPending(record) {
@@ -5657,10 +5822,21 @@ updateSoundToggle();
 
 $$('[data-view]').forEach((button) => button.addEventListener('click', () => navigate(button.dataset.view)));
   $('#brandButton').addEventListener('click', () => navigate('setup'));
-  $('#startButton').addEventListener('click', () => startPosition());
+  $('#startButton').addEventListener('click', () => { primeCoachVoiceOnSessionStart(); startPosition(); });
   $('#backButton').addEventListener('click', () => navigate('setup'));
   $('#flipButton').addEventListener('click', () => {
     orientation = orientation === 'w' ? 'b' : 'w';
     renderBoard();
+  });
+  $('#gameCoachAudioButton')?.addEventListener('click', testCoachVoice);
+  $('#fullscreenButton')?.addEventListener('click', toggleGameFullscreen);
+  $('#panelToggleButton')?.addEventListener('click', () => setGamePanelOpen());
+  $('#gamePanelBackdrop')?.addEventListener('click', () => setGamePanelOpen(false));
+  $('#board')?.addEventListener('pointerdown', primeCoachAudioFromGesture, { passive: true });
+  window.addEventListener('resize', syncGameViewportLayout, { passive: true });
+  window.visualViewport?.addEventListener?.('resize', syncGameViewportLayout, { passive: true });
+  document.addEventListener('fullscreenchange', handleGameFullscreenChange);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && gamePanelOpen) setGamePanelOpen(false);
   });
   $

@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=32.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=33.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -224,7 +224,12 @@
             <h1 id="positionTitle">Position play</h1>
           </div>
         </div>
-        <button class="roundbtn" id="flipButton" type="button" aria-label="Flip board">⇅</button>
+        <div class="play-actions" aria-label="Game view controls">
+          <button class="roundbtn game-coach-audio-button" id="gameCoachAudioButton" type="button" aria-label="Test coach voice" title="Test coach voice">🔊</button>
+          <button class="roundbtn panel-toggle-button" id="panelToggleButton" type="button" aria-label="Open game details" aria-expanded="false" title="Game details">☰</button>
+          <button class="roundbtn fullscreen-button" id="fullscreenButton" type="button" aria-label="Enter full screen" aria-pressed="false" title="Enter full screen">⛶</button>
+          <button class="roundbtn" id="flipButton" type="button" aria-label="Flip board" title="Flip board">⇅</button>
+        </div>
       </div>
 
       <div class="playgrid">
@@ -346,6 +351,7 @@
             <button class="btn primary tool wide" id="changeSetupButton" type="button">Change setup</button>
           </div>
         </aside>
+        <button class="game-panel-backdrop" id="gamePanelBackdrop" type="button" aria-label="Close game details" hidden></button>
       </div>
     </section>
 
@@ -673,6 +679,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=32.0.0"></script>
+  <script type="module" src="./app-v7.js?v=33.0.0"></script>
 </body>
 </html>

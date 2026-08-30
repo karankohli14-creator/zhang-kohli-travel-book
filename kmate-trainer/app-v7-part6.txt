@@ -87,6 +87,7 @@ populateOpenings();
 populateSoundProfiles();
 applySettingsToControls();
 bindControls();
+syncGameViewportLayout();
 renderSummary();
 renderInsights();
 updateCoachVoiceControls();
@@ -94,7 +95,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '32.0-commercial-beta',
+  version: '33.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -123,7 +124,8 @@ window.__KMATE__ = {
     ratedMoveSquare: ratedMoveSquare ? { ...ratedMoveSquare } : null,
     hint: { status: hintState.status, level: hintState.level, automatic: Boolean(settings.autoHints), candidate: hintState.level >= 2 ? hintState.candidate : null },
     sound: { enabled: soundEnabled(), theme: selectedSoundTheme(), unlocked: htmlAudioUnlocked, audibleConfirmed: soundAudiblyConfirmed, backend: soundPlaybackBackend, lastKind: lastSoundKind },
-    coachAudio: { ready: coachAudioReady, state: coachAudioDeviceState, message: coachAudioDeviceMessage, macLike: isMacLikeDevice(), selectedVoice: chooseCoachVoice()?.name || null },
+    coachAudio: { ready: coachAudioReady, state: coachAudioDeviceState, message: coachAudioDeviceMessage, macLike: isMacLikeDevice(), selectedVoice: chooseCoachVoice()?.name || null, sessionPrimeAttempted: coachSessionPrimeAttempted },
+    layout: { gameMode: document.body.classList.contains('game-mode'), focusMode: document.body.classList.contains('board-focus'), fullscreen: Boolean(document.fullscreenElement), panelOpen: gamePanelOpen, viewportHeight: window.visualViewport?.height || window.innerHeight, documentScrollHeight: document.documentElement.scrollHeight, scrollY: window.scrollY },
     engine: 'Stockfish 18 lite single-threaded',
     reviewEngine: 'Equal-time root-restricted Stockfish 18 review',
     commercialBeta: true,
@@ -137,7 +139,8 @@ window.__KMATE__ = {
 if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
   window.__KMATE__.test = {
     testCoachVoice: () => testCoachVoice(),
-    boardViewport: () => { const rect = $('#board')?.getBoundingClientRect(); return rect ? { top: rect.top, bottom: rect.bottom, scrollY: window.scrollY } : null; },
+    boardViewport: () => { const rect = $('#board')?.getBoundingClientRect(); return rect ? { top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height, scrollY: window.scrollY } : null; },
+    fitViewport: () => { syncGameViewportLayout(); return window.__KMATE__.state().layout; },
     forceTimeout: (color = userColor) => {
       if (!game || finalized) return false;
       clocks[color] = 0;
