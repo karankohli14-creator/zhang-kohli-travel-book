@@ -936,3 +936,251 @@ body.dragging-piece #board .sq.drag-target{cursor:copy}
   .live-coach-principle-note{font-size:6.5px!important}
 }
 /* End K-Mate v31 */
+
+
+/* K-Mate v32 — stable Live Coach viewport and Mac coach-audio diagnostics */
+.board-coach-stage,.live-coach-board-panel,.live-coach-actions{overflow-anchor:none}
+.coach-audio-check{display:flex;align-items:center;gap:10px;margin:-2px 0 14px;padding:9px 10px;border:1px solid #ffffff16;border-radius:12px;background:#ffffff05}
+.coach-audio-test{flex:0 0 auto;min-width:142px}
+#coachVoiceSetupStatus,.coach-replay-audio-status{color:#aebbb1;font-size:10px;line-height:1.35}
+#coachVoiceSetupStatus[data-state="ready"],.coach-replay-audio-status[data-state="ready"]{color:#9be9aa}
+#coachVoiceSetupStatus[data-state="speaking"],.coach-replay-audio-status[data-state="speaking"]{color:#a9d5ff}
+#coachVoiceSetupStatus[data-state="error"],.coach-replay-audio-status[data-state="error"]{color:#ffb3aa}
+#coachVoiceSetupStatus[data-state="muted"],.coach-replay-audio-status[data-state="muted"]{color:#d8bd78}
+.coach-replay-audio-status{margin:7px 0 3px;padding:7px 9px;border:1px solid #ffffff13;border-radius:9px;background:#ffffff05}
+.live-coach-active .boardcol{overflow-anchor:none}
+.live-coach-active .board-coach-stage{scroll-margin-top:86px}
+@media(max-width:560px){
+  .coach-audio-check{align-items:flex-start;flex-direction:column;gap:7px}
+  .coach-audio-test{width:100%}
+}
+/* End K-Mate v32 */
+
+
+/* K-Mate v33 — viewport-fitted board, true full screen, and Mac audio controls */
+html.game-mode,body.game-mode{width:100%;height:100%;overflow:hidden!important;overscroll-behavior:none}
+body.game-mode .appbar{display:none}
+body.game-mode .shell{width:100%;height:var(--kmate-game-height,100dvh);margin:0;padding:0;overflow:hidden}
+body.game-mode #gameView{display:grid;grid-template-rows:auto minmax(0,1fr);gap:6px;width:100%;height:100%;min-height:0;padding:max(6px,env(safe-area-inset-top)) 10px max(6px,env(safe-area-inset-bottom));overflow:hidden}
+body.game-mode #gameView[hidden]{display:none!important}
+body.game-mode .playtop{min-height:42px;margin:0;padding:0 2px}
+body.game-mode .playtop h1{margin-top:2px;font-size:clamp(20px,2.35vw,31px);line-height:1.05}
+body.game-mode .playtop .eyebrow{font-size:9px;letter-spacing:.11em}
+.play-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px}
+body.game-mode .roundbtn{width:40px;height:40px;border-radius:12px;font-size:18px}
+.panel-toggle-button{display:none}
+.fullscreen-button.active{border-color:#b9f47488;background:#b9f4741b;color:var(--accent);box-shadow:inset 0 0 0 1px #b9f47424}
+.game-coach-audio-button.audio-ready{border-color:#80d8a477;background:#80d8a418;color:#c8f8dd;box-shadow:0 0 0 2px #80d8a40d}
+.game-coach-audio-button.audio-error{border-color:#ff8e8670;background:#ff8e8613;color:#ffc0ba}
+
+body.game-mode .playgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,340px);gap:10px;align-items:stretch;width:100%;height:100%;min-height:0;overflow:hidden}
+body.game-mode .boardcol{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden}
+body.game-mode .playerbar{min-height:48px;padding:5px 9px}
+body.game-mode .avatar{width:34px;height:34px;border-radius:10px;font-size:22px}
+body.game-mode .identity{gap:7px}
+body.game-mode .identity small{font-size:9px}
+body.game-mode .clock-wrap{gap:6px}
+body.game-mode .turnpill{padding:4px 7px;font-size:9px}
+body.game-mode .materialpill{min-width:36px;padding:4px 6px;font-size:9px}
+body.game-mode .clock{min-width:78px;padding:5px 8px;font-size:21px}
+body.game-mode .board-hint{min-height:0;padding:6px 9px}
+body.game-mode .board-hint .hint-head b{font-size:11px}
+body.game-mode .board-hint p{margin-top:3px!important;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:9.5px!important;line-height:1.25}
+body.game-mode .board-hint .hint-mode-label{display:none}
+body.game-mode .hint-action{min-height:29px;padding:0 8px;font-size:9px}
+body.game-mode .board-coach-stage{display:grid;grid-template-columns:minmax(0,1fr);place-items:center;width:100%;height:100%;min-width:0;min-height:0;padding:4px;overflow:hidden}
+body.game-mode .live-boardwrap{display:flex;align-items:center;justify-content:center;width:var(--kmate-board-size,min(100%,70dvh));height:var(--kmate-board-size,min(100%,70dvh));max-width:100%;max-height:100%;padding:3px;border:1px solid #ffffff18;border-radius:12px;background:#0c140e;box-shadow:0 18px 52px #0009}
+body.game-mode .live-boardwrap #board{width:100%;height:100%;aspect-ratio:1;border-radius:8px}
+body.game-mode .status{min-height:34px;margin-top:4px;padding:5px 9px;font-size:10px}
+body.game-mode .statusdot{width:7px;height:7px}
+
+body.game-mode .sidepanel{position:static;display:flex;height:100%;min-height:0;flex-direction:column;overflow:hidden;border-radius:16px}
+body.game-mode .sidebody{flex:1 1 auto;min-height:0;padding:14px;overflow:auto;overscroll-behavior:contain}
+body.game-mode .sidepanel h2{margin:8px 0 4px;font-size:20px}
+body.game-mode .sidepanel p{font-size:11px;line-height:1.38}
+body.game-mode .tag-row{margin-top:8px}
+body.game-mode .brief{margin-top:8px;padding:10px;border-radius:12px}
+body.game-mode .live-quality{margin-top:8px}
+body.game-mode .moves{display:flex;min-height:0;flex-direction:column;margin-top:9px}
+body.game-mode .movelist{min-height:72px;max-height:none;overflow:auto;overscroll-behavior:contain}
+body.game-mode .sessionnote{margin-top:7px;font-size:9px}
+body.game-mode .tools{flex:0 0 auto;padding:8px;gap:6px}
+body.game-mode .tool{min-height:36px;font-size:10px}
+.game-panel-backdrop{display:none}
+
+body.game-mode .live-coach-active .playgrid{grid-template-columns:minmax(0,1fr)}
+body.game-mode .live-coach-active .sidepanel{display:none}
+body.game-mode .live-coach-active .boardcol{max-width:none}
+body.game-mode .live-coach-active .board-coach-stage{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:8px;place-items:stretch;padding:5px}
+body.game-mode .live-coach-active .live-boardwrap{align-self:center;justify-self:center}
+body.game-mode .live-coach-active .live-coach-board-panel{width:100%;height:100%;min-height:0;max-height:none;padding:12px;overflow:auto;overscroll-behavior:contain}
+body.game-mode .live-coach-active .hint-card{display:none}
+body.game-mode .live-coach-active .live-coach-actions{bottom:-12px}
+
+body.game-mode.board-focus .playgrid{grid-template-columns:minmax(0,1fr)}
+body.game-mode.board-focus .sidepanel{display:none}
+body.game-mode.board-focus .boardcol{max-width:none}
+body.game-mode.board-focus .playtop h1{font-size:22px}
+
+@media(max-width:980px){
+  body.game-mode .playgrid{grid-template-columns:minmax(0,1fr)}
+  body.game-mode .panel-toggle-button{display:grid}
+  body.game-mode .sidepanel{position:fixed;top:8px;right:8px;bottom:8px;z-index:76;width:min(360px,calc(100vw - 24px));height:auto;transform:translateX(calc(100% + 24px));transition:transform .2s ease;box-shadow:0 28px 90px #000d}
+  body.game-mode.game-panel-open .sidepanel{transform:translateX(0)}
+  body.game-mode .game-panel-backdrop{position:fixed;inset:0;z-index:75;border:0;background:#0009;cursor:pointer}
+  body.game-mode.game-panel-open .game-panel-backdrop{display:block}
+}
+
+@media(max-width:760px){
+  body.game-mode #gameView{gap:4px;padding:max(4px,env(safe-area-inset-top)) 5px max(4px,env(safe-area-inset-bottom))}
+  body.game-mode .playtop{min-height:38px}
+  body.game-mode .playtop .left{gap:6px}
+  body.game-mode .playtop h1{font-size:17px}
+  body.game-mode .playtop .eyebrow{font-size:7px}
+  body.game-mode .roundbtn{width:34px;height:34px;border-radius:10px;font-size:15px}
+  body.game-mode .play-actions{gap:3px}
+  body.game-mode .boardcol{grid-template-rows:auto auto minmax(0,1fr) auto}
+  body.game-mode .playerbar{min-height:43px;padding:4px 6px}
+  body.game-mode .avatar{width:30px;height:30px;font-size:19px}
+  body.game-mode .identity b{font-size:11px}
+  body.game-mode .identity small{display:none}
+  body.game-mode .clock{min-width:66px;padding:4px 6px;font-size:17px}
+  body.game-mode .materialpill{min-width:30px;font-size:8px}
+  body.game-mode .turnpill{display:none}
+  body.game-mode .board-hint{padding:4px 6px}
+  body.game-mode .board-hint p{display:none}
+  body.game-mode .board-hint .hint-head b{font-size:9.5px}
+  body.game-mode .hint-action{min-height:25px;font-size:8px}
+  body.game-mode .board-coach-stage{padding:2px}
+  body.game-mode .live-boardwrap{padding:2px;border-radius:8px}
+  body.game-mode .status{display:none}
+  body.game-mode .live-coach-active .boardcol{grid-template-rows:auto minmax(0,1fr) auto}
+  body.game-mode .live-coach-active .board-coach-stage{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:5px;padding:3px}
+  body.game-mode .live-coach-active .live-coach-board-panel{padding:8px 8px 0;border-radius:11px}
+  body.game-mode .live-coach-active .live-coach-summary{max-height:42px;font-size:8px}
+  body.game-mode .live-coach-active .live-coach-comparison p{max-height:58px;font-size:7.6px}
+  body.game-mode .live-coach-active .live-coach-actions{margin-left:-8px;margin-right:-8px;padding:7px 8px 6px}
+}
+
+@media(max-height:700px) and (min-width:761px){
+  body.game-mode .playtop{min-height:36px}
+  body.game-mode .playerbar{min-height:42px}
+  body.game-mode .avatar{width:30px;height:30px;font-size:20px}
+  body.game-mode .clock{font-size:18px}
+  body.game-mode .board-hint{padding:4px 8px}
+  body.game-mode .board-hint p{display:none}
+  body.game-mode .status{display:none}
+  body.game-mode .boardcol{grid-template-rows:auto auto minmax(0,1fr) auto}
+}
+/* End K-Mate v33 */
+
+
+/* K-Mate v34 — bad-move-only Live Coach and concrete tactical lines */
+.live-coach-lines-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px}
+.live-coach-lines-grid .live-coach-line-wrap{min-width:0;margin-top:0}
+.played-consequence-line{border-color:#ff9d4d48!important;background:linear-gradient(145deg,#ff9d4d10,#ffffff03)!important}
+.best-consequence-line{border-color:#7cf58a48!important;background:linear-gradient(145deg,#7cf58a10,#ffffff03)!important}
+.live-coach-lines-grid .live-coach-line{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.55;overflow-wrap:anywhere}
+body.game-mode .live-coach-active .live-coach-lines-grid{position:relative}
+@media(max-width:560px){
+  .live-coach-lines-grid{grid-template-columns:minmax(0,1fr);gap:5px}
+  body.game-mode .live-coach-active .live-coach-lines-grid .live-coach-line-wrap{padding:6px}
+  body.game-mode .live-coach-active .live-coach-lines-grid .live-coach-line{font-size:7.6px;line-height:1.35}
+}
+/* End K-Mate v34 */
+
+
+/* K-Mate v35 — keep pieces visible and the complete live review on one screen */
+body.game-mode .live-coach-active #board .piece.staunton-piece,
+body.game-mode .live-coach-active #board .piece.vector-piece{
+  position:relative!important;
+  z-index:12!important;
+  opacity:1!important;
+  visibility:visible!important;
+  filter:none;
+}
+body.game-mode .live-coach-active #board .piece.staunton-piece svg,
+body.game-mode .live-coach-active #board .piece.vector-piece svg{
+  position:relative!important;
+  z-index:12!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+/* Do not turn highlighted destination squares into stacking contexts above pieces. */
+body.game-mode .live-coach-active #board .sq.live-played-to,
+body.game-mode .live-coach-active #board .sq.live-best-to{z-index:auto!important}
+body.game-mode .live-coach-active .live-coach-board-arrows{z-index:6!important}
+body.game-mode .live-coach-active .live-coach-square-label{z-index:15!important}
+body.game-mode .live-coach-active .live-coach-board-arrows .played-arrow{stroke-width:2.15;stroke-dasharray:4 2.4;opacity:.88}
+body.game-mode .live-coach-active .live-coach-board-arrows .best-arrow{stroke-width:2.35;opacity:.9}
+
+/* The live review removes duplicated/secondary material so the board, exact reason,
+   best move, both concrete lines, and Resume button all remain visible together. */
+body.game-mode .live-coach-active .live-coach-summary,
+body.game-mode .live-coach-active .live-coach-audio-status,
+body.game-mode .live-coach-active .live-coach-principles{display:none!important}
+body.game-mode .live-coach-active .live-coach-board-panel{
+  overflow:hidden!important;
+  padding:9px!important;
+  gap:0!important;
+}
+body.game-mode .live-coach-active .live-coach-head{gap:7px}
+body.game-mode .live-coach-active .live-coach-head h2{margin-top:2px;font-size:16px;line-height:1.1}
+body.game-mode .live-coach-active .live-coach-pause-banner{margin:5px 0 3px;padding:5px 7px}
+body.game-mode .live-coach-active .live-coach-pause-banner span{font-size:7px}
+body.game-mode .live-coach-active .live-coach-pause-banner b{font-size:8px;line-height:1.15}
+body.game-mode .live-coach-active .live-coach-board-legend{margin:4px 0!important;gap:4px}
+body.game-mode .live-coach-active .live-coach-board-legend span{padding:3px 6px;font-size:7.5px;letter-spacing:0;text-transform:none}
+body.game-mode .live-coach-active .live-coach-board-legend b{font-weight:950}
+body.game-mode .live-coach-active .live-coach-comparison{grid-template-columns:1fr 1fr!important;gap:5px;margin-top:2px}
+body.game-mode .live-coach-active .live-coach-comparison article{padding:6px 7px!important;border-radius:9px}
+body.game-mode .live-coach-active .live-coach-comparison small{font-size:7px}
+body.game-mode .live-coach-active .live-coach-comparison b{margin-top:2px;font-size:15px}
+body.game-mode .live-coach-active .live-coach-comparison p{
+  margin-top:3px!important;
+  font-size:8.6px!important;
+  line-height:1.22!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+body.game-mode .live-coach-active .live-coach-lines-grid{grid-template-columns:1fr 1fr!important;gap:5px;margin-top:5px}
+body.game-mode .live-coach-active .live-coach-lines-grid .live-coach-line-wrap{padding:5px 6px!important;border-radius:8px}
+body.game-mode .live-coach-active .live-coach-lines-grid .live-coach-line-wrap>small{font-size:6.5px;letter-spacing:.035em}
+body.game-mode .live-coach-active .live-coach-lines-grid .live-coach-line{margin-top:2px;font-size:7.7px!important;line-height:1.25!important}
+body.game-mode .live-coach-active .live-coach-actions{
+  position:static!important;
+  margin-top:5px!important;
+  padding:0!important;
+  background:none!important;
+  box-shadow:none!important;
+}
+body.game-mode .live-coach-active .live-coach-actions .btn{min-height:30px!important;padding:0 6px!important;font-size:8px!important}
+
+@media(max-width:760px){
+  body.game-mode .live-coach-active .board-coach-stage{
+    grid-template-rows:minmax(0,.92fr) minmax(0,1.08fr)!important;
+    gap:4px!important;
+  }
+  body.game-mode .live-coach-active .live-boardwrap{
+    width:min(72vw,300px)!important;
+    max-height:100%!important;
+  }
+  body.game-mode .live-coach-active .live-coach-board-panel{padding:6px!important}
+  body.game-mode .live-coach-active .live-coach-head h2{font-size:13px}
+  body.game-mode .live-coach-active .live-coach-head .eyebrow{font-size:6px}
+  body.game-mode .live-coach-active .live-coach-pause-banner{display:none!important}
+  body.game-mode .live-coach-active .live-coach-board-legend span{padding:2px 4px;font-size:6.7px}
+  body.game-mode .live-coach-active .live-coach-comparison p{font-size:7.35px!important;line-height:1.16!important}
+  body.game-mode .live-coach-active .live-coach-comparison b{font-size:12px}
+  body.game-mode .live-coach-active .live-coach-lines-grid .live-coach-line{font-size:6.8px!important}
+  body.game-mode .live-coach-active .live-coach-actions .btn{min-height:27px!important;font-size:7px!important}
+  body.game-mode .live-coach-active #board .piece.staunton-piece{width:83%!important;height:83%!important}
+}
+@media(max-height:720px) and (max-width:760px){
+  body.game-mode .live-coach-active .live-boardwrap{width:min(62vw,230px)!important}
+  body.game-mode .live-coach-active .live-coach-board-legend{margin:2px 0!important}
+  body.game-mode .live-coach-active .live-coach-comparison p{font-size:6.8px!important;line-height:1.12!important}
+  body.game-mode .live-coach-active .live-coach-lines-grid{margin-top:3px}
+  body.game-mode .live-coach-active .live-coach-actions{margin-top:3px!important}
+}
+/* End K-Mate v35 */
