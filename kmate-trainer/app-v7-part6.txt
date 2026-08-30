@@ -318,9 +318,54 @@ stockfishEngine?.ready?.then(setGeneratePositionButtonReady).catch((error) => {
   setGeneratePositionButtonReady();
 });
 
+function chooseImmediateCuratedPosition() {
+  const targetRating = Number(settings.positionRating) || 1600;
+  const requestedPhase = settings.phase || 'middlegame';
+  const requestedOpening = settings.opening || 'all';
+  const all = Array.isArray(validPositions) && validPositions.length
+    ? validPositions.filter((position) => position && position.fen)
+    : (Array.isArray(POSITIONS) ? POSITIONS.filter((position) => position && position.fen) : []);
+  if (!all.length) throw new Error('No curated training position is available.');
+
+  let pool = all.filter((position) => position.phase === requestedPhase);
+  if (!pool.length) pool = all;
+  if (requestedPhase !== 'endgame' && requestedOpening !== 'all') {
+    const openingPool = pool.filter((position) => position.opening === requestedOpening);
+    if (openingPool.length) pool = openingPool;
+  }
+
+  let nearest = Infinity;
+  for (const position of pool) {
+    nearest = Math.min(nearest, Math.abs((Number(position.rating) || targetRating) - targetRating));
+  }
+  const shortlist = pool.filter((position) => Math.abs((Number(position.rating) || targetRating) - targetRating) <= nearest + 125);
+  const choices = shortlist.length ? shortlist : pool;
+  let index = 0;
+  try {
+    index = Math.max(0, Number(localStorage.getItem('kmate-v46-curated-index')) || 0);
+    localStorage.setItem('kmate-v46-curated-index', String(index + 1));
+  } catch {}
+  const anchor = choices[index % choices.length] || choices[0] || all[0];
+  if (!anchor) throw new Error('No curated training position is available.');
+  return {
+    ...anchor,
+    id: `safe-${anchor.id || 'position'}-${Date.now()}`,
+    seedId: anchor.id || null,
+    generated: false,
+    custom: false,
+    variationPlies: 0,
+  };
+}
+
+function startImmediateCuratedPosition(options = {}) {
+  queuedCustomPosition = chooseImmediateCuratedPosition();
+  return startPosition(options && typeof options === 'object' ? options : {});
+}
+
 window.__KMATE__ = {
   version: '41.0-commercial-beta',
   start: startPosition,
+  startSafe: startImmediateCuratedPosition,
   state: () => ({
     settings: { ...settings },
     current: current?.id || null,
