@@ -1,0 +1,216 @@
+name: K-Mate v43 non-blocking position start
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v43-nonblocking-position-start.yml'
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply K-Mate v43
+        run: |
+          python -m py_compile .github/scripts/kmate_v43_nonblocking_position_start.py
+          python .github/scripts/kmate_v43_nonblocking_position_start.py
+          rm -f .github/workflows/kmate-v41-webkit-freeze-diagnostic.yml
+          rm -f .github/workflows/kmate-v42-unfreeze-coaching-screen.yml
+          rm -f .github/workflows/kmate-v41-public-smoke.yml
+          rm -f .github/workflows/kmate-v41-resilient-position-start.yml
+
+      - name: Validate assembled application
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{number}.txt').read_text() for number in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v43.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v43.js
+          grep -q "version: '43.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+          grep -q "function fastBranchMove" kmate-trainer/app-v7-part1.txt
+          grep -q "const deadline = generationStarted + 38" kmate-trainer/app-v7-part1.txt
+          grep -q "async function handleGeneratePosition" kmate-trainer/app-v7-part1.txt
+          grep -q "requestAnimationFrame(() => requestAnimationFrame(resolve))" kmate-trainer/app-v7-part1.txt
+          grep -q "activationFallback = 'native-click'" kmate-trainer/app-v7-part1.txt
+          grep -q "nonmodal-app-screen" kmate-trainer/app-v7-part1.txt
+          ! grep -q "attempt < 56" kmate-trainer/app-v7-part1.txt
+
+      - name: Install Chromium and WebKit test dependencies
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          CHROMIUM_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$CHROMIUM_PATH"
+          echo "CHROMIUM_PATH=$CHROMIUM_PATH" >> "$GITHUB_ENV"
+          npx playwright install --with-deps webkit
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v43-server.log 2>&1 &
+
+      - name: Verify final setup controls and fast starts in Chromium and WebKit
+        run: |
+          node <<'NODE'
+          const { chromium, webkit, devices } = require('playwright');
+          const assert = require('assert');
+
+          function installMocksAndLegacyCache() {
+            const voices = [{ name: 'Serena Enhanced', lang: 'en-GB', voiceURI: 'serena-enhanced', localService: true }];
+            class TestUtterance {
+              constructor(text) { this.text = text; this.onstart = null; this.onend = null; this.onerror = null; }
+            }
+            const synth = {
+              speaking: false,
+              getVoices: () => voices,
+              addEventListener: () => {},
+              resume() {},
+              cancel() { this.speaking = false; },
+              speak(u) { this.speaking = true; u.onstart?.(); setTimeout(() => { this.speaking = false; u.onend?.(); }, 15); },
+            };
+            Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: synth });
+            Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: TestUtterance });
+            try {
+              localStorage.setItem('kmate-generation-tree-v23', JSON.stringify([
+                { id: 'broken-one', fen: 'not a fen', seedId: 'missing', phase: 'middlegame', depth: 12 },
+                { id: 'broken-two', fen: '8/8/8/8/8/8/8/8 w - - 0 1', seedId: 'london-mid-1600', phase: 'middlegame', depth: 12 },
+              ]));
+            } catch {}
+          }
+
+          async function newPage(browserType, launchOptions = {}) {
+            const browser = await browserType.launch({ headless: true, ...launchOptions });
+            const context = await browser.newContext({ ...devices['iPhone 14'], viewport: { width: 390, height: 844 } });
+            await context.addInitScript(installMocksAndLegacyCache);
+            const page = await context.newPage();
+            page.setDefaultTimeout(30000);
+            const errors = [];
+            page.on('pageerror', error => errors.push(`pageerror: ${error.stack || error.message}`));
+            page.on('console', message => {
+              if (message.type() !== 'error') return;
+              const text = message.text();
+              if (text.includes('Failed to load resource') && text.includes('404')) return;
+              errors.push(`console: ${text}`);
+            });
+            await page.goto('http://127.0.0.1:4173/?v=43-test', { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForFunction(() => document.documentElement.dataset.ready === '1' && window.__KMATE__?.state);
+            return { browser, context, page, errors };
+          }
+
+          async function reachCoach(page, phase) {
+            await page.tap('#introProceedButton');
+            await page.waitForFunction(() => window.__KMATE__.state().setupFlow.page === 'challenge');
+            await page.tap(`#phaseSeg [data-phase="${phase}"]`);
+            await page.tap('#challengeNextButton');
+            await page.waitForFunction(() => window.__KMATE__.state().setupFlow.page === 'coach');
+            await page.waitForTimeout(80);
+          }
+
+          async function assertFinalSetupInteractive(page, name) {
+            const controls = ['#coachBackButton', '#blindCalibration', '#autoHints', '#principleReview', '#liveCoach', '#liveCoachVoice', '#startButton'];
+            for (const selector of controls) {
+              const state = await page.evaluate(selector => {
+                const element = document.querySelector(selector);
+                const rect = element?.getBoundingClientRect();
+                const hit = rect ? document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) : null;
+                return {
+                  exists: Boolean(element),
+                  visible: Boolean(rect && rect.width > 0 && rect.height > 0),
+                  disabled: Boolean(element?.disabled),
+                  hitId: hit?.id || '',
+                  hitTag: hit?.tagName || '',
+                  ownsHit: Boolean(element && hit && (element === hit || element.contains(hit) || hit.contains(element))),
+                  pointerEvents: element ? getComputedStyle(element).pointerEvents : null,
+                };
+              }, selector);
+              assert.ok(state.exists && state.visible, `${name}: missing ${selector}: ${JSON.stringify(state)}`);
+              assert.ok(state.ownsHit, `${name}: ${selector} is covered: ${JSON.stringify(state)}`);
+              assert.strictEqual(state.pointerEvents, 'auto', `${name}: ${selector} pointer-events`);
+            }
+
+            const original = await page.isChecked('#liveCoach');
+            await page.tap('#liveCoach');
+            assert.notStrictEqual(await page.isChecked('#liveCoach'), original, `${name}: Live Coach did not toggle`);
+            await page.tap('#liveCoach');
+            assert.strictEqual(await page.isChecked('#liveCoach'), original, `${name}: Live Coach did not toggle back`);
+
+            await page.tap('#coachBackButton');
+            await page.waitForFunction(() => window.__KMATE__.state().setupFlow.page === 'challenge');
+            await page.tap('#challengeNextButton');
+            await page.waitForFunction(() => window.__KMATE__.state().setupFlow.page === 'coach');
+          }
+
+          async function runScenario(browserType, browserName, phase, principles, launchOptions = {}) {
+            const { browser, context, page, errors } = await newPage(browserType, launchOptions);
+            try {
+              await reachCoach(page, phase);
+              await assertFinalSetupInteractive(page, `${browserName}-${phase}`);
+              await page.evaluate(principles => {
+                const box = document.querySelector('#principleReview');
+                if (box.checked !== principles) box.click();
+              }, principles);
+
+              const startedAt = Date.now();
+              await page.tap('#startButton', { timeout: 5000 });
+              await page.waitForFunction(
+                principles => document.body.classList.contains('game-mode') && (!principles || document.querySelector('#principlesDialog')?.open),
+                principles,
+                { timeout: 5000 },
+              );
+              const elapsed = Date.now() - startedAt;
+              const state = await page.evaluate(() => ({
+                gameMode: document.body.classList.contains('game-mode'),
+                principlesOpen: Boolean(document.querySelector('#principlesDialog')?.open),
+                principleModal: (() => { try { return document.querySelector('#principlesDialog')?.matches(':modal') || false; } catch { return false; } })(),
+                pieces: document.querySelectorAll('#board .piece').length,
+                start: window.__KMATE__.state().start,
+                phase: window.__KMATE__.state().phase,
+                scrollY: window.scrollY,
+                scrollHeight: document.documentElement.scrollHeight,
+                viewportHeight: window.innerHeight,
+              }));
+              assert.ok(elapsed < 3000, `${browserName}-${phase}: start took ${elapsed} ms`);
+              assert.ok(state.gameMode && state.pieces >= 2, `${browserName}-${phase}: board did not open: ${JSON.stringify(state)}`);
+              assert.ok((state.start.durationMs ?? 0) < 1000, `${browserName}-${phase}: handler too slow: ${JSON.stringify(state.start)}`);
+              assert.ok((state.start.generationDurationMs ?? 0) < 250, `${browserName}-${phase}: generator too slow: ${JSON.stringify(state.start)}`);
+              assert.strictEqual(state.scrollY, 0, `${browserName}-${phase}: page scrolled`);
+              assert.ok(state.scrollHeight <= state.viewportHeight + 2, `${browserName}-${phase}: game page scrolls`);
+
+              if (principles) {
+                assert.ok(state.principlesOpen, `${browserName}-${phase}: principle page did not open`);
+                assert.ok(!state.principleModal, `${browserName}-${phase}: principle page made app modal/inert`);
+                await page.tap('#principlesStartButton', { timeout: 5000 });
+                await page.waitForFunction(() => !document.querySelector('#principlesDialog')?.open && !window.__KMATE__.state().clockPaused, null, { timeout: 5000 });
+              }
+
+              if (errors.length) throw new Error(`${browserName}-${phase}: ${errors.join('\n')}`);
+              console.log(JSON.stringify({ browserName, phase, principles, elapsed, state }, null, 2));
+            } finally {
+              await context.close();
+              await browser.close();
+            }
+          }
+
+          (async () => {
+            const chromiumOptions = { executablePath: process.env.CHROMIUM_PATH, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] };
+            await runScenario(chromium, 'Chromium', 'middlegame', false, chromiumOptions);
+            await runScenario(chromium, 'Chromium', 'endgame', true, chromiumOptions);
+            await runScenario(webkit, 'WebKit', 'late-middlegame', false);
+            await runScenario(webkit, 'WebKit', 'middlegame', true);
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Commit and publish K-Mate v43
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A kmate-trainer .github/workflows
+          git commit -m 'K-Mate v43: make Generate position non-blocking and bounded'
+          git pull --rebase origin main
+          git push
