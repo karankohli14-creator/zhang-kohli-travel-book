@@ -367,13 +367,25 @@ let liveCoachState = { awaiting: false, open: false, sessionId: null, moveId: nu
 let liveCoachReviewTimer = null;
 let liveCoachUtterance = null;
 let liveCoachVoicePrimed = false;
+let liveCoachSpeechSerial = 0;
+let liveCoachSpeechQueue = [];
+let liveCoachSpeechQueueIndex = 0;
+let liveCoachSpeechTimer = null;
+let liveCoachSpeechWatchdog = null;
 let replayState = { session: null, frames: [], index: 0, timer: null, auto: false, showBest: false, bestLineKey: null, bestLineFrames: [], bestLineIndex: -1, bestLineTimer: null, bestLinePlaying: false };
 let coachSpeechUtterance = null;
 let coachSpeechTimer = null;
+let coachSpeechStartWatchdog = null;
 let coachVoiceCache = null;
 let coachSpeechSerial = 0;
 let coachSpeechQueue = [];
 let coachSpeechQueueIndex = 0;
+let coachAudioTestUtterance = null;
+let coachAudioTestSerial = 0;
+let coachAudioReady = false;
+let coachAudioDeviceState = 'untested';
+let coachAudioDeviceMessage = '';
+let liveCoachViewportRestoreSerial = 0;
 let dragSourceSquare = null;
 let dragMoveCommitted = false;
 let dragSuppressClickUntil = 0;
@@ -853,7 +865,7 @@ function previewCaptureSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260829-31';
+  url.search = '?v=20260830-32';
   url.hash = '';
   return url.href;
 }
@@ -1017,9 +1029,12 @@ function updateControls(persist = true) {
 
   const liveCoachVoiceControl = $('#liveCoachVoice');
   if (liveCoachVoiceControl) {
-    liveCoachVoiceControl.disabled = !settings.liveCoach;
-    liveCoachVoiceControl.closest('label')?.classList.toggle('disabled', !settings.liveCoach);
+    liveCoachVoiceControl.disabled = false;
+    liveCoachVoiceControl.closest('label')?.classList.remove('disabled');
   }
+  const coachVoiceTestButton = $('#coachVoiceTestButton');
+  if (coachVoiceTestButton) coachVoiceTestButton.disabled = !coachVoiceAvailable();
+  renderCoachAudioDeviceStatus();
 
   const openingDisabled = settings.phase === 'endgame';
   $('#openingSelect').disabled = openingDisabled;
@@ -2896,6 +2911,212 @@ function renderPostGameReview(session) {
 }
 
 
+
+function isMacLikeDevice() {
+  const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || '';
+  return /mac|macintosh/i.test(String(platform));
+}
+
+function coachSpeechStartupDelay() {
+  return isMacLikeDevice() ? 130 : 70;
+}
+
+function splitCoachSpeechText(text, maximum = 205) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return [];
+  const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
+  const chunks = [];
+  for (const sentence of sentences) {
+    const trimmed = sentence.trim();
+    if (!trimmed) continue;
+    if (trimmed.length <= maximum) {
+      chunks.push(trimmed);
+      continue;
+    }
+    const words = trimmed.split(/\s+/);
+    let current = '';
+    for (const word of words) {
+      const candidate = current ? `${current} ${word}` : word;
+      if (candidate.length > maximum && current) {
+        chunks.push(current);
+        current = word;
+      } else {
+        current = candidate;
+      }
+    }
+    if (current) chunks.push(current);
+  }
+  return chunks;
+}
+
+function setCoachAudioDeviceStatus(message, state = 'idle') {
+  coachAudioDeviceMessage = String(message || '');
+  coachAudioDeviceState = state;
+  renderCoachAudioDeviceStatus();
+}
+
+function renderCoachAudioDeviceStatus() {
+  const available = coachVoiceAvailable();
+  const enabled = settings.coachVoice !== false;
+  let state = coachAudioDeviceState;
+  let message = coachAudioDeviceMessage;
+  if (!available) {
+    state = 'error';
+    message = 'This browser does not expose a speech voice. Written coaching remains available.';
+  } else if (!enabled) {
+    state = 'muted';
+    message = 'Coach voice is off. Turn it on or press Test coach voice.';
+  } else if (!message) {
+    state = coachAudioReady ? 'ready' : 'untested';
+    message = coachAudioReady
+      ? 'Coach audio is ready on this device.'
+      : `Voice enabled · not yet tested${isMacLikeDevice() ? ' on this Mac' : ' on this device'}.`;
+  }
+  for (const selector of ['#coachVoiceSetupStatus', '#coachReplayAudioStatus']) {
+    const element = $(selector);
+    if (!element) continue;
+    element.textContent = message;
+    element.dataset.state = state;
+  }
+}
+
+function primeCoachAudioFromGesture() {
+  if (!coachVoiceAvailable()) return false;
+  try { window.speechSynthesis.resume?.(); } catch {}
+  try { ensureAudioContext()?.resume?.(); } catch {}
+  const voices = window.speechSynthesis.getVoices?.() || [];
+  if (voices.length) coachVoiceCache = null;
+  if (!coachAudioReady && settings.coachVoice !== false) {
+    setCoachAudioDeviceStatus(`Coach voice prepared${isMacLikeDevice() ? ' for this Mac' : ''}. Use Test coach voice to confirm it is audible.`, 'prepared');
+  }
+  return true;
+}
+
+function testCoachVoice() {
+  if (!coachVoiceAvailable()) {
+    setCoachAudioDeviceStatus('Spoken coaching is unavailable in this browser.', 'error');
+    toast('Voice narration is unavailable in this browser');
+    return false;
+  }
+  settings.coachVoice = true;
+  const setup = $('#liveCoachVoice');
+  if (setup) setup.checked = true;
+  saveStore();
+  updateCoachVoiceControls();
+  primeCoachAudioFromGesture();
+
+  const synth = window.speechSynthesis;
+  const serial = ++coachAudioTestSerial;
+  const wasBusy = Boolean(synth.speaking || synth.pending || liveCoachUtterance || coachSpeechUtterance || coachAudioTestUtterance);
+  stopLiveCoachSpeech(false);
+  stopCoachSpeech(false);
+  if (wasBusy) {
+    try { synth.cancel(); } catch {}
+  }
+
+  const launch = (useSelectedVoice = true) => {
+    if (serial !== coachAudioTestSerial) return;
+    const utterance = new SpeechSynthesisUtterance('K Mate coach audio is ready. You will hear both live coaching and post game reviews on this device.');
+    const voice = useSelectedVoice ? chooseCoachVoice() : null;
+    utterance.lang = voice?.lang || 'en-GB';
+    utterance.rate = Math.max(0.84, Math.min(1.02, Number(settings.coachVoiceRate) || 0.92));
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    if (voice) utterance.voice = voice;
+    let started = false;
+    const watchdog = window.setTimeout(() => {
+      if (serial !== coachAudioTestSerial || started) return;
+      if (useSelectedVoice) {
+        try { synth.cancel(); } catch {}
+        window.setTimeout(() => launch(false), 160);
+      } else {
+        coachAudioTestUtterance = null;
+        setCoachAudioDeviceStatus('The Mac did not start speech. Check that this browser tab is not muted, then press Test coach voice again.', 'error');
+      }
+    }, 1750);
+    utterance.onstart = () => {
+      if (serial !== coachAudioTestSerial) return;
+      started = true;
+      window.clearTimeout(watchdog);
+      coachAudioTestUtterance = utterance;
+      coachAudioReady = true;
+      setCoachAudioDeviceStatus(`Speaking with ${voice?.name || 'the Mac system voice'}…`, 'speaking');
+    };
+    utterance.onend = () => {
+      if (serial !== coachAudioTestSerial) return;
+      window.clearTimeout(watchdog);
+      coachAudioTestUtterance = null;
+      coachAudioReady = true;
+      setCoachAudioDeviceStatus(`Coach audio ready${voice?.name ? ` · ${voice.name}` : ''}.`, 'ready');
+    };
+    utterance.onerror = (event) => {
+      if (serial !== coachAudioTestSerial) return;
+      window.clearTimeout(watchdog);
+      coachAudioTestUtterance = null;
+      if (useSelectedVoice) {
+        try { synth.cancel(); } catch {}
+        window.setTimeout(() => launch(false), 160);
+      } else {
+        setCoachAudioDeviceStatus(`Voice could not start${event?.error ? ` (${event.error})` : ''}. Press Test coach voice once more.`, 'error');
+      }
+    };
+    coachAudioTestUtterance = utterance;
+    try {
+      synth.resume?.();
+      synth.speak(utterance);
+    } catch (error) {
+      window.clearTimeout(watchdog);
+      coachAudioTestUtterance = null;
+      setCoachAudioDeviceStatus('Voice could not start. Press Test coach voice once more.', 'error');
+      console.warn('Coach voice test failed.', error);
+    }
+  };
+
+  setCoachAudioDeviceStatus('Starting the coach voice test…', 'starting');
+  if (wasBusy) window.setTimeout(() => launch(true), coachSpeechStartupDelay());
+  else launch(true);
+  return true;
+}
+
+function captureBoardViewportAnchor() {
+  const board = $('#board');
+  if (!board || board.offsetParent === null) return null;
+  const rect = board.getBoundingClientRect();
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  return {
+    top: rect.top,
+    scrollY: window.scrollY,
+    visible: rect.bottom > 56 && rect.top < viewportHeight - 56,
+  };
+}
+
+function restoreBoardViewportAnchor(anchor) {
+  if (!anchor) return;
+  const serial = ++liveCoachViewportRestoreSerial;
+  const restore = () => {
+    if (serial !== liveCoachViewportRestoreSerial) return;
+    const board = $('#board');
+    if (!board || board.offsetParent === null) return;
+    if (!anchor.visible) {
+      window.scrollTo({ top: anchor.scrollY, left: window.scrollX, behavior: 'auto' });
+      return;
+    }
+    const delta = board.getBoundingClientRect().top - anchor.top;
+    if (Math.abs(delta) > 0.5) window.scrollBy({ top: delta, left: 0, behavior: 'auto' });
+  };
+  window.requestAnimationFrame(() => {
+    restore();
+    window.requestAnimationFrame(restore);
+  });
+  window.setTimeout(restore, 180);
+}
+
+function setLiveCoachBoardOpenPreservingViewport(open) {
+  const anchor = captureBoardViewportAnchor();
+  setLiveCoachBoardOpen(open);
+  restoreBoardViewportAnchor(anchor);
+}
+
 function coachVoiceAvailable() {
   return Boolean(window.speechSynthesis && window.SpeechSynthesisUtterance);
 }
@@ -3072,6 +3293,7 @@ function updateCoachVoiceControls() {
   const enabled = settings.coachVoice !== false;
   populateCoachVoiceSelect();
   updateCoachAvatarControls();
+  renderCoachAudioDeviceStatus();
   toggle.disabled = !available;
   speak.disabled = !available;
   if (select) select.disabled = !available;
@@ -3113,13 +3335,17 @@ function setCoachSpeaking(active) {
   if (!active) updateCoachVoiceControls();
 }
 
-function stopCoachSpeech() {
+function stopCoachSpeech(cancelSpeech = true) {
   coachSpeechSerial += 1;
   if (coachSpeechTimer) window.clearTimeout(coachSpeechTimer);
+  if (coachSpeechStartWatchdog) window.clearTimeout(coachSpeechStartWatchdog);
   coachSpeechTimer = null;
+  coachSpeechStartWatchdog = null;
   coachSpeechQueue = [];
   coachSpeechQueueIndex = 0;
-  try { window.speechSynthesis?.cancel(); } catch {}
+  if (cancelSpeech) {
+    try { window.speechSynthesis?.cancel(); } catch {}
+  }
   coachSpeechUtterance = null;
   setCoachSpeaking(false);
 }
@@ -3174,12 +3400,16 @@ function coachSpeechSegmentsForCurrentFrame() {
   ].filter((segment) => segment.text);
 }
 
-function finishCoachSpeech(serial) {
+function finishCoachSpeech(serial, message = 'Narration complete. Tap Speak to listen again.') {
   if (serial !== coachSpeechSerial) return;
+  if (coachSpeechStartWatchdog) window.clearTimeout(coachSpeechStartWatchdog);
+  coachSpeechStartWatchdog = null;
   coachSpeechUtterance = null;
   coachSpeechQueue = [];
   coachSpeechQueueIndex = 0;
   setCoachSpeaking(false);
+  coachAudioReady = true;
+  setCoachAudioDeviceStatus(message, 'ready');
   updateCoachVoiceControls();
   updateCoachAvatarMood(replayState.frames[replayState.index]);
 }
@@ -3192,49 +3422,89 @@ function speakCoachQueueSegment(serial) {
     return;
   }
   const utterance = new SpeechSynthesisUtterance(speechFriendlyText(segment.text));
-  const voice = chooseCoachVoice();
+  const voice = segment.retry ? null : chooseCoachVoice();
   utterance.lang = voice?.lang || 'en-GB';
   utterance.rate = Math.max(0.82, Math.min(1.06, Number(settings.coachVoiceRate) || 0.92));
   utterance.pitch = 1.0;
   utterance.volume = 1;
   if (voice) utterance.voice = voice;
+  let started = false;
+  const retryOrFinish = (reason = '') => {
+    if (serial !== coachSpeechSerial) return;
+    if (coachSpeechStartWatchdog) window.clearTimeout(coachSpeechStartWatchdog);
+    coachSpeechStartWatchdog = null;
+    coachSpeechUtterance = null;
+    if (!segment.retry) {
+      segment.retry = 1;
+      try { window.speechSynthesis?.cancel(); } catch {}
+      coachSpeechTimer = window.setTimeout(() => speakCoachQueueSegment(serial), 150);
+      return;
+    }
+    finishCoachSpeech(serial, `The Mac blocked narration${reason ? ` (${reason})` : ''}. Tap Speak to start it directly.`);
+  };
   utterance.onstart = () => {
     if (serial !== coachSpeechSerial) return;
+    started = true;
+    if (coachSpeechStartWatchdog) window.clearTimeout(coachSpeechStartWatchdog);
+    coachSpeechStartWatchdog = null;
     coachSpeechUtterance = utterance;
+    coachAudioReady = true;
+    setCoachAudioDeviceStatus(`Coach Replay is speaking${voice?.name ? ` with ${voice.name}` : ''}.`, 'speaking');
     setCoachSpeaking(true);
     updateCoachVoiceControls();
   };
   utterance.onend = () => {
     if (serial !== coachSpeechSerial) return;
+    if (coachSpeechStartWatchdog) window.clearTimeout(coachSpeechStartWatchdog);
+    coachSpeechStartWatchdog = null;
     coachSpeechUtterance = null;
     coachSpeechQueueIndex += 1;
-    coachSpeechTimer = window.setTimeout(() => speakCoachQueueSegment(serial), segment.pause || 0);
+    coachSpeechTimer = window.setTimeout(() => speakCoachQueueSegment(serial), Math.max(45, segment.pause || 0));
   };
-  utterance.onerror = () => finishCoachSpeech(serial);
+  utterance.onerror = (event) => retryOrFinish(event?.error || 'speech error');
   coachSpeechUtterance = utterance;
   try {
+    window.speechSynthesis.resume?.();
     window.speechSynthesis.speak(utterance);
+    coachSpeechStartWatchdog = window.setTimeout(() => {
+      if (serial !== coachSpeechSerial || started) return;
+      if (window.speechSynthesis?.speaking) {
+        started = true;
+        return;
+      }
+      retryOrFinish('no audio start');
+    }, 1800);
     updateCoachVoiceControls();
   } catch (error) {
     console.warn('Coach voice could not start.', error);
-    finishCoachSpeech(serial);
+    retryOrFinish('browser error');
   }
 }
 
 function speakCoachFrame(force = false) {
   if (!coachVoiceAvailable()) {
     if (force) toast('Voice narration is not available in this browser');
+    setCoachAudioDeviceStatus('Voice narration is unavailable in this browser.', 'error');
     updateCoachVoiceControls();
     return false;
   }
   if (!force && settings.coachVoice === false) return false;
-  const segments = coachSpeechSegmentsForCurrentFrame();
+  const rawSegments = coachSpeechSegmentsForCurrentFrame();
+  const segments = rawSegments.flatMap((segment) => {
+    const chunks = splitCoachSpeechText(segment.text);
+    return chunks.map((text, index) => ({
+      text,
+      pause: index === chunks.length - 1 ? segment.pause : 55,
+      retry: 0,
+    }));
+  });
   if (!segments.length) return false;
   stopCoachSpeech();
   const serial = ++coachSpeechSerial;
   coachSpeechQueue = segments;
   coachSpeechQueueIndex = 0;
-  speakCoachQueueSegment(serial);
+  setCoachAudioDeviceStatus('Starting Coach Replay narration…', 'starting');
+  coachSpeechTimer = window.setTimeout(() => speakCoachQueueSegment(serial), coachSpeechStartupDelay());
   return true;
 }
 
@@ -3599,20 +3869,9 @@ function updateLiveCoachAudioControls(message = '') {
 }
 
 function primeLiveCoachVoice() {
-  if (liveCoachVoicePrimed || settings.coachVoice === false || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return false;
-  try {
-    window.speechSynthesis.resume?.();
-    const primer = new SpeechSynthesisUtterance(' ');
-    primer.volume = 0;
-    primer.rate = 1;
-    primer.lang = chooseCoachVoice()?.lang || 'en-GB';
-    liveCoachVoicePrimed = true;
-    window.speechSynthesis.speak(primer);
-    return true;
-  } catch (error) {
-    console.warn('Unable to prime Live Coach voice.', error);
-    return false;
-  }
+  if (liveCoachVoicePrimed || settings.coachVoice === false || !coachVoiceAvailable()) return false;
+  liveCoachVoicePrimed = true;
+  return primeCoachAudioFromGesture();
 }
 
 function playLiveCoachCue() {
@@ -3629,56 +3888,148 @@ function playLiveCoachCue() {
   return true;
 }
 
-function stopLiveCoachSpeech() {
-  try { window.speechSynthesis?.cancel(); } catch {}
+function stopLiveCoachSpeech(cancelSpeech = true) {
+  liveCoachSpeechSerial += 1;
+  if (liveCoachSpeechTimer) window.clearTimeout(liveCoachSpeechTimer);
+  if (liveCoachSpeechWatchdog) window.clearTimeout(liveCoachSpeechWatchdog);
+  liveCoachSpeechTimer = null;
+  liveCoachSpeechWatchdog = null;
+  liveCoachSpeechQueue = [];
+  liveCoachSpeechQueueIndex = 0;
+  if (cancelSpeech) {
+    try { window.speechSynthesis?.cancel(); } catch {}
+  }
   liveCoachUtterance = null;
   const button = $('#liveCoachSpeakButton');
   if (button) button.textContent = '▶ Hear coach';
   updateLiveCoachAudioControls();
 }
 
-function liveCoachSpeechText() {
+function liveCoachSpeechSections() {
   const rating = $('#liveCoachRating')?.textContent?.trim() || '';
   const summary = $('#liveCoachSummary')?.textContent?.trim() || '';
   const why = $('#liveCoachWhy')?.textContent?.trim() || '';
   const best = $('#liveCoachBestText')?.textContent?.trim() || '';
   const principles = $('#liveCoachPrinciplesText')?.textContent?.trim() || '';
-  return [rating ? `${rating}.` : '', summary, why ? `About your move. ${why}` : '', best ? `The stronger move. ${best}` : '', principles ? `Principle diagnosis. ${principles}` : ''].filter(Boolean).join(' ');
+  return [
+    { text: rating ? `${rating}. ${summary}` : summary, pause: 170 },
+    { text: why ? `About your move. ${why}` : '', pause: 190 },
+    { text: best ? `The stronger move. ${best}` : '', pause: 210 },
+    { text: principles ? `Principle diagnosis. ${principles}` : '', pause: 0 },
+  ].filter((section) => section.text);
 }
 
-function speakLiveCoach(force = false) {
-  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
-    updateLiveCoachAudioControls('Spoken coaching is unavailable in this browser; the complete written review remains below.');
-    return false;
+function liveCoachSpeechText() {
+  return liveCoachSpeechSections().map((section) => section.text).join(' ');
+}
+
+function finishLiveCoachSpeech(serial, message = 'Narration complete. Tap Hear coach to listen again, or Resume game when ready.', state = 'ready') {
+  if (serial !== liveCoachSpeechSerial) return;
+  if (liveCoachSpeechWatchdog) window.clearTimeout(liveCoachSpeechWatchdog);
+  liveCoachSpeechWatchdog = null;
+  liveCoachUtterance = null;
+  liveCoachSpeechQueue = [];
+  liveCoachSpeechQueueIndex = 0;
+  coachAudioReady = state === 'ready' ? true : coachAudioReady;
+  setCoachAudioDeviceStatus(message, state);
+  updateLiveCoachAudioControls(message);
+}
+
+function speakLiveCoachQueueSegment(serial) {
+  if (serial !== liveCoachSpeechSerial) return;
+  const segment = liveCoachSpeechQueue[liveCoachSpeechQueueIndex];
+  if (!segment) {
+    finishLiveCoachSpeech(serial);
+    return;
   }
-  if (!force && settings.coachVoice === false) return false;
-  stopLiveCoachSpeech();
-  const text = speechFriendlyText(liveCoachSpeechText());
-  if (!text) return false;
-  try { window.speechSynthesis.resume?.(); } catch {}
-  const utterance = new SpeechSynthesisUtterance(text);
-  const voice = chooseCoachVoice();
+  const utterance = new SpeechSynthesisUtterance(speechFriendlyText(segment.text));
+  const voice = segment.retry ? null : chooseCoachVoice();
   utterance.lang = voice?.lang || 'en-GB';
   utterance.rate = Math.max(0.82, Math.min(1.06, Number(settings.coachVoiceRate) || 0.92));
   utterance.pitch = 1;
   utterance.volume = 1;
   if (voice) utterance.voice = voice;
+  let started = false;
+  const retryOrFinish = (reason = '') => {
+    if (serial !== liveCoachSpeechSerial) return;
+    if (liveCoachSpeechWatchdog) window.clearTimeout(liveCoachSpeechWatchdog);
+    liveCoachSpeechWatchdog = null;
+    liveCoachUtterance = null;
+    if (!segment.retry) {
+      segment.retry = 1;
+      try { window.speechSynthesis?.cancel(); } catch {}
+      liveCoachSpeechTimer = window.setTimeout(() => speakLiveCoachQueueSegment(serial), 150);
+      return;
+    }
+    finishLiveCoachSpeech(
+      serial,
+      `The Mac blocked automatic narration${reason ? ` (${reason})` : ''}. Tap Hear coach to start it directly.`,
+      'error',
+    );
+  };
   utterance.onstart = () => {
+    if (serial !== liveCoachSpeechSerial) return;
+    started = true;
+    if (liveCoachSpeechWatchdog) window.clearTimeout(liveCoachSpeechWatchdog);
+    liveCoachSpeechWatchdog = null;
     liveCoachUtterance = utterance;
+    coachAudioReady = true;
+    setCoachAudioDeviceStatus(`Live Coach is speaking${voice?.name ? ` with ${voice.name}` : ''}.`, 'speaking');
     const button = $('#liveCoachSpeakButton');
     if (button) button.textContent = '■ Stop voice';
     updateLiveCoachAudioControls('Coach is speaking: move assessment, best alternative, then principle diagnosis.');
   };
   utterance.onend = () => {
-    if (liveCoachUtterance === utterance) liveCoachUtterance = null;
-    updateLiveCoachAudioControls('Narration complete. Tap Hear coach to listen again, or Resume game when ready.');
+    if (serial !== liveCoachSpeechSerial) return;
+    if (liveCoachSpeechWatchdog) window.clearTimeout(liveCoachSpeechWatchdog);
+    liveCoachSpeechWatchdog = null;
+    liveCoachUtterance = null;
+    liveCoachSpeechQueueIndex += 1;
+    liveCoachSpeechTimer = window.setTimeout(() => speakLiveCoachQueueSegment(serial), Math.max(55, segment.pause || 0));
   };
-  utterance.onerror = () => {
-    if (liveCoachUtterance === utterance) liveCoachUtterance = null;
-    updateLiveCoachAudioControls('Automatic narration was blocked. Tap Hear coach to start it with a direct user gesture.');
-  };
+  utterance.onerror = (event) => retryOrFinish(event?.error || 'speech error');
   liveCoachUtterance = utterance;
-  window.speechSynthesis.speak(utterance);
+  try {
+    window.speechSynthesis.resume?.();
+    window.speechSynthesis.speak(utterance);
+    liveCoachSpeechWatchdog = window.setTimeout(() => {
+      if (serial !== liveCoachSpeechSerial || started) return;
+      if (window.speechSynthesis?.speaking) {
+        started = true;
+        return;
+      }
+      retryOrFinish('no audio start');
+    }, 1800);
+  } catch (error) {
+    console.warn('Live Coach voice could not start.', error);
+    retryOrFinish('browser error');
+  }
+}
+
+function speakLiveCoach(force = false) {
+  if (!coachVoiceAvailable()) {
+    const message = 'Spoken coaching is unavailable in this browser; the complete written review remains below.';
+    setCoachAudioDeviceStatus(message, 'error');
+    updateLiveCoachAudioControls(message);
+    return false;
+  }
+  if (!force && settings.coachVoice === false) return false;
+  const queue = liveCoachSpeechSections().flatMap((section) => {
+    const chunks = splitCoachSpeechText(section.text);
+    return chunks.map((text, index) => ({
+      text,
+      pause: index === chunks.length - 1 ? section.pause : 55,
+      retry: 0,
+    }));
+  });
+  if (!queue.length) return false;
+  stopLiveCoachSpeech();
+  const serial = ++liveCoachSpeechSerial;
+  liveCoachSpeechQueue = queue;
+  liveCoachSpeechQueueIndex = 0;
+  setCoachAudioDeviceStatus('Starting Live Coach narration…', 'starting');
+  updateLiveCoachAudioControls('Starting Live Coach narration…');
+  liveCoachSpeechTimer = window.setTimeout(() => speakLiveCoachQueueSegment(serial), coachSpeechStartupDelay());
   return true;
 }
 
@@ -3731,7 +4082,7 @@ function renderLiveCoachPending(record) {
   if ($('#liveCoachPrincipleList')) $('#liveCoachPrincipleList').innerHTML = '';
   if ($('#liveCoachPrinciplesText')) $('#liveCoachPrinciplesText').textContent = '';
   if ($('#liveCoachLine')) $('#liveCoachLine').textContent = 'Principal variation pending.';
-  setLiveCoachBoardOpen(true);
+  setLiveCoachBoardOpenPreservingViewport(true);
   updateLiveCoachAudioControls(settings.coachVoice === false ? 'Voice off · the written analysis will remain here until you resume.' : 'Voice on · narration will begin when the analysis is ready.');
 }
 
@@ -3761,7 +4112,7 @@ function markLiveCoachAnalysisSlow(moveRecord) {
   if ($('#liveCoachWhy')) $('#liveCoachWhy').textContent = 'Stockfish is still checking whether the apparent evaluation change is stable and concrete.';
   if ($('#liveCoachBestText')) $('#liveCoachBestText').textContent = 'The preferred move and its purpose will appear as soon as the comparison is reliable.';
   setStatus('Live Coach is still analyzing. The clocks remain paused until you resume.', 'thinking');
-  setLiveCoachBoardOpen(true);
+  setLiveCoachBoardOpenPreservingViewport(true);
   renderAll();
   return true;
 }
@@ -3848,13 +4199,12 @@ function openLiveCoachIntervention(record) {
   if (currentSession) currentSession.liveCoachInterventions = (currentSession.liveCoachInterventions || 0) + 1;
   liveCoachState = { ...liveCoachState, awaiting: false, open: true, record, narration, ignoredPrinciples };
   renderLiveCoachIntervention(record, narration, ignoredPrinciples);
-  setLiveCoachBoardOpen(true);
+  setLiveCoachBoardOpenPreservingViewport(true);
   setStatus(`${narration.band.label}: compare the orange played move with the green best move on the board.`, 'bad');
   renderAll();
   replayLiveCoachBoardHighlights();
   playLiveCoachCue();
   updateLiveCoachAudioControls();
-  $('#boardCoachStage')?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   if (settings.coachVoice !== false) window.setTimeout(() => speakLiveCoach(false), 420);
 }
 
@@ -3869,21 +4219,31 @@ function handleLiveCoachAnalysis(session, record) {
     return;
   }
   const label = band.label;
+  const viewportAnchor = captureBoardViewportAnchor();
   resetLiveCoachFlow({ closeModal: true });
   resumeClockFromTeaching();
   setStatus(`${label}. Opponent is considering the position.`, 'thinking');
   renderAll();
+  restoreBoardViewportAnchor(viewportAnchor);
   if (!game?.isGameOver() && game?.turn() === engineColor) askEngine();
 }
 
 function continueAfterLiveCoach({ automatic = false } = {}) {
   const hadTeachingPause = liveCoachState.awaiting || liveCoachState.open || clockPaused;
+  const viewportAnchor = captureBoardViewportAnchor();
+  try { document.activeElement?.blur?.(); } catch {}
   resetLiveCoachFlow({ closeModal: true });
-  if (!hadTeachingPause || finalized || !game) return;
+  if (!hadTeachingPause || finalized || !game) {
+    restoreBoardViewportAnchor(viewportAnchor);
+    return;
+  }
   resumeClockFromTeaching();
   setStatus(automatic ? 'Play resumed. Opponent is considering the position.' : 'Coach review complete. Opponent is considering the position.', 'thinking');
   renderAll();
-  if (!game.isGameOver() && game.turn() === engineColor) askEngine();
+  restoreBoardViewportAnchor(viewportAnchor);
+  window.requestAnimationFrame(() => {
+    if (!game?.isGameOver() && game?.turn() === engineColor) askEngine();
+  });
 }
 
 function handleLiveCoachSpeak() {

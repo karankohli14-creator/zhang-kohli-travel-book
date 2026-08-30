@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=31.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=32.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -157,8 +157,12 @@
 
           <label class="calibration-toggle live-coach-audio-toggle">
             <input id="liveCoachVoice" type="checkbox">
-            <span><b>Speak Live Coach reviews aloud</b><small>Play a short coaching cue, then narrate the move, the stronger alternative, and the likely chess principle that was overlooked. A Hear coach button remains available if autoplay is blocked.</small></span>
+            <span><b>Speak all coach reviews aloud</b><small>Use the device’s best available English voice for both Live Coach and post-game Coach Replay. On a Mac, test it once before playing so Safari or Chrome can authorize speech.</small></span>
           </label>
+          <div class="coach-audio-check" id="coachAudioCheck">
+            <button class="sound-preview coach-audio-test" id="coachVoiceTestButton" type="button">▶ Test coach voice</button>
+            <span id="coachVoiceSetupStatus" data-state="untested">Voice enabled · not yet tested on this device.</span>
+          </div>
 
           <div class="field sound-style-field" id="soundStyleField">
             <div class="fieldhead sound-style-head">
@@ -618,6 +622,7 @@
                 <button class="coach-voice-button" id="coachSpeakButton" type="button">▶ Speak</button>
                 <button class="coach-voice-button coach-own-voice" id="coachMyVoiceInfo" type="button">My voice?</button>
               </div>
+              <div class="coach-replay-audio-status" id="coachReplayAudioStatus" data-state="untested">Voice enabled · tap Speak if automatic narration is blocked.</div>
               <div class="coach-voice-settings">
                 <label class="coach-voice-select-wrap" for="coachVoiceSelect"><span>Voice</span><select id="coachVoiceSelect" class="coach-voice-select"><option value="british-woman">British woman — best available</option></select></label>
                 <label class="coach-rate-wrap" for="coachRateRange"><span>Pace <b id="coachRateValue">0.92×</b></span><input id="coachRateRange" type="range" min="0.82" max="1.06" step="0.02" value="0.92"></label>
@@ -668,6 +673,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=31.0.0"></script>
+  <script type="module" src="./app-v7.js?v=32.0.0"></script>
 </body>
 </html>

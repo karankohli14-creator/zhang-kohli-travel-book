@@ -936,3 +936,22 @@ body.dragging-piece #board .sq.drag-target{cursor:copy}
   .live-coach-principle-note{font-size:6.5px!important}
 }
 /* End K-Mate v31 */
+
+
+/* K-Mate v32 — stable Live Coach viewport and Mac coach-audio diagnostics */
+.board-coach-stage,.live-coach-board-panel,.live-coach-actions{overflow-anchor:none}
+.coach-audio-check{display:flex;align-items:center;gap:10px;margin:-2px 0 14px;padding:9px 10px;border:1px solid #ffffff16;border-radius:12px;background:#ffffff05}
+.coach-audio-test{flex:0 0 auto;min-width:142px}
+#coachVoiceSetupStatus,.coach-replay-audio-status{color:#aebbb1;font-size:10px;line-height:1.35}
+#coachVoiceSetupStatus[data-state="ready"],.coach-replay-audio-status[data-state="ready"]{color:#9be9aa}
+#coachVoiceSetupStatus[data-state="speaking"],.coach-replay-audio-status[data-state="speaking"]{color:#a9d5ff}
+#coachVoiceSetupStatus[data-state="error"],.coach-replay-audio-status[data-state="error"]{color:#ffb3aa}
+#coachVoiceSetupStatus[data-state="muted"],.coach-replay-audio-status[data-state="muted"]{color:#d8bd78}
+.coach-replay-audio-status{margin:7px 0 3px;padding:7px 9px;border:1px solid #ffffff13;border-radius:9px;background:#ffffff05}
+.live-coach-active .boardcol{overflow-anchor:none}
+.live-coach-active .board-coach-stage{scroll-margin-top:86px}
+@media(max-width:560px){
+  .coach-audio-check{align-items:flex-start;flex-direction:column;gap:7px}
+  .coach-audio-test{width:100%}
+}
+/* End K-Mate v32 */
