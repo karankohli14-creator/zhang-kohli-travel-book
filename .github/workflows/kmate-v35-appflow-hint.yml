@@ -1,0 +1,83 @@
+name: K-Mate v35 app flow and visible coach hints
+
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v35-appflow-hint.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Confirm the working baseline is restored v35
+        run: |
+          grep -q "version: '35.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+          grep -q "K-Mate v35" kmate-trainer/styles-v7.css
+
+      - name: Apply the fixed-screen app flow and written-hint fix
+        run: |
+          python -m py_compile .github/scripts/kmate_v35_appflow_hint_patch.py
+          python .github/scripts/kmate_v35_appflow_hint_patch.py
+          node --check kmate-trainer/appflow-v35.js
+          node --check kmate-trainer/app-v7.js
+          cat kmate-trainer/app-v7-part{1,2,3,4,5,6}.txt > /tmp/kmate-v35-module.js
+          node --check /tmp/kmate-v35-module.js
+          grep -q "appflow-v35.js?v=35.1.0" kmate-trainer/index.html
+          grep -q "FLOW_VERSION = '35.1-app-flow'" kmate-trainer/appflow-v35.js
+          grep -q "body.game-mode #hintText" kmate-trainer/styles-v7.css
+
+      - name: Retire obsolete K-Mate mutation workflows in this commit
+        run: |
+          find .github/workflows -maxdepth 1 -type f -name 'kmate-*.yml' ! -name 'kmate-v35-appflow-hint.yml' -delete
+          rm -f .github/workflows/apply-stockfish-kmate.yml
+
+      - name: Install real Chromium and WebKit browsers
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          npx playwright install --with-deps chromium webkit
+
+      - name: Verify desktop and phone app flow locally
+        run: |
+          python3 -m http.server 4173 --directory . >/tmp/kmate-v35-appflow-server.log 2>&1 &
+          node .github/scripts/kmate_v35_appflow_verify.js
+
+      - name: Commit and publish the verified update
+        run: |
+          rm -f .github/workflows/kmate-v35-appflow-hint.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A kmate-trainer .github/workflows
+          git commit -m 'K-Mate v35.1: add no-scroll app flow and restore written coach hints'
+          git pull --rebase origin main
+          git push
+
+      - name: Wait for GitHub Pages to serve the app-flow build
+        run: |
+          for attempt in $(seq 1 100); do
+            flow="$(curl -fsSL "https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/appflow-v35.js?verify=$RANDOM" || true)"
+            page="$(curl -fsSL "https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/?verify=$RANDOM" || true)"
+            if printf '%s' "$flow" | grep -q "35.1-app-flow" && printf '%s' "$page" | grep -q "appflow-v35.js?v=35.1.0"; then
+              echo 'GitHub Pages is serving K-Mate v35.1.'
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'Timed out waiting for GitHub Pages.' >&2
+          exit 1
+
+      - name: Verify the deployed public app in phone WebKit
+        env:
+          KMATE_PUBLIC_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/?appflow=v35-1-public
+        run: node .github/scripts/kmate_v35_appflow_verify.js
