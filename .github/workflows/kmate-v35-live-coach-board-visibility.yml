@@ -1,0 +1,57 @@
+name: K-Mate v35 live coach board visibility
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v35-live-coach-board-visibility.yml'
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply v35 patch
+        run: |
+          python -m py_compile .github/scripts/kmate_v35_live_coach_board_visibility.py
+          python .github/scripts/kmate_v35_live_coach_board_visibility.py
+          rm -f .github/workflows/kmate-v34-precise-bad-move-coach-r5.yml
+
+      - name: Validate assembled app
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts=[Path(f'kmate-trainer/app-v7-part{i}.txt').read_text() for i in range(1,7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0]=parts[0][:-2]
+          Path('/tmp/kmate-v35.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v35.js
+          grep -q "version: '35.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+          grep -q 'liveCoachPlayedLegend' kmate-trainer/index.html
+          grep -q 'Orange dashed' kmate-trainer/app-v7-part1.txt
+          grep -q 'K-Mate v35' kmate-trainer/styles-v7.css
+
+      - name: Install Playwright and serve app
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          BROWSER_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$BROWSER_PATH"
+          echo "BROWSER_PATH=$BROWSER_PATH" >> "$GITHUB_ENV"
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v35-server.log 2>&1 &
+
+      - name: Verify pieces, arrows, and one-screen review
+        run: node .github/scripts/kmate_v35_verify.js
+
+      - name: Commit and publish v35
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A kmate-trainer .github/scripts .github/workflows
+          git commit -m 'K-Mate v35: keep pieces visible in one-screen live reviews'
+          git pull --rebase origin main
+          git push
