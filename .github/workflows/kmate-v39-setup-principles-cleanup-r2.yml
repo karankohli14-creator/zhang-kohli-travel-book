@@ -1,0 +1,77 @@
+name: K-Mate v39 setup and principles cleanup r2
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v39-setup-principles-cleanup-r2.yml'
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply v39
+        run: |
+          python -m py_compile .github/scripts/kmate_v39_setup_principles_cleanup.py
+          python .github/scripts/kmate_v39_setup_principles_cleanup.py
+          rm -f .github/workflows/kmate-v39-setup-principles-cleanup.yml
+          rm -f .github/workflows/kmate-v38-setup-visual-redesign.yml
+          rm -f .github/workflows/kmate-v37-fixed-screen-app-shell.yml
+      - name: Validate assembled app
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts=[Path(f'kmate-trainer/app-v7-part{n}.txt').read_text() for n in range(1,7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'): parts[0]=parts[0][:-2]
+          Path('/tmp/kmate-v39.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v39.js
+          grep -q "version: '39.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+      - name: Install Playwright and serve app
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          BROWSER_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          echo "BROWSER_PATH=$BROWSER_PATH" >> "$GITHUB_ENV"
+          python3 -m http.server 4173 --directory kmate-trainer >/tmp/kmate-v39-r2-server.log 2>&1 &
+      - name: Verify challenge, coaching, and principles screens
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('assert');
+          async function check(viewport){
+            const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH,args:['--no-sandbox']});
+            const context=await browser.newContext({viewport});
+            const page=await context.newPage(); page.setDefaultTimeout(60000);
+            await page.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded'});
+            await page.waitForFunction(()=>document.documentElement.dataset.ready==='1'&&window.__KMATE__?.test);
+            await page.click('#introProceedButton');
+            await page.waitForFunction(()=>window.__KMATE__.state().setupFlow.page==='challenge');
+            let s=await page.evaluate(()=>{const p=document.querySelector('.setup-flow-page[data-setup-page="challenge"]');const h=p.querySelector('h1').getBoundingClientRect();const e=document.querySelector('[data-phase="endgame"]').getBoundingClientRect();return{title:p.querySelector('h1').textContent.trim(),h:{top:h.top,bottom:h.bottom},e:{w:e.width,h:e.height},y:scrollY,dh:document.documentElement.scrollHeight,vh:innerHeight}});
+            assert.strictEqual(s.title,'Set your chess challenge'); assert.ok(s.h.top>=0&&s.h.bottom<=s.vh,s); assert.ok(s.e.w>70&&s.e.h>35,s); assert.strictEqual(s.y,0); assert.ok(s.dh<=s.vh+2,s);
+            await page.click('#challengeNextButton');
+            await page.waitForFunction(()=>window.__KMATE__.state().setupFlow.page==='coach');
+            s=await page.evaluate(()=>{const p=document.querySelector('.setup-flow-page[data-setup-page="coach"]');const h=p.querySelector('h1').getBoundingClientRect();return{title:p.querySelector('h1').textContent.trim(),h:{top:h.top,bottom:h.bottom},advanced:getComputedStyle(document.querySelector('.compact-beta-tools')).display,y:scrollY,dh:document.documentElement.scrollHeight,vh:innerHeight}});
+            assert.strictEqual(s.title,'Choose your coaching'); assert.ok(s.h.top>=0&&s.h.bottom<=s.vh,s); assert.strictEqual(s.advanced,'none'); assert.strictEqual(s.y,0); assert.ok(s.dh<=s.vh+2,s);
+            await page.waitForFunction(()=>window.__KMATE__.state().engineReady===true,{timeout:45000});
+            await page.evaluate(()=>window.__KMATE__.test.startTeachingDemo());
+            await page.waitForSelector('#principlesDialog[open]',{timeout:10000});
+            await page.waitForFunction(()=>document.querySelectorAll('#principlesList .principle-compact-row').length===5,{timeout:10000});
+            await page.waitForTimeout(60);
+            const p=await page.evaluate(()=>{const d=document.querySelector('#principlesDialog');const t=document.querySelector('#principlesPositionTitle').getBoundingClientRect();const b=document.querySelector('#principlesStartButton').getBoundingClientRect();const rows=[...document.querySelectorAll('.principle-compact-row')].map(x=>{const r=x.getBoundingClientRect();return{text:x.textContent.trim(),top:r.top,bottom:r.bottom}});return{title:document.querySelector('#principlesPositionTitle').textContent.trim(),t:{top:t.top,bottom:t.bottom},b:{top:b.top,bottom:b.bottom},rows,y:scrollY,dh:document.documentElement.scrollHeight,vh:innerHeight,ds:d.scrollHeight,dc:d.clientHeight}});
+            assert.ok(p.title.includes('key principles'),p); assert.strictEqual(p.rows.length,5); assert.ok(p.rows.every(r=>r.top>=0&&r.bottom<=p.vh&&r.text.length>3),p); assert.ok(p.t.top>=0&&p.t.bottom<=p.vh,p); assert.ok(p.b.top>=0&&p.b.bottom<=p.vh,p); assert.strictEqual(p.y,0); assert.ok(p.dh<=p.vh+2,p); assert.ok(p.ds<=p.dc+2,p);
+            await browser.close(); return p;
+          }
+          (async()=>{const desktop=await check({width:1440,height:900});const mobile=await check({width:390,height:844});console.log(JSON.stringify({ok:true,desktop,mobile},null,2));})().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: Commit and publish v39
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A kmate-trainer .github/scripts/kmate_v39_setup_principles_cleanup.py .github/workflows
+          git commit -m 'K-Mate v39: streamline setup and principle review'
+          git pull --rebase origin main
+          git push
