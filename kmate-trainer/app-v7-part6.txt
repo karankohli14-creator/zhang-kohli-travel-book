@@ -103,6 +103,8 @@ function showSetupFlowPage(page = 'intro', { focus = true } = {}) {
     dot.classList.toggle('active', dot.dataset.setupStep === setupFlowPage);
   });
   document.body.dataset.setupPage = setupFlowPage;
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
   window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   if (focus) setupFlowPageElement(setupFlowPage)?.querySelector('button, select, input')?.focus?.({ preventScroll: true });
 }
@@ -134,6 +136,7 @@ function initializePagedSetup() {
   if (!setup || !hero || !intro || !setupCard || setup.dataset.pagedReady === '1') return;
   setup.dataset.pagedReady = '1';
   setup.classList.add('paged-setup');
+  document.documentElement.classList.add('kmate-fixed-app');
   document.body.classList.add('paged-app');
 
   const flow = document.createElement('div');
@@ -239,6 +242,22 @@ function resetSetupFlowForNavigation(page = 'intro') {
   if ($('#setupView')?.dataset.pagedReady === '1') showSetupFlowPage(page, { focus: false });
 }
 
+function pagedSetupIsActive() {
+  return document.body.classList.contains('paged-app') && !document.body.classList.contains('game-mode') && !$('#setupView')?.hidden;
+}
+
+function pinPagedSetupViewport() {
+  if (!pagedSetupIsActive()) return;
+  if (window.scrollX || window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }
+}
+
+window.addEventListener('scroll', pinPagedSetupViewport, { passive: true });
+window.visualViewport?.addEventListener?.('resize', pinPagedSetupViewport, { passive: true });
+
 populateOpenings();
 populateSoundProfiles();
 initializePagedSetup();
@@ -252,7 +271,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '36.0-commercial-beta',
+  version: '37.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
