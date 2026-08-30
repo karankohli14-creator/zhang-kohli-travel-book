@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=40.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=41.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -186,7 +186,7 @@
           </div>
 
           <div id="loadError" class="error"></div>
-          <button class="btn primary start" id="startButton" type="button">Generate position</button>
+          <button class="btn primary start" id="startButton" type="button" onclick="window.__KMATE_GENERATE_POSITION__?.(event)">Generate position</button>
           <p class="fineprint">Opponent play uses Stockfish 18. The 1000–2200 band is deliberately strength-boosted to better match online rapid feel; 2300–3500 progressively approaches unrestricted engine play. 3500 means MAX engine strength, not an official human Elo.</p>
         </aside>
       </div>
@@ -687,6 +687,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=40.0.0"></script>
+  <script type="module" src="./app-v7.js?v=41.0.0"></script>
 </body>
 </html>

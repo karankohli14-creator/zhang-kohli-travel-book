@@ -869,7 +869,7 @@ function previewCaptureSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260830-40';
+  url.search = '?v=20260830-41';
   url.hash = '';
   return url.href;
 }
@@ -1209,6 +1209,9 @@ let genSeen;
 let genTree;
 let generationCounter = 0;
 let lastGenerationMeta = null;
+let generatorCacheRepair = { removed: 0, repairedAt: null };
+let lastStartRecovery = null;
+let lastStartError = null;
 try {
   const saved = JSON.parse(localStorage.getItem(GEN_KEY) || '[]');
   genSeen = Array.isArray(saved) ? saved.slice(0, GEN_LIMIT) : [];
@@ -1220,6 +1223,63 @@ try {
     : [];
 } catch { genTree = []; }
 try { generationCounter = Number(localStorage.getItem(GEN_COUNTER_KEY)) || 0; } catch {}
+
+function generatedEntryIsSafe(item) {
+  if (!item?.fen || !item?.seedId || !item?.phase) return false;
+  if (!validPositions.some((position) => position.id === item.seedId)) return false;
+  try {
+    const candidate = new Chess(item.fen);
+    return !candidate.isGameOver() && candidate.moves().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function persistGeneratedPositionCache() {
+  try {
+    localStorage.setItem(GEN_TREE_KEY, JSON.stringify(genTree));
+    localStorage.setItem(GEN_KEY, JSON.stringify(genSeen));
+    localStorage.setItem(GEN_COUNTER_KEY, String(generationCounter));
+  } catch {}
+}
+
+function repairGeneratedPositionCache() {
+  const original = genTree.length;
+  genTree = genTree.filter(generatedEntryIsSafe).slice(0, GEN_TREE_LIMIT);
+  const removed = Math.max(0, original - genTree.length);
+  if (removed) {
+    generatorCacheRepair = { removed, repairedAt: new Date().toISOString() };
+    persistGeneratedPositionCache();
+    console.warn(`K-Mate removed ${removed} invalid legacy generated position${removed === 1 ? '' : 's'}.`);
+  }
+  return removed;
+}
+
+function clearGeneratedPositionCache(reason = 'start recovery') {
+  const removed = genTree.length;
+  genTree = [];
+  genSeen = [];
+  generationCounter = 0;
+  generatorCacheRepair = {
+    removed: generatorCacheRepair.removed + removed,
+    repairedAt: new Date().toISOString(),
+    reason,
+  };
+  persistGeneratedPositionCache();
+}
+
+function discardGeneratedRoot(root) {
+  if (!root?.id && !root?.fen) return;
+  const before = genTree.length;
+  genTree = genTree.filter((item) => item.id !== root.id && shortFen(item.fen) !== shortFen(root.fen));
+  if (genTree.length !== before) persistGeneratedPositionCache();
+}
+
+function safeChessFromFen(fen) {
+  try { return new Chess(fen); } catch { return null; }
+}
+
+repairGeneratedPositionCache();
 
 function randomFloat() {
   try {
@@ -1398,6 +1458,7 @@ function candidatePositions() {
 function generationRoots(anchors) {
   const anchorIds = new Set(anchors.map((anchor) => anchor.id));
   const descendants = genTree
+    .filter(generatedEntryIsSafe)
     .filter((item) => item.phase === settings.phase)
     .filter((item) => settings.opening === 'all' || item.opening === settings.opening)
     .filter((item) => Math.abs((Number(item.rating) || settings.positionRating) - settings.positionRating) <= 300)
@@ -1485,7 +1546,11 @@ function freshPosition() {
         ? [5, Math.max(8, Math.min(18, 30 - rootDepth))]
         : [6, Math.max(9, Math.min(17, 28 - rootDepth))];
     const targetPlies = randomInt(ranges[0], Math.max(ranges[0], ranges[1]));
-    const g = new Chess(root.fen);
+    const g = safeChessFromFen(root?.fen);
+    if (!g) {
+      discardGeneratedRoot(root);
+      continue;
+    }
     const line = [];
     for (let ply = 0; ply < targetPlies && !g.isGameOver(); ply += 1) {
       const jitter = Math.round((randomFloat() - 0.5) * 360);
@@ -1521,7 +1586,11 @@ function freshPosition() {
   // Last-resort legal branching still avoids returning the exact same seed board.
   for (let rescue = 0; rescue < 14; rescue += 1) {
     const root = chooseGenerationRoot(pool);
-    const g = new Chess(root.fen);
+    const g = safeChessFromFen(root?.fen);
+    if (!g) {
+      discardGeneratedRoot(root);
+      continue;
+    }
     const line = [];
     for (let ply = 0; ply < randomInt(3, 8) && !g.isGameOver(); ply += 1) {
       const move = generatedMove(g, 1500, settings.phase);
@@ -1534,8 +1603,9 @@ function freshPosition() {
       return buildGeneratedPosition(root, g.fen(), line, false);
     }
   }
-  const anchor = pool[randomInt(0, Math.max(0, pool.length - 1))];
-  lastGenerationMeta = { seedId: anchor?.id || null, strictGate: false, fallback: true };
+  const anchor = pool[randomInt(0, Math.max(0, pool.length - 1))] || validPositions[0];
+  if (!anchor) throw new Error('No valid training position is available');
+  lastGenerationMeta = { seedId: anchor.id || null, strictGate: false, fallback: true };
   return { ...anchor, id: `fallback-${anchor.id}-${Date.now()}`, seedId: anchor.id, generated: false, variationPlies: 0, rating: settings.positionRating };
 }
 function pickPosition() {
@@ -6050,24 +6120,62 @@ function setGeneratePositionButtonReady() {
   button.dataset.starting = '0';
   button.textContent = 'Generate position';
   button.title = stockfishLoadError
-    ? 'The chess engine had a loading issue; K-Mate can still open the board and use its fallback play.'
+    ? 'Open a position now; K-Mate will use fallback play until Stockfish is available.'
     : 'Create a fresh position and begin play';
 }
 
+function safeCuratedRecoveryPosition() {
+  let pool = validPositions.filter((position) => position.phase === settings.phase);
+  if (settings.phase !== 'endgame' && settings.opening && settings.opening !== 'all') {
+    const openingPool = pool.filter((position) => position.opening === settings.opening);
+    if (openingPool.length) pool = openingPool;
+  }
+  if (!pool.length) pool = validPositions;
+  const ordered = pool.slice().sort((first, second) =>
+    Math.abs((Number(first.rating) || 1600) - settings.positionRating)
+      - Math.abs((Number(second.rating) || 1600) - settings.positionRating));
+  const seed = ordered[0];
+  if (!seed) throw new Error('No curated recovery position is available');
+  return {
+    ...seed,
+    id: `recovered-${seed.id}-${Date.now()}`,
+    seedId: seed.id,
+    generated: false,
+    variationPlies: 0,
+    branchDepth: 0,
+    description: `${seed.description} Opened from a curated seed after repairing an older local position cache.`,
+  };
+}
+
+function gameViewActivated() {
+  return Boolean(game && current && document.body.classList.contains('game-mode') && !$('#gameView')?.hidden && $('#board'));
+}
+
+function finishGeneratePositionButton(button) {
+  window.requestAnimationFrame(() => {
+    button.dataset.starting = '0';
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    button.textContent = 'Generate position';
+  });
+}
+
 function showGeneratePositionFailure(error) {
+  lastStartError = String(error?.stack || error?.message || error || 'Unknown start error');
   console.error('Unable to generate a K-Mate position.', error);
   const box = $('#loadError');
   if (box) {
-    box.textContent = `K-Mate could not open the position: ${error?.message || error}. Please try again.`;
+    box.textContent = 'K-Mate could not open the board. Reload this v41 page once and try again.';
     box.classList.add('show');
   }
-  toast('The position did not open. Please try again.');
+  toast('The board did not open. Reload v41 once and try again.');
   setGeneratePositionButtonReady();
 }
 
-function handleGeneratePosition() {
+function handleGeneratePosition(event = null) {
+  event?.preventDefault?.();
   const button = $('#startButton');
-  if (!button || button.dataset.starting === '1') return;
+  if (!button || button.dataset.starting === '1' || document.body.classList.contains('game-mode')) return false;
   const box = $('#loadError');
   if (box) {
     box.textContent = '';
@@ -6076,25 +6184,55 @@ function handleGeneratePosition() {
   button.dataset.starting = '1';
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
-  button.textContent = 'Creating position…';
-  // This primes browser permissions silently. It does not speak and cannot block
-  // the transition to the board.
+  button.textContent = 'Opening board…';
+  lastStartError = null;
+  lastStartRecovery = null;
   primeCoachVoiceOnSessionStart();
+
   try {
-    updateControls(true);
     startPosition();
-    if (!game || !document.body.classList.contains('game-mode') || $('#gameView')?.hidden) {
-      throw new Error('The game view did not activate');
+    if (!gameViewActivated()) throw new Error('The game view did not activate');
+    finishGeneratePositionButton(button);
+    return true;
+  } catch (firstError) {
+    console.warn('Initial position generation failed; repairing the local position cache and retrying.', firstError);
+    lastStartRecovery = {
+      attemptedAt: new Date().toISOString(),
+      reason: String(firstError?.message || firstError),
+      action: 'cleared generated-position cache and used a curated seed',
+    };
+    try {
+      clearGeneratedPositionCache('automatic start recovery');
+      queuedCustomPosition = safeCuratedRecoveryPosition();
+      startPosition({ preservePrevious: true });
+      if (!gameViewActivated()) throw new Error('The recovery position did not activate the game view');
+      toast('Opened a fresh board after repairing an older position cache');
+      finishGeneratePositionButton(button);
+      return true;
+    } catch (recoveryError) {
+      const combined = new Error(`Initial start failed: ${firstError?.message || firstError}; recovery failed: ${recoveryError?.message || recoveryError}`);
+      showGeneratePositionFailure(combined);
+      return false;
     }
-    window.requestAnimationFrame(() => {
-      button.dataset.starting = '0';
-      button.disabled = false;
-      button.removeAttribute('aria-busy');
-      button.textContent = 'Generate position';
-    });
-  } catch (error) {
-    showGeneratePositionFailure(error);
   }
+}
+
+window.__KMATE_GENERATE_POSITION__ = handleGeneratePosition;
+
+function installGeneratePositionActivationFallback() {
+  const button = $('#startButton');
+  if (!button || button.dataset.activationFallback === '1') return;
+  button.dataset.activationFallback = '1';
+  button.onclick = handleGeneratePosition;
+  button.addEventListener('pointerup', (event) => {
+    if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+    event.preventDefault();
+    handleGeneratePosition(event);
+  }, { passive: false });
+  button.addEventListener('touchend', (event) => {
+    event.preventDefault();
+    handleGeneratePosition(event);
+  }, { passive: false });
 }
 
 function stopReviewPlayback() {

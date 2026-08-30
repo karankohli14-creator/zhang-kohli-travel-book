@@ -1667,3 +1667,20 @@ html.kmate-fixed-app body.paged-app:not(.game-mode) input:focus-visible{outline:
   .replay-exit-bar .btn{min-height:39px;padding:0 6px;font-size:9.5px}
 }
 /* End K-Mate v40 */
+
+
+/* K-Mate v41 — unmistakable, resilient transition from setup to the board */
+html.kmate-fixed-app body.paged-app:not(.game-mode) #startButton{
+  position:relative;isolation:isolate;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+html.kmate-fixed-app body.paged-app:not(.game-mode) #startButton::after{
+  content:'→';display:inline-grid;place-items:center;margin-left:10px;width:25px;height:25px;border-radius:999px;
+  background:#17210f;color:#d7ff84;font-size:15px;font-weight:1000;vertical-align:middle;
+}
+html.kmate-fixed-app body.paged-app:not(.game-mode) #startButton[aria-busy="true"]::after{
+  content:'';width:17px;height:17px;border:3px solid #17210f55;border-top-color:#17210f;background:transparent;
+  animation:kmateStartSpin .7s linear infinite;
+}
+@keyframes kmateStartSpin{to{transform:rotate(360deg)}}
+#loadError.show{display:block!important;padding:8px 11px!important;border:1px solid #ff8f8f55!important;border-radius:11px!important;background:#571b1b55!important;color:#ffdede!important;font-weight:800!important}
+/* End K-Mate v41 */
