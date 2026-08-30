@@ -83,8 +83,165 @@
 
 }
 
+
+let setupFlowPage = 'intro';
+
+function setupFlowPageElement(page) {
+  return document.querySelector(`.setup-flow-page[data-setup-page="${page}"]`);
+}
+
+function showSetupFlowPage(page = 'intro', { focus = true } = {}) {
+  const allowed = new Set(['intro', 'challenge', 'coach']);
+  setupFlowPage = allowed.has(page) ? page : 'intro';
+  document.querySelectorAll('.setup-flow-page').forEach((screen) => {
+    const active = screen.dataset.setupPage === setupFlowPage;
+    screen.hidden = !active;
+    screen.classList.toggle('active', active);
+    screen.setAttribute('aria-hidden', String(!active));
+  });
+  document.querySelectorAll('[data-setup-step]').forEach((dot) => {
+    dot.classList.toggle('active', dot.dataset.setupStep === setupFlowPage);
+  });
+  document.body.dataset.setupPage = setupFlowPage;
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  if (focus) setupFlowPageElement(setupFlowPage)?.querySelector('button, select, input')?.focus?.({ preventScroll: true });
+}
+
+function makeSetupScreen(page, stepLabel, title, subtitle) {
+  const section = document.createElement('section');
+  section.className = 'setup-flow-page';
+  section.dataset.setupPage = page;
+  section.hidden = true;
+  section.innerHTML = `
+    <header class="setup-screen-header">
+      <div class="setup-screen-brand"><span class="brandmark">♞</span><span><b>K-Mate</b><small>${stepLabel}</small></span></div>
+      <div class="setup-progress" aria-label="Setup progress">
+        <i data-setup-step="intro"></i><i data-setup-step="challenge"></i><i data-setup-step="coach"></i>
+      </div>
+      <div class="setup-screen-copy"><h1>${title}</h1><p>${subtitle}</p></div>
+    </header>
+    <div class="setup-screen-content"></div>
+    <footer class="setup-screen-footer"></footer>
+  `;
+  return section;
+}
+
+function initializePagedSetup() {
+  const setup = $('#setupView');
+  const hero = setup?.querySelector('.hero');
+  const intro = hero?.querySelector('.intro');
+  const setupCard = hero?.querySelector('.setup-card');
+  if (!setup || !hero || !intro || !setupCard || setup.dataset.pagedReady === '1') return;
+  setup.dataset.pagedReady = '1';
+  setup.classList.add('paged-setup');
+  document.body.classList.add('paged-app');
+
+  const flow = document.createElement('div');
+  flow.className = 'setup-flow';
+  flow.id = 'setupFlow';
+
+  const introPage = makeSetupScreen('intro', 'Train positions, not openings', 'Get better at the part of chess that decides games.', 'Choose a real middlegame or endgame, play it under pressure, and get precise coaching only when it matters.');
+  const challengePage = makeSetupScreen('challenge', 'Step 1 of 2', 'Choose the position and opponent.', 'Set the chess challenge. Your coaching preferences come next.');
+  const coachPage = makeSetupScreen('coach', 'Step 2 of 2', 'Choose how K-Mate coaches you.', 'Decide when the coach intervenes, whether it speaks, and how the board should sound.');
+
+  flow.append(introPage, challengePage, coachPage);
+  setup.prepend(flow);
+
+  // Intro: reuse the product story and personal summary, but make it a true welcome screen.
+  intro.classList.add('welcome-card');
+  introPage.querySelector('.setup-screen-content').append(intro);
+  const introFooter = introPage.querySelector('.setup-screen-footer');
+  introFooter.innerHTML = `
+    <button class="btn subtle app-flow-secondary" id="introInsightsButton" type="button">View insights</button>
+    <button class="btn primary app-flow-primary" id="introProceedButton" type="button">Let's get into it →</button>
+  `;
+
+  // Build two compact setup cards and move the existing controls rather than cloning them.
+  const challengeCard = document.createElement('article');
+  challengeCard.className = 'card setup-step-card challenge-step-card';
+  const challengeGrid = document.createElement('div');
+  challengeGrid.className = 'setup-fields-grid challenge-fields-grid';
+  challengeCard.append(challengeGrid);
+  challengePage.querySelector('.setup-screen-content').append(challengeCard);
+
+  const coachingCard = document.createElement('article');
+  coachingCard.className = 'card setup-step-card coaching-step-card';
+  const coachingGrid = document.createElement('div');
+  coachingGrid.className = 'setup-fields-grid coaching-fields-grid';
+  coachingCard.append(coachingGrid);
+  coachPage.querySelector('.setup-screen-content').append(coachingCard);
+
+  const challengeSelectors = [
+    '#phaseSeg', '#openingField', '#goalField', '#positionRating', '#opponentRating', '#timeControlGrid', '#sideSeg'
+  ];
+  const challengeNodes = [];
+  for (const selector of challengeSelectors) {
+    const element = setupCard.querySelector(selector);
+    const field = element?.closest('.field') || element?.closest('.seg')?.closest('.field');
+    if (field && !challengeNodes.includes(field)) challengeNodes.push(field);
+  }
+  challengeNodes.forEach((node) => challengeGrid.append(node));
+
+  const coachingSelectors = ['#blindCalibration', '#autoHints', '#principleReview', '#liveCoach', '#liveCoachVoice'];
+  const coachingNodes = [];
+  coachingSelectors.forEach((selector) => {
+    const node = setupCard.querySelector(selector)?.closest('.calibration-toggle');
+    if (node && !coachingNodes.includes(node)) coachingNodes.push(node);
+  });
+  coachingNodes.forEach((node) => coachingGrid.append(node));
+  const audioCheck = setupCard.querySelector('#coachAudioCheck');
+  const soundField = setupCard.querySelector('#soundStyleField');
+  if (audioCheck) coachingGrid.append(audioCheck);
+  if (soundField) coachingGrid.append(soundField);
+
+  // Keep advanced/import tools available without using page height for them.
+  const betaTools = setupCard.querySelector('.beta-tools');
+  if (betaTools) {
+    betaTools.classList.add('compact-beta-tools');
+    coachingGrid.append(betaTools);
+  }
+  const loadError = setupCard.querySelector('#loadError');
+  if (loadError) coachingGrid.append(loadError);
+
+  // Presets and long explanatory copy no longer consume setup-screen space.
+  setupCard.querySelector('.quick-presets')?.remove();
+  setupCard.querySelector('.fineprint')?.classList.add('setup-fineprint-hidden');
+  const oldStart = setupCard.querySelector('#startButton');
+  if (oldStart) coachPage.querySelector('.setup-screen-footer').append(oldStart);
+
+  challengePage.querySelector('.setup-screen-footer').innerHTML = `
+    <button class="btn app-flow-secondary" id="challengeBackButton" type="button">← Back</button>
+    <button class="btn primary app-flow-primary" id="challengeNextButton" type="button">Coaching setup →</button>
+  `;
+  const coachFooter = coachPage.querySelector('.setup-screen-footer');
+  const back = document.createElement('button');
+  back.className = 'btn app-flow-secondary';
+  back.id = 'coachBackButton';
+  back.type = 'button';
+  back.textContent = '← Challenge';
+  coachFooter.prepend(back);
+
+  // Old scrolling setup shell and supplementary cards are no longer part of the visual flow.
+  hero.hidden = true;
+  setup.querySelector('.signal-card')?.classList.add('setup-supplement-hidden');
+  setup.querySelector('.recommendation-card')?.classList.add('setup-supplement-hidden');
+
+  $('#introProceedButton')?.addEventListener('click', () => showSetupFlowPage('challenge'));
+  $('#introInsightsButton')?.addEventListener('click', () => showView('insights'));
+  $('#challengeBackButton')?.addEventListener('click', () => showSetupFlowPage('intro'));
+  $('#challengeNextButton')?.addEventListener('click', () => showSetupFlowPage('coach'));
+  $('#coachBackButton')?.addEventListener('click', () => showSetupFlowPage('challenge'));
+
+  showSetupFlowPage('intro', { focus: false });
+}
+
+function resetSetupFlowForNavigation(page = 'intro') {
+  if ($('#setupView')?.dataset.pagedReady === '1') showSetupFlowPage(page, { focus: false });
+}
+
 populateOpenings();
 populateSoundProfiles();
+initializePagedSetup();
 applySettingsToControls();
 bindControls();
 syncGameViewportLayout();
@@ -95,7 +252,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '35.0-commercial-beta',
+  version: '36.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -125,6 +282,7 @@ window.__KMATE__ = {
     hint: { status: hintState.status, level: hintState.level, automatic: Boolean(settings.autoHints), candidate: hintState.level >= 2 ? hintState.candidate : null },
     sound: { enabled: soundEnabled(), theme: selectedSoundTheme(), unlocked: htmlAudioUnlocked, audibleConfirmed: soundAudiblyConfirmed, backend: soundPlaybackBackend, lastKind: lastSoundKind },
     coachAudio: { ready: coachAudioReady, state: coachAudioDeviceState, message: coachAudioDeviceMessage, macLike: isMacLikeDevice(), selectedVoice: chooseCoachVoice()?.name || null, sessionPrimeAttempted: coachSessionPrimeAttempted },
+    setupFlow: { page: setupFlowPage, paged: Boolean($('#setupView')?.dataset.pagedReady === '1') },
     layout: { gameMode: document.body.classList.contains('game-mode'), focusMode: document.body.classList.contains('board-focus'), fullscreen: Boolean(document.fullscreenElement), panelOpen: gamePanelOpen, viewportHeight: window.visualViewport?.height || window.innerHeight, documentScrollHeight: document.documentElement.scrollHeight, scrollY: window.scrollY },
     engine: 'Stockfish 18 lite single-threaded',
     reviewEngine: 'Equal-time root-restricted Stockfish 18 review',

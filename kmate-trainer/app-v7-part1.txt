@@ -1185,6 +1185,7 @@ function showView(view) {
   $('#insightsView').hidden = view !== 'insights';
   $$('.navbutton').forEach((button) => button.classList.toggle('active', button.dataset.view === view || (gameMode && button.dataset.view === 'setup')));
   if (view === 'insights') renderInsights();
+  if (view === 'setup' && typeof resetSetupFlowForNavigation === 'function') resetSetupFlowForNavigation('intro');
   window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   syncGameViewportLayout();
   updateFullscreenControl();
