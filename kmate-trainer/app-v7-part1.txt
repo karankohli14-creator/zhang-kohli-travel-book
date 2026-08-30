@@ -869,7 +869,7 @@ function previewCaptureSoundTheme() {
 
 function canonicalShareUrl() {
   const url = new URL(window.location.href);
-  url.search = '?v=20260830-34';
+  url.search = '?v=20260830-35';
   url.hash = '';
   return url.href;
 }
@@ -4617,6 +4617,10 @@ function renderLiveCoachIntervention(record, narration, ignoredPrinciples) {
   $('#liveCoachWhy').textContent = narration.whyText;
   $('#liveCoachBestMove').textContent = narration.bestSan;
   $('#liveCoachBestText').textContent = narration.bestText;
+  const playedLegend = $('#liveCoachPlayedLegend');
+  const bestLegend = $('#liveCoachBestLegend');
+  if (playedLegend) playedLegend.innerHTML = `<i></i><b>Orange dashed</b> = your move ${escapeHtml(narration.yourSan || record.san || '')}`;
+  if (bestLegend) bestLegend.innerHTML = `<i></i><b>Green solid</b> = best move ${escapeHtml(narration.bestSan || '')}`;
   const playedLine = $('#liveCoachPlayedLine');
   if (playedLine) playedLine.textContent = narration.playedLine?.length ? narration.playedLine.join('  →  ') : 'No concrete played-move continuation is available yet.';
   const line = $('#liveCoachLine');

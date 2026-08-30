@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=34.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=35.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -271,8 +271,8 @@
                 <b id="liveCoachPauseText">Both clocks remain paused until you tap Resume game.</b>
               </div>
               <div class="live-coach-board-legend" aria-label="Board highlight legend">
-                <span class="played"><i></i>Your played move</span>
-                <span class="best"><i></i>Engine best move</span>
+                <span class="played" id="liveCoachPlayedLegend"><i></i>Orange dashed = your move</span>
+                <span class="best" id="liveCoachBestLegend"><i></i>Green solid = best move</span>
               </div>
               <div class="live-coach-audio-status" id="liveCoachAudioStatus" role="status">Voice on · narration begins when the analysis is ready.</div>
               <p class="live-coach-summary" id="liveCoachSummary">K-Mate is comparing your move with the strongest continuation.</p>
@@ -685,6 +685,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=34.0.0"></script>
+  <script type="module" src="./app-v7.js?v=35.0.0"></script>
 </body>
 </html>
