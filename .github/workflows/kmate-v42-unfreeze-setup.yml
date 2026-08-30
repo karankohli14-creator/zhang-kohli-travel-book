@@ -1,0 +1,84 @@
+name: K-Mate v42 unfreeze setup screen
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v42-unfreeze-setup.yml'
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply K-Mate v42 frozen-screen repair
+        run: |
+          python -m py_compile .github/scripts/kmate_v42_unfreeze_setup.py
+          python .github/scripts/kmate_v42_unfreeze_setup.py
+          rm -f .github/workflows/kmate-v41-resilient-position-start.yml
+          rm -f .github/workflows/kmate-v41-public-smoke.yml
+          rm -f .github/workflows/kmate-v40-warm-setup-start-navigation-r4.yml
+
+      - name: Validate assembled application and fresh entry path
+        run: |
+          node --check kmate-trainer/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-trainer/app-v7-part{number}.txt').read_text() for number in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v42.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v42.js
+          grep -q "version: '42.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+          grep -q "function installSetupInteractionGuard" kmate-trainer/app-v7-part6.txt
+          grep -q "screen.inert = !active" kmate-trainer/app-v7-part6.txt
+          grep -q "hero.remove()" kmate-trainer/app-v7-part6.txt
+          grep -q "function immediateCuratedPosition" kmate-trainer/app-v7-part1.txt
+          grep -q "queuedCustomPosition = immediateCuratedPosition" kmate-trainer/app-v7-part1.txt
+          grep -q "setup-flow-page:not(.active)" kmate-trainer/styles-v7.css
+          grep -q '<base href="../kmate-trainer/">' kmate-v42/index.html
+          ! grep -q "new MutationObserver" kmate-trainer/app-v7-part6.txt
+
+      - name: Install Playwright and serve repository root
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          BROWSER_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$BROWSER_PATH"
+          echo "BROWSER_PATH=$BROWSER_PATH" >> "$GITHUB_ENV"
+          python3 -m http.server 4173 --directory . >/tmp/kmate-v42-server.log 2>&1 &
+
+      - name: Verify every control remains clickable and Generate position opens play
+        env:
+          KMATE_BASE_URL: http://127.0.0.1:4173/kmate-v42/
+        run: node .github/scripts/kmate_v42_verify.js
+
+      - name: Commit and publish K-Mate v42
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A kmate-trainer kmate-v42 .github/workflows
+          git commit -m 'K-Mate v42: remove frozen setup overlays and guarantee board launch'
+          git pull --rebase origin main
+          git push
+
+      - name: Wait for GitHub Pages to serve v42
+        run: |
+          PUBLIC_URL='https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-v42/'
+          for attempt in $(seq 1 75); do
+            if curl -fsSL "${PUBLIC_URL}?deploy=${GITHUB_RUN_ID}-${attempt}" | grep -q 'app-v7.js?v=42.0.0'; then
+              echo 'K-Mate v42 is live.'
+              exit 0
+            fi
+            sleep 4
+          done
+          echo 'GitHub Pages did not expose v42 within the polling window.' >&2
+          exit 1
+
+      - name: Verify the deployed public v42 screen is interactive
+        env:
+          KMATE_BASE_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-v42/
+        run: node .github/scripts/kmate_v42_verify.js
