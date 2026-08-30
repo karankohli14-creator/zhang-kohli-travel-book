@@ -84,6 +84,45 @@
 }
 
 
+
+function renderCompactPrincipleReview() {
+  const list = $('#principlesList');
+  if (!list || !principleReviewPending || list.dataset.compacting === '1') return;
+  const principles = currentPositionPrinciples.slice(0, 5);
+  if (!principles.length) return;
+  list.dataset.compacting = '1';
+  const fragment = document.createDocumentFragment();
+  principles.forEach((principle, index) => {
+    const row = document.createElement('article');
+    row.className = 'principle-compact-row';
+    const number = document.createElement('span');
+    number.className = 'principle-compact-number';
+    number.textContent = String(index + 1);
+    const title = document.createElement('b');
+    title.textContent = principle.title;
+    row.append(number, title);
+    fragment.append(row);
+  });
+  list.replaceChildren(fragment);
+  list.dataset.compacting = '0';
+  const title = $('#principlesPositionTitle');
+  if (title) title.textContent = `${principles.length} key principles for this position`;
+  const subtitle = $('#principlesPositionSubtitle');
+  if (subtitle) subtitle.textContent = 'Keep these in mind, then calculate the concrete position.';
+}
+
+function initializeCompactPrincipleReview() {
+  const list = $('#principlesList');
+  if (!list || list.dataset.compactObserver === '1') return;
+  list.dataset.compactObserver = '1';
+  const observer = new MutationObserver(() => {
+    if (list.dataset.compacting === '1') return;
+    queueMicrotask(renderCompactPrincipleReview);
+  });
+  observer.observe(list, { childList: true, subtree: true });
+  $('#principlesDialog')?.addEventListener('transitionend', renderCompactPrincipleReview);
+}
+
 let setupFlowPage = 'intro';
 
 function setupFlowPageElement(page) {
@@ -144,8 +183,8 @@ function initializePagedSetup() {
   flow.id = 'setupFlow';
 
   const introPage = makeSetupScreen('intro', 'Train positions, not openings', 'Get better at the part of chess that decides games.', 'Choose a real middlegame or endgame, play it under pressure, and get precise coaching only when it matters.');
-  const challengePage = makeSetupScreen('challenge', 'Step 1 of 2', 'Choose the position and opponent.', 'Set the chess challenge. Your coaching preferences come next.');
-  const coachPage = makeSetupScreen('coach', 'Step 2 of 2', 'Choose how K-Mate coaches you.', 'Decide when the coach intervenes, whether it speaks, and how the board should sound.');
+  const challengePage = makeSetupScreen('challenge', 'Step 1 of 2', 'Set your chess challenge', 'Phase · opening · ratings · clock');
+  const coachPage = makeSetupScreen('coach', 'Step 2 of 2', 'Choose your coaching', 'Hints · principles · Live Coach · sound');
 
   flow.append(introPage, challengePage, coachPage);
   setup.prepend(flow);
@@ -200,7 +239,7 @@ function initializePagedSetup() {
   // Keep advanced/import tools available without using page height for them.
   const betaTools = setupCard.querySelector('.beta-tools');
   if (betaTools) {
-    betaTools.classList.add('compact-beta-tools');
+    betaTools.classList.add('compact-beta-tools', 'setup-advanced-hidden');
     coachingGrid.append(betaTools);
   }
   const loadError = setupCard.querySelector('#loadError');
@@ -261,6 +300,7 @@ window.visualViewport?.addEventListener?.('resize', pinPagedSetupViewport, { pas
 populateOpenings();
 populateSoundProfiles();
 initializePagedSetup();
+initializeCompactPrincipleReview();
 applySettingsToControls();
 bindControls();
 syncGameViewportLayout();
@@ -271,7 +311,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '38.0-commercial-beta',
+  version: '39.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
