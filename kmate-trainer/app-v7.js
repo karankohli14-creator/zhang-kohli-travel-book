@@ -1,4 +1,4 @@
-import { POSITIONS } from './positions-v7.js?v=46.0.0';
+import { POSITIONS } from './positions-v7.js?v=31.0.0';
 
 const sources = [
   'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm',
@@ -34,7 +34,7 @@ const narrowLayoutFix = document.createElement('style');
 narrowLayoutFix.textContent = `.card,.table-card,.recent-card,.tables-grid,.table-scroll,.recent-row>span{min-width:0}.table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}@media(max-width:700px){.table-card{overflow:hidden}.recent-row{max-width:100%;overflow:hidden}.recent-row>span:nth-child(2){overflow-wrap:anywhere}}`;
 document.head.append(narrowLayoutFix);
 
-const partUrls = [1, 2, 3, 4, 5, 6].map((number) => `./app-v7-part${number}.txt?v=46.0.0`);
+const partUrls = [1, 2, 3, 4, 5, 6].map((number) => `./app-v7-part${number}.txt?v=31.0.0`);
 const responses = await Promise.all(partUrls.map(async (url) => {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Unable to load ${url}: ${response.status}`);
@@ -50,9 +50,3 @@ try {
 } finally {
   URL.revokeObjectURL(moduleUrl);
 }
-
-// Loaded after the legacy runtime so it can remove stale modal/inert state and
-// replace the accumulated final-screen event handlers with one reliable click.
-await import('./hotfix-v45.js?v=46.0.0');
-
-await import('./hotfix-v46-safe-start.js?v=46.0.0');

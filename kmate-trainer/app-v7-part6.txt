@@ -5,14 +5,14 @@
   $('#changeSetupButton').addEventListener('click', () => navigate('setup'));
   $('#showHintButton')?.addEventListener('click', handleHintButton);
   $('#resultReplay')?.addEventListener('click', () => {
-    primeCoachAudioFromGesture();
     closeDialog('resultDialog');
     openCoachReplay(currentSession);
   });
-  $('#replayBackToReview')?.addEventListener('click', returnToSessionSummary);
-  $('#replayCloseButton')?.addEventListener('click', returnToSessionSummary);
-  $('#replayHomeButton')?.addEventListener('click', goHomeFromReview);
-  $('#replayNewPositionButton')?.addEventListener('click', generateNewPositionFromReview);
+  $('#replayBackToReview')?.addEventListener('click', () => {
+    closeDialog('replayDialog');
+    renderPostGameReview(currentSession);
+    openDialog('resultDialog');
+  });
   $('#replayFirst')?.addEventListener('click', () => setReplayIndex(0));
   $('#replayPrevious')?.addEventListener('click', () => setReplayIndex(replayState.index - 1));
   $('#replayNext')?.addEventListener('click', () => setReplayIndex(replayState.index + 1));
@@ -37,7 +37,6 @@
   $('#liveCoachSpeakButton')?.addEventListener('click', handleLiveCoachSpeak);
   $('#liveCoachVoiceToggle')?.addEventListener('click', toggleLiveCoachVoice);
   $('#liveCoachVoice')?.addEventListener('change', handleLiveCoachVoiceSetting);
-  $('#coachVoiceTestButton')?.addEventListener('click', testCoachVoice);
   $('#coachMyVoiceInfo')?.addEventListener('click', () => openDialog('voiceCloneDialog'));
   $('#replayDialog')?.addEventListener('close', () => {
     stopReplayAuto();
@@ -51,8 +50,14 @@
     if (session) openCoachReplay(session);
   });
 
-  $('#resultNext').addEventListener('click', generateNewPositionFromReview);
-  $('#resultSetup').addEventListener('click', goHomeFromReview);
+  $('#resultNext').addEventListener('click', () => {
+    closeDialog('resultDialog');
+    startPosition({ preservePrevious: true });
+  });
+  $('#resultSetup').addEventListener('click', () => {
+    closeDialog('resultDialog');
+    showView('setup');
+  });
   $('#resultInsights').addEventListener('click', () => {
     closeDialog('resultDialog');
     showView('insights');
@@ -70,302 +75,21 @@
   $('#aboutBetaButton')?.addEventListener('click', () => openDialog('aboutBetaDialog'));
   $('#saveCalibrationGuess')?.addEventListener('click', saveCalibrationGuess);
 
-  for (const selector of ['#startButton', '#startRecommendedButton', '#coachSpeakButton', '#liveCoachSpeakButton', '#resultReplay']) {
-    $(selector)?.addEventListener('pointerdown', primeCoachAudioFromGesture, { passive: true });
-  }
-
 }
-
-
-
-function renderCompactPrincipleReview() {
-  const list = $('#principlesList');
-  if (!list || !principleReviewPending || list.dataset.compacting === '1') return;
-  const principles = currentPositionPrinciples.slice(0, 5);
-  if (!principles.length) return;
-  list.dataset.compacting = '1';
-  const fragment = document.createDocumentFragment();
-  principles.forEach((principle, index) => {
-    const row = document.createElement('article');
-    row.className = 'principle-compact-row';
-    const number = document.createElement('span');
-    number.className = 'principle-compact-number';
-    number.textContent = String(index + 1);
-    const title = document.createElement('b');
-    title.textContent = principle.title;
-    row.append(number, title);
-    fragment.append(row);
-  });
-  list.replaceChildren(fragment);
-  list.dataset.compacting = '0';
-  const title = $('#principlesPositionTitle');
-  if (title) title.textContent = `Before you play: ${principles.length} key principles`;
-  const subtitle = $('#principlesPositionSubtitle');
-  if (subtitle) subtitle.textContent = '';
-}
-
-function initializeCompactPrincipleReview() {
-  const list = $('#principlesList');
-  if (!list || list.dataset.compactObserver === '1') return;
-  list.dataset.compactObserver = '1';
-  const observer = new MutationObserver(() => {
-    if (list.dataset.compacting === '1') return;
-    queueMicrotask(renderCompactPrincipleReview);
-  });
-  observer.observe(list, { childList: true, subtree: true });
-  $('#principlesDialog')?.addEventListener('transitionend', renderCompactPrincipleReview);
-}
-
-let setupFlowPage = 'intro';
-
-function setupFlowPageElement(page) {
-  return document.querySelector(`.setup-flow-page[data-setup-page="${page}"]`);
-}
-
-function showSetupFlowPage(page = 'intro', { focus = true } = {}) {
-  const allowed = new Set(['intro', 'challenge', 'coach']);
-  setupFlowPage = allowed.has(page) ? page : 'intro';
-  document.querySelectorAll('.setup-flow-page').forEach((screen) => {
-    const active = screen.dataset.setupPage === setupFlowPage;
-    screen.hidden = !active;
-    screen.classList.toggle('active', active);
-    screen.setAttribute('aria-hidden', String(!active));
-  });
-  document.querySelectorAll('[data-setup-step]').forEach((dot) => {
-    dot.classList.toggle('active', dot.dataset.setupStep === setupFlowPage);
-  });
-  document.body.dataset.setupPage = setupFlowPage;
-  document.documentElement.scrollTop = 0;
-  document.body.scrollTop = 0;
-  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  if (focus) setupFlowPageElement(setupFlowPage)?.querySelector('button, select, input')?.focus?.({ preventScroll: true });
-}
-
-function makeSetupScreen(page, title = '') {
-  const section = document.createElement('section');
-  section.className = 'setup-flow-page';
-  section.dataset.setupPage = page;
-  section.hidden = true;
-  section.innerHTML = `
-    <header class="setup-screen-header">
-      <div class="setup-screen-copy">${title ? `<h1>${title}</h1>` : ''}</div>
-      <div class="setup-progress" aria-label="Setup progress">
-        <i data-setup-step="intro"></i><i data-setup-step="challenge"></i><i data-setup-step="coach"></i>
-      </div>
-    </header>
-    <div class="setup-screen-content"></div>
-    <footer class="setup-screen-footer"></footer>
-  `;
-  return section;
-}
-
-function initializePagedSetup() {
-  const setup = $('#setupView');
-  const hero = setup?.querySelector('.hero');
-  const intro = hero?.querySelector('.intro');
-  const setupCard = hero?.querySelector('.setup-card');
-  if (!setup || !hero || !intro || !setupCard || setup.dataset.pagedReady === '1') return;
-  setup.dataset.pagedReady = '1';
-  setup.classList.add('paged-setup');
-  document.documentElement.classList.add('kmate-fixed-app');
-  document.body.classList.add('paged-app');
-
-  const flow = document.createElement('div');
-  flow.className = 'setup-flow';
-  flow.id = 'setupFlow';
-
-  const introPage = makeSetupScreen('intro');
-  const challengePage = makeSetupScreen('challenge', 'Set your chess challenge');
-  const coachPage = makeSetupScreen('coach', 'Choose your coaching');
-
-  flow.append(introPage, challengePage, coachPage);
-  setup.prepend(flow);
-
-  // Intro: reuse the product story and personal summary, but make it a true welcome screen.
-  intro.classList.add('welcome-card');
-  introPage.querySelector('.setup-screen-content').append(intro);
-  const introFooter = introPage.querySelector('.setup-screen-footer');
-  introFooter.innerHTML = `
-    <button class="btn subtle app-flow-secondary" id="introInsightsButton" type="button">View insights</button>
-    <button class="btn primary app-flow-primary" id="introProceedButton" type="button">Let's get into it →</button>
-  `;
-
-  // Build two compact setup cards and move the existing controls rather than cloning them.
-  const challengeCard = document.createElement('article');
-  challengeCard.className = 'card setup-step-card challenge-step-card';
-  const challengeGrid = document.createElement('div');
-  challengeGrid.className = 'setup-fields-grid challenge-fields-grid';
-  challengeCard.append(challengeGrid);
-  challengePage.querySelector('.setup-screen-content').append(challengeCard);
-
-  const coachingCard = document.createElement('article');
-  coachingCard.className = 'card setup-step-card coaching-step-card';
-  const coachingGrid = document.createElement('div');
-  coachingGrid.className = 'setup-fields-grid coaching-fields-grid';
-  coachingCard.append(coachingGrid);
-  coachPage.querySelector('.setup-screen-content').append(coachingCard);
-
-  const challengeSelectors = [
-    '#phaseSeg', '#openingField', '#goalField', '#positionRating', '#opponentRating', '#timeControlGrid', '#sideSeg'
-  ];
-  const challengeNodes = [];
-  for (const selector of challengeSelectors) {
-    const element = setupCard.querySelector(selector);
-    const field = element?.closest('.field') || element?.closest('.seg')?.closest('.field');
-    if (field && !challengeNodes.includes(field)) challengeNodes.push(field);
-  }
-  challengeNodes.forEach((node) => challengeGrid.append(node));
-
-  const coachingSelectors = ['#blindCalibration', '#autoHints', '#principleReview', '#liveCoach', '#liveCoachVoice'];
-  const coachingNodes = [];
-  coachingSelectors.forEach((selector) => {
-    const node = setupCard.querySelector(selector)?.closest('.calibration-toggle');
-    if (node && !coachingNodes.includes(node)) coachingNodes.push(node);
-  });
-  coachingNodes.forEach((node) => coachingGrid.append(node));
-  const audioCheck = setupCard.querySelector('#coachAudioCheck');
-  const soundField = setupCard.querySelector('#soundStyleField');
-  if (audioCheck) coachingGrid.append(audioCheck);
-  if (soundField) coachingGrid.append(soundField);
-
-  // Keep advanced/import tools available without using page height for them.
-  const betaTools = setupCard.querySelector('.beta-tools');
-  if (betaTools) {
-    betaTools.classList.add('compact-beta-tools', 'setup-advanced-hidden');
-    coachingGrid.append(betaTools);
-  }
-  const loadError = setupCard.querySelector('#loadError');
-  if (loadError) coachingGrid.append(loadError);
-
-  // Presets and long explanatory copy no longer consume setup-screen space.
-  setupCard.querySelector('.quick-presets')?.remove();
-  setupCard.querySelector('.fineprint')?.classList.add('setup-fineprint-hidden');
-  const oldStart = setupCard.querySelector('#startButton');
-  if (oldStart) coachPage.querySelector('.setup-screen-footer').append(oldStart);
-
-  challengePage.querySelector('.setup-screen-footer').innerHTML = `
-    <button class="btn app-flow-secondary" id="challengeBackButton" type="button">← Back</button>
-    <button class="btn primary app-flow-primary" id="challengeNextButton" type="button">Next: coaching →</button>
-  `;
-  const coachFooter = coachPage.querySelector('.setup-screen-footer');
-  const back = document.createElement('button');
-  back.className = 'btn app-flow-secondary';
-  back.id = 'coachBackButton';
-  back.type = 'button';
-  back.textContent = '← Back';
-  coachFooter.prepend(back);
-
-  // Old scrolling setup shell and supplementary cards are no longer part of the visual flow.
-  hero.hidden = true;
-  setup.querySelector('.signal-card')?.classList.add('setup-supplement-hidden');
-  setup.querySelector('.recommendation-card')?.classList.add('setup-supplement-hidden');
-
-  $('#introProceedButton')?.addEventListener('click', () => showSetupFlowPage('challenge'));
-  $('#introInsightsButton')?.addEventListener('click', () => showView('insights'));
-  $('#challengeBackButton')?.addEventListener('click', () => showSetupFlowPage('intro'));
-  $('#challengeNextButton')?.addEventListener('click', () => showSetupFlowPage('coach'));
-  $('#coachBackButton')?.addEventListener('click', () => showSetupFlowPage('challenge'));
-
-  showSetupFlowPage('intro', { focus: false });
-}
-
-function resetSetupFlowForNavigation(page = 'intro') {
-  if ($('#setupView')?.dataset.pagedReady === '1') showSetupFlowPage(page, { focus: false });
-}
-
-function pagedSetupIsActive() {
-  return document.body.classList.contains('paged-app') && !document.body.classList.contains('game-mode') && !$('#setupView')?.hidden;
-}
-
-function pinPagedSetupViewport() {
-  if (!pagedSetupIsActive()) return;
-  if (window.scrollX || window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-    window.scrollTo(0, 0);
-  }
-}
-
-window.addEventListener('scroll', pinPagedSetupViewport, { passive: true });
-window.visualViewport?.addEventListener?.('resize', pinPagedSetupViewport, { passive: true });
 
 populateOpenings();
 populateSoundProfiles();
-initializePagedSetup();
-initializeCompactPrincipleReview();
 applySettingsToControls();
 bindControls();
-installGeneratePositionActivationFallback();
-syncGameViewportLayout();
 renderSummary();
 renderInsights();
 updateCoachVoiceControls();
-setGeneratePositionButtonReady();
-const generatePositionButton = $('#startButton');
-if (generatePositionButton) {
-  const keepGeneratePositionReady = new MutationObserver(() => {
-    if (!document.body.classList.contains('game-mode')
-      && generatePositionButton.dataset.starting !== '1'
-      && (generatePositionButton.disabled || generatePositionButton.textContent.trim() !== 'Generate position')) {
-      window.queueMicrotask(setGeneratePositionButtonReady);
-    }
-  });
-  keepGeneratePositionReady.observe(generatePositionButton, { attributes: true, childList: true, subtree: true });
-}
-stockfishEngine?.ready?.then(setGeneratePositionButtonReady).catch((error) => {
-  stockfishLoadError = error;
-  console.warn('Stockfish is still unavailable; K-Mate will retain its fallback play.', error);
-  setGeneratePositionButtonReady();
-});
-
-function chooseImmediateCuratedPosition() {
-  const targetRating = Number(settings.positionRating) || 1600;
-  const requestedPhase = settings.phase || 'middlegame';
-  const requestedOpening = settings.opening || 'all';
-  const all = Array.isArray(validPositions) && validPositions.length
-    ? validPositions.filter((position) => position && position.fen)
-    : (Array.isArray(POSITIONS) ? POSITIONS.filter((position) => position && position.fen) : []);
-  if (!all.length) throw new Error('No curated training position is available.');
-
-  let pool = all.filter((position) => position.phase === requestedPhase);
-  if (!pool.length) pool = all;
-  if (requestedPhase !== 'endgame' && requestedOpening !== 'all') {
-    const openingPool = pool.filter((position) => position.opening === requestedOpening);
-    if (openingPool.length) pool = openingPool;
-  }
-
-  let nearest = Infinity;
-  for (const position of pool) {
-    nearest = Math.min(nearest, Math.abs((Number(position.rating) || targetRating) - targetRating));
-  }
-  const shortlist = pool.filter((position) => Math.abs((Number(position.rating) || targetRating) - targetRating) <= nearest + 125);
-  const choices = shortlist.length ? shortlist : pool;
-  let index = 0;
-  try {
-    index = Math.max(0, Number(localStorage.getItem('kmate-v46-curated-index')) || 0);
-    localStorage.setItem('kmate-v46-curated-index', String(index + 1));
-  } catch {}
-  const anchor = choices[index % choices.length] || choices[0] || all[0];
-  if (!anchor) throw new Error('No curated training position is available.');
-  return {
-    ...anchor,
-    id: `safe-${anchor.id || 'position'}-${Date.now()}`,
-    seedId: anchor.id || null,
-    generated: false,
-    custom: false,
-    variationPlies: 0,
-  };
-}
-
-function startImmediateCuratedPosition(options = {}) {
-  queuedCustomPosition = chooseImmediateCuratedPosition();
-  return startPosition(options && typeof options === 'object' ? options : {});
-}
+$('#startButton').disabled = true;
+$('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '41.0-commercial-beta',
+  version: '31.0-commercial-beta',
   start: startPosition,
-  startSafe: startImmediateCuratedPosition,
   state: () => ({
     settings: { ...settings },
     current: current?.id || null,
@@ -373,8 +97,7 @@ window.__KMATE__ = {
     seedId: current?.seedId || null,
     variationPlies: current?.variationPlies || 0,
     recentGenerated: genSeen.length,
-    generator: { mode: 'open-ended branch tree', branches: genTree.length, counter: generationCounter, last: lastGenerationMeta ? { ...lastGenerationMeta } : null, cacheRepair: { ...generatorCacheRepair } },
-    start: { recovery: lastStartRecovery ? { ...lastStartRecovery } : null, error: lastStartError, buttonReady: Boolean($('#startButton') && !$('#startButton').disabled), activationFallback: $('#startButton')?.dataset.activationFallback === '1' },
+    generator: { mode: 'open-ended branch tree', branches: genTree.length, counter: generationCounter, last: lastGenerationMeta ? { ...lastGenerationMeta } : null },
     fen: game?.fen() || null,
     phase: current?.phase || null,
     opening: current?.opening || null,
@@ -385,7 +108,7 @@ window.__KMATE__ = {
     clockPaused,
     principleReviewPending,
     principles: currentPositionPrinciples.map((principle) => ({ key: principle.key, title: principle.title })),
-    liveCoach: { awaiting: liveCoachState.awaiting, open: liveCoachState.open, silentGate: Boolean(liveCoachState.awaiting && !liveCoachState.open), badMovesOnly: true, preciseLineAnalysis: true, inline: true, autoResume: false, viewportPreserved: true, voiceEnabled: settings.coachVoice !== false, voiceSpeaking: Boolean(liveCoachUtterance || window.speechSynthesis?.speaking), slowNoticeShown: Boolean(liveCoachState.slowNoticeShown), panelVisible: Boolean($('#liveCoachBoardPanel') && !$('#liveCoachBoardPanel').hidden), moveId: liveCoachState.moveId, ignoredPrinciples: liveCoachState.ignoredPrinciples.map((principle) => principle.key), principleDiagnoses: liveCoachState.ignoredPrinciples.map((principle) => ({ key: principle.key, confidence: principle.confidence, evidence: principle.evidence, reviewed: Boolean(principle.reviewed) })) },
+    liveCoach: { awaiting: liveCoachState.awaiting, open: liveCoachState.open, inline: true, autoResume: false, voiceEnabled: settings.coachVoice !== false, voiceSpeaking: Boolean(liveCoachUtterance || window.speechSynthesis?.speaking), slowNoticeShown: Boolean(liveCoachState.slowNoticeShown), panelVisible: Boolean($('#liveCoachBoardPanel') && !$('#liveCoachBoardPanel').hidden), moveId: liveCoachState.moveId, ignoredPrinciples: liveCoachState.ignoredPrinciples.map((principle) => principle.key), principleDiagnoses: liveCoachState.ignoredPrinciples.map((principle) => ({ key: principle.key, confidence: principle.confidence, evidence: principle.evidence, reviewed: Boolean(principle.reviewed) })) },
     thinking,
     finalized,
     reason: currentSession?.reason || null,
@@ -394,9 +117,6 @@ window.__KMATE__ = {
     ratedMoveSquare: ratedMoveSquare ? { ...ratedMoveSquare } : null,
     hint: { status: hintState.status, level: hintState.level, automatic: Boolean(settings.autoHints), candidate: hintState.level >= 2 ? hintState.candidate : null },
     sound: { enabled: soundEnabled(), theme: selectedSoundTheme(), unlocked: htmlAudioUnlocked, audibleConfirmed: soundAudiblyConfirmed, backend: soundPlaybackBackend, lastKind: lastSoundKind },
-    coachAudio: { ready: coachAudioReady, state: coachAudioDeviceState, message: coachAudioDeviceMessage, macLike: isMacLikeDevice(), selectedVoice: chooseCoachVoice()?.name || null, sessionPrimeAttempted: coachSessionPrimeAttempted },
-    setupFlow: { page: setupFlowPage, paged: Boolean($('#setupView')?.dataset.pagedReady === '1') },
-    layout: { gameMode: document.body.classList.contains('game-mode'), focusMode: document.body.classList.contains('board-focus'), fullscreen: Boolean(document.fullscreenElement), panelOpen: gamePanelOpen, viewportHeight: window.visualViewport?.height || window.innerHeight, documentScrollHeight: document.documentElement.scrollHeight, scrollY: window.scrollY },
     engine: 'Stockfish 18 lite single-threaded',
     reviewEngine: 'Equal-time root-restricted Stockfish 18 review',
     commercialBeta: true,
@@ -409,18 +129,6 @@ window.__KMATE__ = {
 
 if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
   window.__KMATE__.test = {
-    injectInvalidQueuedPosition: () => {
-      queuedCustomPosition = {
-        id: 'invalid-start-recovery-test', custom: false, generated: false,
-        phase: 'middlegame', opening: 'Recovery test', rating: 1600,
-        title: 'Invalid recovery test', theme: 'Recovery', tags: ['calculation'],
-        fen: 'this is not a valid fen', description: 'Intentional localhost-only recovery test.',
-      };
-      return true;
-    },
-    testCoachVoice: () => testCoachVoice(),
-    boardViewport: () => { const rect = $('#board')?.getBoundingClientRect(); return rect ? { top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height, scrollY: window.scrollY } : null; },
-    fitViewport: () => { syncGameViewportLayout(); return window.__KMATE__.state().layout; },
     forceTimeout: (color = userColor) => {
       if (!game || finalized) return false;
       clocks[color] = 0;
@@ -467,58 +175,6 @@ if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
     forceLiveCoachSlowState: () => {
       const record = liveCoachState.record || currentSession?.userMoves?.[currentSession.userMoves.length - 1];
       return record ? markLiveCoachAnalysisSlow(record) : false;
-    },
-    forceGoodMoveAnalysis: () => {
-      const record = currentSession?.userMoves?.[currentSession.userMoves.length - 1];
-      if (!record) return false;
-      applyMoveAnalysisResult(currentSession.id, record.id, {
-        cpLoss: 18,
-        bestMove: record.uci,
-        bestLine: [record.uci],
-        selectedLine: [record.uci],
-        bestScore: 42,
-        selectedScore: 42,
-        depth: 18,
-        exactBest: true,
-        analysisConsistency: 'test-good-move',
-        source: 'Local v34 good-move gate test',
-      });
-      return { moveId: record.id, quality: qualityForMoveRecord(record).key };
-    },
-    startConcreteTacticDemo: () => {
-      settings.side = 'w';
-      settings.timeControl = '3+0';
-      settings.liveCoach = true;
-      settings.coachVoice = false;
-      settings.principleReview = false;
-      settings.autoHints = false;
-      queuedCustomPosition = {
-        id: 'v34-concrete-tactic-demo', custom: true, generated: false, phase: 'endgame', opening: 'Teaching demo', rating: 1600,
-        title: 'Loose knight demonstration', theme: 'Loose pieces and forcing captures',
-        tags: ['calculation', 'piece activity', 'prophylaxis'],
-        fen: '4k3/8/8/5n2/3N4/8/4K3/8 w - - 0 1',
-        description: 'A deterministic position where Kf3 allows Nxd4 and Nxf5 removes the attacker.',
-      };
-      startPosition();
-      return { fen: game?.fen(), paused: clockPaused };
-    },
-    forceConcreteBadMoveAnalysis: () => {
-      const record = currentSession?.userMoves?.[currentSession.userMoves.length - 1];
-      if (!record) return false;
-      applyMoveAnalysisResult(currentSession.id, record.id, {
-        cpLoss: 620,
-        bestMove: 'd4f5',
-        bestLine: ['d4f5', 'e8e7', 'f5d4'],
-        selectedLine: [record.uci, 'f5d4'],
-        bestScore: 320,
-        selectedScore: -300,
-        depth: 22,
-        exactBest: false,
-        analysisConsistency: 'test-concrete-tactic',
-        source: 'Local v34 precise explanation test',
-      });
-      const narration = coachNarrationForRecord(record, currentSession, 1);
-      return { moveId: record.id, quality: qualityForMoveRecord(record).key, narration };
     },
     forceLiveCoachIntervention: () => {
       const record = currentSession?.userMoves?.[currentSession.userMoves.length - 1];
