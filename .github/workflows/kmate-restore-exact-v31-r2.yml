@@ -1,0 +1,143 @@
+name: Restore K-Mate exactly to v31 r2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-restore-exact-v31-r2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restore-test-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      V31_COMMIT: 5009dc306d606cbe00a377dac17dfce11559056c
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Restore only kmate-trainer from exact v31
+        run: |
+          git cat-file -e "$V31_COMMIT^{commit}"
+          rm -rf kmate-trainer
+          git checkout "$V31_COMMIT" -- kmate-trainer
+          git add -A kmate-trainer
+          grep -q "version: '31.0-commercial-beta'" kmate-trainer/app-v7-part6.txt
+          ! test -e kmate-trainer/hotfix-v45.js
+          ! test -e kmate-trainer/hotfix-v46-safe-start.js
+
+      - name: Validate restored JavaScript
+        run: |
+          node --check kmate-trainer/app-v7.js
+          cat kmate-trainer/app-v7-part{1,2,3,4,5,6}.txt > /tmp/kmate-v31-module.js
+          node --check /tmp/kmate-v31-module.js
+
+      - name: Install Chromium and WebKit
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          npx playwright install --with-deps chromium webkit
+
+      - name: Verify that exact v31 opens a playable board locally
+        run: |
+          python3 -m http.server 4173 --directory . >/tmp/kmate-v31-r2-server.log 2>&1 &
+          node <<'NODE'
+          const assert = require('assert');
+          const { chromium, webkit } = require('playwright');
+          const url = 'http://127.0.0.1:4173/kmate-trainer/?restore=v31-r2-local';
+
+          async function scenario(browserType, name, options) {
+            const browser = await browserType.launch({ headless: true });
+            const context = await browser.newContext(options);
+            const page = await context.newPage();
+            page.setDefaultTimeout(70000);
+            const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            assert.ok(response?.ok(), `${name}: HTTP ${response?.status()}`);
+            await page.waitForFunction(() => window.__KMATE__?.version === '31.0-commercial-beta', null, { timeout: 60000 });
+            await page.waitForFunction(() => {
+              const button = document.querySelector('#startButton');
+              return button && !button.disabled;
+            }, null, { timeout: 60000 });
+            await page.evaluate(() => {
+              const review = document.querySelector('#principleReview');
+              if (review?.checked) review.click();
+            });
+            const started = Date.now();
+            if (options.hasTouch) await page.locator('#startButton').tap();
+            else await page.locator('#startButton').click();
+            await page.waitForSelector('#gameView:not([hidden]) #board .piece', { timeout: 15000 });
+            const pieces = await page.locator('#board .piece').count();
+            const gameVisible = await page.locator('#gameView').isVisible();
+            assert.ok(gameVisible, `${name}: game view is hidden`);
+            assert.ok(pieces >= 2, `${name}: board has no pieces`);
+            console.log(JSON.stringify({ name, elapsed: Date.now() - started, pieces, version: '31.0-commercial-beta' }, null, 2));
+            await browser.close();
+          }
+
+          (async () => {
+            await scenario(chromium, 'Chromium desktop', { viewport: { width: 1440, height: 900 } });
+            await scenario(webkit, 'WebKit phone', { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Commit exact v31 rollback
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Restore K-Mate app exactly to v31'
+          git push
+
+      - name: Wait for GitHub Pages v31 deployment
+        run: |
+          for attempt in $(seq 1 90); do
+            body="$(curl -fsSL "https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/app-v7-part6.txt?restore=v31-$RANDOM" || true)"
+            if printf '%s' "$body" | grep -q "version: '31.0-commercial-beta'"; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
+
+      - name: Verify deployed public v31 board in WebKit
+        run: |
+          node <<'NODE'
+          const assert = require('assert');
+          const { webkit } = require('playwright');
+          (async () => {
+            const browser = await webkit.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+            const page = await context.newPage();
+            page.setDefaultTimeout(70000);
+            const url = `https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/?restore=v31-public-${Date.now()}`;
+            const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            assert.ok(response?.ok(), `HTTP ${response?.status()}`);
+            await page.waitForFunction(() => window.__KMATE__?.version === '31.0-commercial-beta', null, { timeout: 60000 });
+            await page.waitForFunction(() => {
+              const button = document.querySelector('#startButton');
+              return button && !button.disabled;
+            }, null, { timeout: 60000 });
+            await page.evaluate(() => {
+              const review = document.querySelector('#principleReview');
+              if (review?.checked) review.click();
+            });
+            const started = Date.now();
+            await page.locator('#startButton').tap();
+            await page.waitForSelector('#gameView:not([hidden]) #board .piece', { timeout: 15000 });
+            const pieces = await page.locator('#board .piece').count();
+            assert.ok(pieces >= 2);
+            console.log(JSON.stringify({ url, elapsed: Date.now() - started, pieces, version: '31.0-commercial-beta' }, null, 2));
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
