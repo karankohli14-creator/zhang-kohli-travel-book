@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '45.0.0';
+  const VERSION = '45.0.1';
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const setupControlSelectors = [
@@ -83,20 +83,24 @@
   const dialogPrototype = window.HTMLDialogElement?.prototype || null;
   const nativeDialogClose = dialogPrototype?.close || null;
 
+  function setAttributeIfChanged(element, name, value) {
+    if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+  }
+
   function closeNativeDialog(dialog) {
     if (!dialog) return;
     try {
       if (dialog.open && typeof nativeDialogClose === 'function') {
         nativeDialogClose.call(dialog);
-      } else {
+      } else if (dialog.hasAttribute('open')) {
         dialog.removeAttribute('open');
       }
     } catch {
       dialog.removeAttribute('open');
     }
     dialog.removeAttribute('aria-modal');
-    dialog.setAttribute('aria-hidden', 'true');
-    dialog.dataset.kmateV45Closed = '1';
+    setAttributeIfChanged(dialog, 'aria-hidden', 'true');
+    if (dialog.dataset.kmateV45Closed !== '1') dialog.dataset.kmateV45Closed = '1';
   }
 
   // Release any top-layer dialog that an earlier version may have left open.
@@ -112,14 +116,14 @@
       this.dataset.kmateV45Closed = '0';
       this.dataset.kmateNonmodal = '1';
       this.setAttribute('open', '');
-      this.setAttribute('aria-hidden', 'false');
+      setAttributeIfChanged(this, 'aria-hidden', 'false');
       this.removeAttribute('aria-modal');
     };
     const closeNonModal = function closeNonModal(returnValue = '') {
       const wasOpen = this.hasAttribute('open');
       this.returnValue = String(returnValue ?? '');
       this.removeAttribute('open');
-      this.setAttribute('aria-hidden', 'true');
+      setAttributeIfChanged(this, 'aria-hidden', 'true');
       this.dataset.kmateV45Closed = '1';
       if (wasOpen) this.dispatchEvent(new Event('close'));
     };
@@ -163,9 +167,9 @@
     const active = activeSetupPage();
     const candidates = [document.documentElement, document.body, $('.shell'), setup, $('.setup-flow'), active].filter(Boolean);
     for (const element of candidates) {
-      try { element.inert = false; } catch {}
-      element.removeAttribute('inert');
-      element.style.pointerEvents = '';
+      try { if (element.inert) element.inert = false; } catch {}
+      if (element.hasAttribute('inert')) element.removeAttribute('inert');
+      if (element.style.pointerEvents) element.style.pointerEvents = '';
     }
   }
 
@@ -173,18 +177,20 @@
     const pageName = document.body.dataset.setupPage || 'intro';
     const pages = $$('.setup-flow-page');
     if (!pages.length) return;
-    let active = pages.find((page) => page.classList.contains('active') && !page.hidden)
+    const active = pages.find((page) => page.classList.contains('active') && !page.hidden)
       || pages.find((page) => page.dataset.setupPage === pageName)
       || pages[0];
     for (const page of pages) {
       const selected = page === active;
-      page.hidden = !selected;
-      page.classList.toggle('active', selected);
-      page.setAttribute('aria-hidden', String(!selected));
-      try { page.inert = !selected; } catch {}
-      if (selected) page.removeAttribute('inert');
+      if (page.hidden === selected) page.hidden = !selected;
+      if (page.classList.contains('active') !== selected) page.classList.toggle('active', selected);
+      setAttributeIfChanged(page, 'aria-hidden', String(!selected));
+      try { if (page.inert !== !selected) page.inert = !selected; } catch {}
+      if (selected && page.hasAttribute('inert')) page.removeAttribute('inert');
     }
-    if (active?.dataset.setupPage) document.body.dataset.setupPage = active.dataset.setupPage;
+    if (active?.dataset.setupPage && document.body.dataset.setupPage !== active.dataset.setupPage) {
+      document.body.dataset.setupPage = active.dataset.setupPage;
+    }
   }
 
   function removeExternalHitBlocker(control) {
@@ -215,9 +221,9 @@
       for (const selector of setupControlSelectors) {
         const control = $(selector);
         if (!control) continue;
-        try { control.inert = false; } catch {}
-        control.removeAttribute('inert');
-        if ('disabled' in control && selector !== '#coachVoiceTestButton') control.disabled = false;
+        try { if (control.inert) control.inert = false; } catch {}
+        if (control.hasAttribute('inert')) control.removeAttribute('inert');
+        if ('disabled' in control && selector !== '#coachVoiceTestButton' && control.disabled) control.disabled = false;
         control.style.setProperty('pointer-events', 'auto', 'important');
         removeExternalHitBlocker(control);
       }
@@ -228,15 +234,18 @@
     const page = $(`.setup-flow-page[data-setup-page="${pageName}"]`);
     if (!page) return false;
     for (const screen of $$('.setup-flow-page')) {
-      const active = screen === page;
-      screen.hidden = !active;
-      screen.classList.toggle('active', active);
-      screen.setAttribute('aria-hidden', String(!active));
-      try { screen.inert = !active; } catch {}
-      if (active) screen.removeAttribute('inert');
+      const selected = screen === page;
+      if (screen.hidden === selected) screen.hidden = !selected;
+      if (screen.classList.contains('active') !== selected) screen.classList.toggle('active', selected);
+      setAttributeIfChanged(screen, 'aria-hidden', String(!selected));
+      try { if (screen.inert !== !selected) screen.inert = !selected; } catch {}
+      if (selected && screen.hasAttribute('inert')) screen.removeAttribute('inert');
     }
-    document.body.dataset.setupPage = pageName;
-    $$('[data-setup-step]').forEach((dot) => dot.classList.toggle('active', dot.dataset.setupStep === pageName));
+    if (document.body.dataset.setupPage !== pageName) document.body.dataset.setupPage = pageName;
+    $$('[data-setup-step]').forEach((dot) => {
+      const selected = dot.dataset.setupStep === pageName;
+      if (dot.classList.contains('active') !== selected) dot.classList.toggle('active', selected);
+    });
     sanitizeSetup();
     page.querySelector('button,select,input')?.focus?.({ preventScroll: true });
     return true;
@@ -334,12 +343,30 @@
     }, 0);
   }, true);
 
+  let maintenanceRunning = false;
+  let maintenanceScheduled = false;
+
   function maintainSetupInteractivity() {
-    sanitizeSetup();
-    wireStartButton();
+    if (maintenanceRunning) return;
+    maintenanceRunning = true;
+    try {
+      sanitizeSetup();
+      wireStartButton();
+    } finally {
+      maintenanceRunning = false;
+    }
   }
 
-  const observer = new MutationObserver(maintainSetupInteractivity);
+  function scheduleMaintenance() {
+    if (maintenanceScheduled) return;
+    maintenanceScheduled = true;
+    window.requestAnimationFrame(() => {
+      maintenanceScheduled = false;
+      maintainSetupInteractivity();
+    });
+  }
+
+  const observer = new MutationObserver(scheduleMaintenance);
   observer.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['class', 'data-setup-page'],
@@ -347,14 +374,14 @@
     subtree: true,
   });
 
-  window.addEventListener('pageshow', maintainSetupInteractivity);
-  window.addEventListener('focus', maintainSetupInteractivity);
+  window.addEventListener('pageshow', scheduleMaintenance);
+  window.addEventListener('focus', scheduleMaintenance);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) maintainSetupInteractivity();
+    if (!document.hidden) scheduleMaintenance();
   });
 
   maintainSetupInteractivity();
-  window.setInterval(maintainSetupInteractivity, 400);
+  window.setInterval(scheduleMaintenance, 500);
 
   window.__KMATE_V45_HOTFIX__ = {
     version: VERSION,
