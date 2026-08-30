@@ -1,0 +1,99 @@
+name: K-Mate v42 deep WebKit start fix
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v42-deep-start-fix.yml'
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build the isolated K-Mate v42 path
+        run: |
+          python -m py_compile .github/scripts/kmate_v42_deep_start_fix.py
+          python .github/scripts/kmate_v42_deep_start_fix.py
+          rm -f .github/workflows/kmate-v41-resilient-position-start.yml
+          rm -f .github/workflows/kmate-v41-public-smoke.yml
+          rm -f .github/workflows/kmate-v40-warm-setup-start-navigation-r4.yml
+
+      - name: Validate v42 files and assembled JavaScript
+        run: |
+          node --check kmate-v42/app-v7.js
+          python - <<'PY'
+          from pathlib import Path
+          parts = [Path(f'kmate-v42/app-v7-part{number}.txt').read_text() for number in range(1, 7)]
+          if parts[0].endswith('\n  }') and parts[1].startswith(' }\n'):
+              parts[0] = parts[0][:-2]
+          Path('/tmp/kmate-v42.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/kmate-v42.js
+          grep -q "version: '42.0-commercial-beta'" kmate-v42/app-v7-part6.txt
+          grep -q "async function handleGeneratePosition" kmate-v42/app-v7-part1.txt
+          grep -q "showStartingGameShell" kmate-v42/app-v7-part1.txt
+          grep -q "warmNonCriticalMediaAfterGameStarts" kmate-v42/app-v7-part1.txt
+          grep -q "Native dialog" kmate-v42/app-v7-part1.txt
+          grep -q "kmate-generated-v42" kmate-v42/app-v7-part1.txt
+          grep -q "../kmate-trainer/stockfish" kmate-v42/app-v7-part1.txt
+          grep -q "../kmate-trainer/sounds" kmate-v42/app-v7-part1.txt
+          grep -q "app-v7.js?v=42.0.0" kmate-v42/index.html
+          grep -q '"start_url": "./"' kmate-v42/manifest-v7.webmanifest
+          ! grep -q "function startPosition({ preservePrevious = false } = {}) {\n  unlockMoveAudio" kmate-v42/app-v7-part1.txt
+
+      - name: Install Playwright Chromium and WebKit
+        run: |
+          npm install playwright@1.55.0 --no-save --silent
+          npx playwright install --with-deps chromium webkit
+
+      - name: Serve repository for local cross-browser verification
+        run: |
+          python3 -m http.server 4173 --directory . >/tmp/kmate-v42-server.log 2>&1 &
+          for attempt in {1..20}; do
+            if curl -fsS http://127.0.0.1:4173/kmate-v42/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/kmate-v42-server.log
+          exit 1
+
+      - name: Verify normal, restricted-media, broken-dialog, principle, touch, and endgame starts
+        run: node .github/scripts/kmate_v42_webkit_verify.js local
+
+      - name: Commit and publish the isolated v42 app
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A kmate-v42 .github/workflows
+          git commit -m 'K-Mate v42: rebuild position start outside audio and modal dependencies'
+          git pull --rebase origin main
+          git push
+
+      - name: Wait for the new physical GitHub Pages path
+        env:
+          PUBLIC_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-v42/
+        run: |
+          ready=0
+          for attempt in {1..60}; do
+            page="$(curl -fsSL "$PUBLIC_URL" 2>/dev/null || true)"
+            if printf '%s' "$page" | grep -q 'app-v7.js?v=42.0.0'; then
+              ready=1
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "The v42 public path did not become available in time."
+            exit 1
+          fi
+
+      - name: Verify the actual deployed path in WebKit desktop and touch modes
+        env:
+          PUBLIC_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-v42/
+        run: node .github/scripts/kmate_v42_webkit_verify.js public "$PUBLIC_URL"
