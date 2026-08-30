@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="K-Mate">
   <meta name="description" content="Practice timed middlegames, late middlegames, and endgames against a rating-adjusted opponent, then review opening and weakness statistics.">
   <link rel="manifest" href="./manifest-v7.webmanifest">
-  <link rel="stylesheet" href="./styles-v7.css?v=33.0.0">
+  <link rel="stylesheet" href="./styles-v7.css?v=34.0.0">
   <title>K-Mate — Timed Position Play</title>
 </head>
 <body>
@@ -152,7 +152,7 @@
 
           <label class="calibration-toggle live-coach-toggle">
             <input id="liveCoach" type="checkbox">
-            <span><b>Live Coach after bad moves</b><small>After an Inaccurate, Miss, or Blunder, pause both clocks, keep the board visible, and compare your move with the best move directly on the board.</small></span>
+            <span><b>Live Coach after bad moves only</b><small>Open the coach only for an Inaccuracy, Mistake, Miss, or Blunder. Best, Excellent, and Good moves never change the board layout.</small></span>
           </label>
 
           <label class="calibration-toggle live-coach-audio-toggle">
@@ -295,10 +295,16 @@
                 <p class="live-coach-principle-note" id="liveCoachPrincipleNote">The concrete Stockfish line is the evidence; the principle label explains the likely human lesson.</p>
                 <span id="liveCoachPrinciplesText" hidden></span>
               </section>
-              <section class="live-coach-line-wrap">
-                <small>Illustrative best continuation</small>
-                <div class="live-coach-line" id="liveCoachLine">Principal variation pending.</div>
-              </section>
+              <div class="live-coach-lines-grid">
+                <section class="live-coach-line-wrap played-consequence-line">
+                  <small>Concrete line after your move</small>
+                  <div class="live-coach-line" id="liveCoachPlayedLine">Played-move continuation pending.</div>
+                </section>
+                <section class="live-coach-line-wrap best-consequence-line">
+                  <small>Concrete line after the best move</small>
+                  <div class="live-coach-line" id="liveCoachLine">Best-move continuation pending.</div>
+                </section>
+              </div>
               <div class="dialogactions live-coach-actions">
                 <button class="btn" id="liveCoachReplayHighlightsButton" type="button">↻ Replay highlights</button>
                 <button class="btn" id="liveCoachSpeakButton" type="button">▶ Hear coach</button>
@@ -679,6 +685,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app-v7.js?v=33.0.0"></script>
+  <script type="module" src="./app-v7.js?v=34.0.0"></script>
 </body>
 </html>

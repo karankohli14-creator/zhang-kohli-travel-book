@@ -95,7 +95,7 @@ $('#startButton').disabled = true;
 $('#startButton').textContent = 'Loading Stockfish 18…';
 
 window.__KMATE__ = {
-  version: '33.0-commercial-beta',
+  version: '34.0-commercial-beta',
   start: startPosition,
   state: () => ({
     settings: { ...settings },
@@ -115,7 +115,7 @@ window.__KMATE__ = {
     clockPaused,
     principleReviewPending,
     principles: currentPositionPrinciples.map((principle) => ({ key: principle.key, title: principle.title })),
-    liveCoach: { awaiting: liveCoachState.awaiting, open: liveCoachState.open, inline: true, autoResume: false, viewportPreserved: true, voiceEnabled: settings.coachVoice !== false, voiceSpeaking: Boolean(liveCoachUtterance || window.speechSynthesis?.speaking), slowNoticeShown: Boolean(liveCoachState.slowNoticeShown), panelVisible: Boolean($('#liveCoachBoardPanel') && !$('#liveCoachBoardPanel').hidden), moveId: liveCoachState.moveId, ignoredPrinciples: liveCoachState.ignoredPrinciples.map((principle) => principle.key), principleDiagnoses: liveCoachState.ignoredPrinciples.map((principle) => ({ key: principle.key, confidence: principle.confidence, evidence: principle.evidence, reviewed: Boolean(principle.reviewed) })) },
+    liveCoach: { awaiting: liveCoachState.awaiting, open: liveCoachState.open, silentGate: Boolean(liveCoachState.awaiting && !liveCoachState.open), badMovesOnly: true, preciseLineAnalysis: true, inline: true, autoResume: false, viewportPreserved: true, voiceEnabled: settings.coachVoice !== false, voiceSpeaking: Boolean(liveCoachUtterance || window.speechSynthesis?.speaking), slowNoticeShown: Boolean(liveCoachState.slowNoticeShown), panelVisible: Boolean($('#liveCoachBoardPanel') && !$('#liveCoachBoardPanel').hidden), moveId: liveCoachState.moveId, ignoredPrinciples: liveCoachState.ignoredPrinciples.map((principle) => principle.key), principleDiagnoses: liveCoachState.ignoredPrinciples.map((principle) => ({ key: principle.key, confidence: principle.confidence, evidence: principle.evidence, reviewed: Boolean(principle.reviewed) })) },
     thinking,
     finalized,
     reason: currentSession?.reason || null,
@@ -187,6 +187,58 @@ if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
     forceLiveCoachSlowState: () => {
       const record = liveCoachState.record || currentSession?.userMoves?.[currentSession.userMoves.length - 1];
       return record ? markLiveCoachAnalysisSlow(record) : false;
+    },
+    forceGoodMoveAnalysis: () => {
+      const record = currentSession?.userMoves?.[currentSession.userMoves.length - 1];
+      if (!record) return false;
+      applyMoveAnalysisResult(currentSession.id, record.id, {
+        cpLoss: 18,
+        bestMove: record.uci,
+        bestLine: [record.uci],
+        selectedLine: [record.uci],
+        bestScore: 42,
+        selectedScore: 42,
+        depth: 18,
+        exactBest: true,
+        analysisConsistency: 'test-good-move',
+        source: 'Local v34 good-move gate test',
+      });
+      return { moveId: record.id, quality: qualityForMoveRecord(record).key };
+    },
+    startConcreteTacticDemo: () => {
+      settings.side = 'w';
+      settings.timeControl = '3+0';
+      settings.liveCoach = true;
+      settings.coachVoice = false;
+      settings.principleReview = false;
+      settings.autoHints = false;
+      queuedCustomPosition = {
+        id: 'v34-concrete-tactic-demo', custom: true, generated: false, phase: 'endgame', opening: 'Teaching demo', rating: 1600,
+        title: 'Loose knight demonstration', theme: 'Loose pieces and forcing captures',
+        tags: ['calculation', 'piece activity', 'prophylaxis'],
+        fen: '4k3/8/8/5n2/3N4/8/4K3/8 w - - 0 1',
+        description: 'A deterministic position where Kf3 allows Nxd4 and Nxf5 removes the attacker.',
+      };
+      startPosition();
+      return { fen: game?.fen(), paused: clockPaused };
+    },
+    forceConcreteBadMoveAnalysis: () => {
+      const record = currentSession?.userMoves?.[currentSession.userMoves.length - 1];
+      if (!record) return false;
+      applyMoveAnalysisResult(currentSession.id, record.id, {
+        cpLoss: 620,
+        bestMove: 'd4f5',
+        bestLine: ['d4f5', 'e8e7', 'f5d4'],
+        selectedLine: [record.uci, 'f5d4'],
+        bestScore: 320,
+        selectedScore: -300,
+        depth: 22,
+        exactBest: false,
+        analysisConsistency: 'test-concrete-tactic',
+        source: 'Local v34 precise explanation test',
+      });
+      const narration = coachNarrationForRecord(record, currentSession, 1);
+      return { moveId: record.id, quality: qualityForMoveRecord(record).key, narration };
     },
     forceLiveCoachIntervention: () => {
       const record = currentSession?.userMoves?.[currentSession.userMoves.length - 1];

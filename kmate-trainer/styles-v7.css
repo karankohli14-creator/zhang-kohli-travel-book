@@ -1073,3 +1073,18 @@ body.game-mode.board-focus .playtop h1{font-size:22px}
   body.game-mode .boardcol{grid-template-rows:auto auto minmax(0,1fr) auto}
 }
 /* End K-Mate v33 */
+
+
+/* K-Mate v34 — bad-move-only Live Coach and concrete tactical lines */
+.live-coach-lines-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px}
+.live-coach-lines-grid .live-coach-line-wrap{min-width:0;margin-top:0}
+.played-consequence-line{border-color:#ff9d4d48!important;background:linear-gradient(145deg,#ff9d4d10,#ffffff03)!important}
+.best-consequence-line{border-color:#7cf58a48!important;background:linear-gradient(145deg,#7cf58a10,#ffffff03)!important}
+.live-coach-lines-grid .live-coach-line{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.55;overflow-wrap:anywhere}
+body.game-mode .live-coach-active .live-coach-lines-grid{position:relative}
+@media(max-width:560px){
+  .live-coach-lines-grid{grid-template-columns:minmax(0,1fr);gap:5px}
+  body.game-mode .live-coach-active .live-coach-lines-grid .live-coach-line-wrap{padding:6px}
+  body.game-mode .live-coach-active .live-coach-lines-grid .live-coach-line{font-size:7.6px;line-height:1.35}
+}
+/* End K-Mate v34 */

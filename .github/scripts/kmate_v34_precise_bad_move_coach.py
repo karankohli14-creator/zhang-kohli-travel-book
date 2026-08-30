@@ -100,6 +100,13 @@ app, count = render_turns_pattern.subn(render_turns_replacement, app, count=1)
 if count != 1:
     raise SystemExit("Unable to replace renderTurns")
 
+app = replace_once(
+    app,
+    "const coachOpen = Boolean(liveCoachState.awaiting || liveCoachState.open || $('#gameView')?.classList.contains('live-coach-active'));",
+    "const coachOpen = Boolean(liveCoachState.open || $('#gameView')?.classList.contains('live-coach-active'));",
+    "fit board only for an actual coach intervention",
+)
+
 old_user_flow = '''  if (settings.liveCoach) {
     queueLiveCoachReview(moveRecord);
     setStatus('Live Coach is reviewing your move. The clock is paused.', 'thinking');
@@ -521,7 +528,7 @@ function coachNarrationForRecord(record, session, decisionNumber) {
 
 
 const LIVE_COACH_ERROR_KEYS'''
-app, count = coach_block_pattern.subn(coach_block, app, count=1)
+app, count = coach_block_pattern.subn(lambda _match: coach_block, app, count=1)
 if count != 1:
     raise SystemExit("Unable to replace generic coach narration block")
 
