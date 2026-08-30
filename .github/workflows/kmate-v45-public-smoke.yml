@@ -1,0 +1,123 @@
+name: Verify K-Mate v45 public site
+
+on:
+  push:
+    paths:
+      - '.github/workflows/kmate-v45-public-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  public-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install browser driver
+        run: |
+          npm install playwright-core@1.55.0 --no-save --silent
+          CHROME_PATH="$(which google-chrome || which chromium || which chromium-browser)"
+          test -n "$CHROME_PATH"
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+
+      - name: Test deployed desktop and mobile app
+        run: |
+          node <<'NODE'
+          const assert = require('assert');
+          const { chromium } = require('playwright-core');
+          const URL = `https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/?v=20260830-45-public-${Date.now()}`;
+
+          async function scenario(browser, name, contextOptions) {
+            const context = await browser.newContext(contextOptions);
+            const page = await context.newPage();
+            page.setDefaultTimeout(20000);
+            const errors = [];
+            page.on('pageerror', error => errors.push(`pageerror: ${error.stack || error.message}`));
+            page.on('console', message => {
+              if (message.type() !== 'error') return;
+              const text = message.text();
+              if (/favicon|404|Failed to load resource/i.test(text)) return;
+              errors.push(`console: ${text}`);
+            });
+
+            await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            assert.ok(!/404|file not found/i.test(await page.title()), `${name}: public URL returned a missing-page title`);
+            await page.waitForFunction(() => window.__KMATE__?.state && window.__KMATE_V45_HOTFIX__?.version === '45.0.1', null, { timeout: 45000 });
+
+            const press = contextOptions.hasTouch
+              ? selector => page.tap(selector)
+              : selector => page.click(selector);
+
+            await press('#introProceedButton');
+            await page.waitForFunction(() => document.body.dataset.setupPage === 'challenge');
+            await press('#challengeNextButton');
+            await page.waitForFunction(() => document.body.dataset.setupPage === 'coach');
+            await page.waitForTimeout(650);
+
+            const live = await page.evaluate(() => {
+              const selectors = ['#coachBackButton', '#principleReview', '#liveCoach', '#startButton'];
+              return Object.fromEntries(selectors.map(selector => {
+                const element = document.querySelector(selector);
+                const rect = element?.getBoundingClientRect();
+                const hit = rect ? document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) : null;
+                return [selector, {
+                  visible: Boolean(rect && rect.width > 0 && rect.height > 0),
+                  enabled: Boolean(element && !element.disabled),
+                  inert: Boolean(element?.inert || element?.closest?.('[inert]')),
+                  ownsHit: Boolean(element && hit && (element === hit || element.contains(hit) || hit.contains(element))),
+                }];
+              }));
+            });
+            for (const [selector, state] of Object.entries(live)) {
+              assert.ok(state.visible && state.enabled && !state.inert && state.ownsHit, `${name}: ${selector} is not interactive: ${JSON.stringify(state)}`);
+            }
+
+            const first = await page.isChecked('#principleReview');
+            await press('#principleReview');
+            assert.notStrictEqual(await page.isChecked('#principleReview'), first, `${name}: checkbox did not change`);
+            if (await page.isChecked('#principleReview')) await press('#principleReview');
+
+            const startedAt = Date.now();
+            await press('#startButton');
+            await page.waitForFunction(() => document.body.classList.contains('game-mode') && document.querySelectorAll('#board .piece').length >= 2, null, { timeout: 15000 });
+            const result = await page.evaluate(() => ({
+              hotfix: window.__KMATE_V45_HOTFIX__.version,
+              pieces: document.querySelectorAll('#board .piece').length,
+              gameMode: document.body.classList.contains('game-mode'),
+              path: location.pathname,
+            }));
+            result.elapsedMs = Date.now() - startedAt;
+            assert.strictEqual(result.path, '/zhang-kohli-travel-book/kmate-trainer/');
+            assert.ok(result.gameMode && result.pieces >= 2);
+            if (errors.length) throw new Error(`${name}: ${errors.join('\n')}`);
+            console.log(JSON.stringify({ name, publicUrl: URL, controls: live, result }, null, 2));
+            await context.close();
+          }
+
+          (async () => {
+            const browser = await chromium.launch({
+              executablePath: process.env.CHROME_PATH,
+              headless: true,
+              args: ['--no-sandbox', '--disable-dev-shm-usage'],
+            });
+            try {
+              await scenario(browser, 'public desktop', { viewport: { width: 1440, height: 900 } });
+              await scenario(browser, 'public mobile touch', {
+                viewport: { width: 390, height: 844 },
+                isMobile: true,
+                hasTouch: true,
+                deviceScaleFactor: 3,
+                userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',
+              });
+            } finally {
+              await browser.close();
+            }
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
