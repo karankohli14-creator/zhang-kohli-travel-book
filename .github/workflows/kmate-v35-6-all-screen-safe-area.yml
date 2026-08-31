@@ -1,4 +1,4 @@
-name: K-Mate v35.6 all-screen iPhone safe area r2
+name: K-Mate v35.6 all-screen iPhone safe area r3
 
 on:
   push:
@@ -49,6 +49,19 @@ jobs:
         run: |
           npm install playwright@1.55.0 --no-save --silent
           npx playwright install --with-deps webkit
+
+      - name: Give the toast fixture visible content
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/kmate_v35_6_all_screens_safe_area_verify.js')
+          text = path.read_text()
+          old = "await page.evaluate(() => document.querySelector('#toast').classList.add('show'));"
+          new = "await page.evaluate(() => { const toast = document.querySelector('#toast'); toast.textContent = 'Safe area check'; toast.classList.add('show'); });"
+          if old not in text:
+              raise SystemExit('Toast verification marker missing')
+          path.write_text(text.replace(old, new, 1))
+          PY
 
       - name: Verify every screen in iPhone portrait and landscape
         run: |
