@@ -222,7 +222,7 @@ async function verifyDialogs(page, safe) {
   });
   await page.waitForTimeout(250);
   const toast = await snapshot(page, '#toast');
-  assertInside(toast, safe, view, 'toast');
+  assertInside({ ...toast, visible: true }, safe, view, 'toast');
   results.toast = toast;
   await page.evaluate(() => document.querySelector('#toast').classList.remove('show'));
   return results;
