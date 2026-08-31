@@ -1,13 +1,78 @@
 (() => {
   'use strict';
 
-  const FLOW_VERSION = '35.1-app-flow';
+  const FLOW_VERSION = '35.2-warm-3d';
   const PAGE_ORDER = ['welcome', 'position', 'challenge', 'coaching'];
   let activePage = 'welcome';
   let initialized = false;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+
+
+  let uiAudioContext = null;
+  let lastUiSoundAt = 0;
+  let uiSoundCount = 0;
+
+  function uiSoundsAllowed() {
+    const toggle = document.querySelector('#soundToggle');
+    return !toggle || !toggle.classList.contains('muted');
+  }
+
+  function playUiWoodTap(strength = 1) {
+    if (!uiSoundsAllowed()) return;
+    const nowMs = performance.now();
+    if (nowMs - lastUiSoundAt < 35) return;
+    lastUiSoundAt = nowMs;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    try {
+      uiAudioContext ||= new AudioContextClass();
+      const context = uiAudioContext;
+      context.resume?.();
+      const now = context.currentTime;
+      const master = context.createGain();
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(0.055 * Math.max(0.65, Math.min(1.15, strength)), now + 0.004);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
+      master.connect(context.destination);
+
+      const body = context.createOscillator();
+      const bodyGain = context.createGain();
+      body.type = 'triangle';
+      body.frequency.setValueAtTime(185, now);
+      body.frequency.exponentialRampToValueAtTime(112, now + 0.065);
+      bodyGain.gain.setValueAtTime(0.9, now);
+      bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.072);
+      body.connect(bodyGain).connect(master);
+      body.start(now);
+      body.stop(now + 0.08);
+
+      const click = context.createOscillator();
+      const clickGain = context.createGain();
+      click.type = 'square';
+      click.frequency.setValueAtTime(1180, now);
+      click.frequency.exponentialRampToValueAtTime(520, now + 0.018);
+      clickGain.gain.setValueAtTime(0.16, now);
+      clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
+      click.connect(clickGain).connect(master);
+      click.start(now);
+      click.stop(now + 0.026);
+      uiSoundCount += 1;
+      document.documentElement.dataset.uiTapCount = String(uiSoundCount);
+    } catch (error) {
+      console.debug('K-Mate UI sound unavailable.', error);
+    }
+  }
+
+  function bindUiSounds(root) {
+    root.addEventListener('pointerdown', (event) => {
+      const control = event.target.closest('button, select, input[type="checkbox"], input[type="range"]');
+      if (!control || control.disabled) return;
+      const prominent = Boolean(control.closest('.wizard-bottom-dock') || control.matches('.phase-seg button'));
+      playUiWoodTap(prominent ? 1.08 : 0.82);
+    }, { passive: true });
+  }
 
   function setViewportHeight() {
     const height = Math.max(480, Math.round(window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 0));
@@ -25,11 +90,11 @@
         </header>
         <h1 class="wizard-title">${title}</h1>
         <div class="wizard-content wizard-${name}-content" data-wizard-slot="${name}"></div>
-        <footer class="wizard-footer">
-          <button class="wizard-button wizard-back" type="button" data-wizard-back>← Back</button>
+        <footer class="wizard-footer wizard-bottom-dock">
+          <button class="wizard-button wizard-back" type="button" data-wizard-back><span aria-hidden="true">←</span><b>Back</b></button>
           ${name === 'coaching'
             ? '<div class="wizard-start-slot" data-wizard-slot="start"></div>'
-            : `<button class="wizard-button wizard-next" type="button" data-wizard-next="${PAGE_ORDER[step + 1]}">Continue →</button>`}
+            : `<button class="wizard-button wizard-next" type="button" data-wizard-next="${PAGE_ORDER[step + 1]}"><b>Continue</b><span aria-hidden="true">→</span></button>`}
         </footer>
       </section>`;
   }
@@ -74,15 +139,18 @@
       <section class="wizard-page wizard-welcome" data-wizard-page="welcome" aria-hidden="false">
         <div class="wizard-welcome-main">
           <div class="wizard-welcome-brand"><span>♞</span><b>K-Mate</b></div>
-          <div class="wizard-kicker">Timed position play</div>
-          <h1>Train the positions that decide games.</h1>
-          <p>Skip the routine opening moves. Start in a practical middlegame, late middlegame, or endgame, choose the opponent and clock, and receive coaching when it matters.</p>
-          <div class="wizard-benefits"><span>Real positions</span><span>Rating control</span><span>Live coaching</span><span>Progress tracking</span></div>
-          <div class="wizard-welcome-stats" data-wizard-slot="welcome-stats"></div>
+          <div class="wizard-kicker">Practice the part that decides the game</div>
+          <h1>Play better positions.<br>Make better decisions.</h1>
+          <p>Choose a middlegame or endgame, set the strength and clock, then learn from the decisions that actually change the position.</p>
+          <div class="wizard-path" aria-label="How K-Mate works">
+            <div><i>1</i><b>Choose</b><span>a real position</span></div>
+            <div><i>2</i><b>Play</b><span>under pressure</span></div>
+            <div><i>3</i><b>Improve</b><span>with clear coaching</span></div>
+          </div>
         </div>
-        <footer class="wizard-footer wizard-welcome-footer">
-          <button class="wizard-button wizard-secondary" id="wizardInsightsButton" type="button">View insights</button>
-          <button class="wizard-button wizard-next wizard-primary" type="button" data-wizard-next="position">Let’s get into it →</button>
+        <footer class="wizard-footer wizard-welcome-footer wizard-bottom-dock">
+          <button class="wizard-button wizard-secondary" id="wizardInsightsButton" type="button"><span aria-hidden="true">◎</span><b>My insights</b></button>
+          <button class="wizard-button wizard-next wizard-primary" type="button" data-wizard-next="position"><b>Start training</b><span aria-hidden="true">→</span></button>
         </footer>
       </section>
       ${pageMarkup('position', 'Choose your position', 1)}
@@ -95,13 +163,13 @@
     const challengeSlot = $('[data-wizard-slot="challenge"]', wizard);
     const coachingSlot = $('[data-wizard-slot="coaching"]', wizard);
     const startSlot = $('[data-wizard-slot="start"]', wizard);
-    const statsSlot = $('[data-wizard-slot="welcome-stats"]', wizard);
+    const statsSlot = null;
 
     for (const node of [phaseField, openingField, goalField]) positionSlot.append(node);
     for (const node of [positionField, opponentField, timeField, sideField]) challengeSlot.append(node);
     for (const node of [blindToggle, hintToggle, principleToggle, liveCoachToggle, voiceToggle, audioCheck, soundField, loadError]) coachingSlot.append(node);
     startSlot.append(startButton);
-    statsSlot.append(summaryGrid);
+    summaryGrid.hidden = true;
 
     phaseField.classList.add('wizard-phase-field');
     openingField.classList.add('wizard-opening-field');
@@ -197,6 +265,7 @@
         scrollY: window.scrollY,
         scrollHeight: document.documentElement.scrollHeight,
         viewportHeight: window.visualViewport?.height || window.innerHeight,
+        uiSoundCount,
       });
     };
     attach();
@@ -209,6 +278,7 @@
       setViewportHeight();
       const wizard = buildWizard();
       bindWizard(wizard);
+      bindUiSounds(wizard);
       showPage('welcome', { focus: false });
       syncAppMode();
 
