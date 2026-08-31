@@ -75,6 +75,7 @@ const QUALITY_BANDS = [
   { max: 25, key: 'excellent', label: 'Excellent' },
   { max: 60, key: 'good', label: 'Good' },
   { max: 110, key: 'inaccuracy', label: 'Inaccurate' },
+  { max: 180, key: 'mistake', label: 'Mistake' },
   { max: 220, key: 'miss', label: 'Miss' },
   { max: Infinity, key: 'blunder', label: 'Blunder' },
 ];
@@ -160,7 +161,7 @@ function reconcileSessionAnalysis(session) {
     session.avgCpLoss = nextAverage;
     changed = true;
   }
-  const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, miss: 0, blunder: 0 };
+  const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, miss: 0, blunder: 0 };
   for (const move of session.userMoves) {
     const key = qualityForMoveRecord(move).key;
     if (quality[key] !== undefined) quality[key] += 1;
@@ -2858,7 +2859,7 @@ function finishIfNeeded() {
 function summarizeSession(session) {
   reconcileSessionAnalysis(session);
   const losses = session.userMoves.map(effectiveMoveLoss).filter(Number.isFinite);
-  const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, miss: 0, blunder: 0 };
+  const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, miss: 0, blunder: 0 };
   for (const move of session.userMoves) {
     const key = qualityForMoveRecord(move).key;
     if (quality[key] !== undefined) quality[key] += 1;
@@ -2951,7 +2952,8 @@ function reviewMoveAdvice(move) {
     return 'Rushed error: pause for the opponent’s threat, hanging pieces, checks, captures, and threats.';
   }
   if (loss > 220) return 'Blunder: first check forcing moves and whether any piece is undefended.';
-  if (loss > 110) return 'Miss: a significant opportunity or defensive resource was overlooked. Compare forcing candidates before committing.';
+  if (loss > 180) return 'Miss: a major opportunity or defensive resource was overlooked. Compare forcing candidates before committing.';
+  if (loss > 110) return 'Mistake: the move conceded a meaningful part of the position. Re-check the opponent’s threat and your candidate list.';
   if (loss > 60) return 'Inaccuracy: re-check king safety, the opponent’s plan, and your least active piece.';
   if (loss > 25) return 'Good practical move, although a more precise continuation was available.';
   if (loss > 10) return 'Excellent move: very close to the engine’s top choice.';
@@ -2981,7 +2983,7 @@ function renderPostGameReview(session) {
   const analyzed = moves.filter((move) => Number.isFinite(effectiveMoveLoss(move)));
   const pending = moves.length - analyzed.length;
   const grade = reviewGradeForSession(session);
-  const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, miss: 0, blunder: 0 };
+  const quality = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, miss: 0, blunder: 0 };
   for (const move of analyzed) {
     const key = qualityForMoveRecord(move).key;
     if (quality[key] !== undefined) quality[key] += 1;

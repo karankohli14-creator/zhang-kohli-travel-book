@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const FLOW_VERSION = '35.2-warm-3d';
+  const FLOW_VERSION = '35.4-summary-first';
   const PAGE_ORDER = ['welcome', 'position', 'challenge', 'coaching'];
   let activePage = 'welcome';
   let initialized = false;
