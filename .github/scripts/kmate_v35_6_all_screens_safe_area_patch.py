@@ -76,10 +76,17 @@ SAFE_CSS.write_text(r'''/* K-Mate v35.6 — every iPhone screen respects the sta
     left:var(--kmate-safe-left)!important;
   }
 
-  .toast{
-    left:50%!important;
-    bottom:calc(var(--kmate-safe-bottom) + 12px)!important;
+  /* Position the toast by its lower edge rather than relying on the older bottom rule.
+     This keeps temporary messages above the iPhone home indicator even during animation. */
+  .toast,
+  .toast.show{
+    left:calc((100vw + var(--kmate-safe-left) - var(--kmate-safe-right))/2)!important;
+    right:auto!important;
+    top:calc(100dvh - var(--kmate-safe-bottom) - 12px)!important;
+    bottom:auto!important;
     max-width:calc(100vw - var(--kmate-safe-left) - var(--kmate-safe-right) - 20px)!important;
+    margin:0!important;
+    transform:translate(-50%,-100%)!important;
   }
 
   /* Compact dialogs are centered inside the usable iPhone rectangle and scroll internally when needed. */
