@@ -40,7 +40,7 @@ SAFE_CSS.write_text(r'''/* K-Mate v35.6 — every iPhone screen respects the sta
   --kmate-safe-left:max(0px,env(safe-area-inset-left,0px));
 }
 
-/* The background may extend behind the iPhone system chrome; controls and text may not. */
+/* The background may extend behind iPhone system chrome; controls and text may not. */
 @media (max-width:932px){
   .appbar{
     padding-top:calc(10px + var(--kmate-safe-top))!important;
@@ -77,7 +77,7 @@ SAFE_CSS.write_text(r'''/* K-Mate v35.6 — every iPhone screen respects the sta
   }
 
   .toast{
-    left:calc(var(--kmate-safe-left) + (100vw - var(--kmate-safe-left) - var(--kmate-safe-right))/2)!important;
+    left:50%!important;
     bottom:calc(var(--kmate-safe-bottom) + 12px)!important;
     max-width:calc(100vw - var(--kmate-safe-left) - var(--kmate-safe-right) - 20px)!important;
   }
@@ -105,9 +105,12 @@ SAFE_CSS.write_text(r'''/* K-Mate v35.6 — every iPhone screen respects the sta
   #promotionDialog{width:min(520px,calc(100vw - var(--kmate-safe-left) - var(--kmate-safe-right) - 16px))!important}
   #resultDialog{width:min(720px,calc(100vw - var(--kmate-safe-left) - var(--kmate-safe-right) - 12px))!important}
 
-  /* Full-screen teaching screens fill only the safe rectangle, never the status-bar area. */
+  /* Full-screen teaching screens fill only the safe rectangle. Class-qualified selectors
+     deliberately outrank the older full-viewport rules in styles-v7.css. */
   #principlesDialog,
-  #replayDialog{
+  #principlesDialog.kmate-principles-v354,
+  #replayDialog,
+  #replayDialog.replay-modal{
     position:fixed!important;
     top:var(--kmate-safe-top)!important;
     right:var(--kmate-safe-right)!important;
@@ -125,7 +128,9 @@ SAFE_CSS.write_text(r'''/* K-Mate v35.6 — every iPhone screen respects the sta
   }
 
   #principlesDialog .modal-card,
-  #replayDialog .replay-shell{
+  #principlesDialog.kmate-principles-v354 .modal-card,
+  #replayDialog .replay-shell,
+  #replayDialog.replay-modal .replay-shell{
     width:100%!important;
     height:100%!important;
     min-height:0!important;
@@ -134,9 +139,12 @@ SAFE_CSS.write_text(r'''/* K-Mate v35.6 — every iPhone screen respects the sta
     box-sizing:border-box!important;
   }
 
-  #principlesDialog .modal-card{border-radius:0!important}
-  #replayDialog{border-radius:0!important}
-  #replayDialog .replay-header{padding-top:2px!important}
+  #principlesDialog .modal-card,
+  #principlesDialog.kmate-principles-v354 .modal-card{border-radius:0!important}
+  #replayDialog,
+  #replayDialog.replay-modal{border-radius:0!important}
+  #replayDialog .replay-header,
+  #replayDialog.replay-modal .replay-header{padding-top:2px!important}
 }
 
 /* Landscape iPhones reserve the side notch / Dynamic Island as well as the home indicator. */
