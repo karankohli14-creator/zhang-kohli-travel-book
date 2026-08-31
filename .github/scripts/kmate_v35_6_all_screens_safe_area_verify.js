@@ -215,8 +215,12 @@ async function verifyDialogs(page, safe) {
   }
   await page.evaluate(() => document.querySelector('#replayDialog').close());
 
-  await page.evaluate(() => document.querySelector('#toast').classList.add('show'));
-  await page.waitForTimeout(20);
+  await page.evaluate(() => {
+    const toast = document.querySelector('#toast');
+    toast.textContent = 'Safe area check';
+    toast.classList.add('show');
+  });
+  await page.waitForTimeout(250);
   const toast = await snapshot(page, '#toast');
   assertInside(toast, safe, view, 'toast');
   results.toast = toast;
