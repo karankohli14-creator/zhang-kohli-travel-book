@@ -42,6 +42,21 @@ SAFE_CSS.write_text(r'''/* K-Mate v35.6 — every iPhone screen respects the sta
 
 /* The background may extend behind iPhone system chrome; controls and text may not. */
 @media (max-width:932px){
+  /* Override JavaScript-cached viewport heights after an iPhone rotation. */
+  body.setup-wizard-mode .shell,
+  body.game-mode .shell{
+    height:100dvh!important;
+    min-height:100dvh!important;
+    max-height:100dvh!important;
+  }
+  body.setup-wizard-mode #setupView,
+  body.setup-wizard-mode .setup-wizard,
+  body.setup-wizard-mode .wizard-page{
+    height:100%!important;
+    min-height:0!important;
+    max-height:100%!important;
+  }
+
   .appbar{
     padding-top:calc(10px + var(--kmate-safe-top))!important;
     padding-right:max(14px,calc(var(--kmate-safe-right) + 8px))!important;
