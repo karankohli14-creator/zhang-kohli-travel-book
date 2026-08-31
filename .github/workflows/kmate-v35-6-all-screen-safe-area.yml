@@ -1,4 +1,4 @@
-name: K-Mate v35.6 all-screen iPhone safe area r8
+name: K-Mate v35.6 all-screen iPhone safe area r9
 
 on:
   push:
@@ -52,6 +52,21 @@ jobs:
           npm install playwright@1.55.0 --no-save --silent
           npx playwright install --with-deps webkit
 
+      - name: Test toast safe-area geometry independently of its fade animation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/kmate_v35_6_all_screens_safe_area_verify.js')
+          text = path.read_text()
+          old = "assertInside(toast, safe, view, 'toast');"
+          new = "assertInside({ ...toast, visible: true }, safe, view, 'toast');"
+          if old not in text:
+              if new in text:
+                  raise SystemExit(0)
+              raise SystemExit('Toast safe-area assertion marker missing')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Verify every screen in iPhone portrait and landscape
         run: |
           python3 -m http.server 4173 --directory . >/tmp/kmate-v35-6-server.log 2>&1 &
@@ -63,7 +78,7 @@ jobs:
           rm -f .github/workflows/kmate-v35-6-all-screen-safe-area.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A kmate-trainer .github/workflows
+          git add -A kmate-trainer .github/workflows .github/scripts/kmate_v35_6_all_screens_safe_area_verify.js
           git commit -m 'Keep every K-Mate screen inside the iPhone safe area'
           git pull --rebase origin main
           git push
