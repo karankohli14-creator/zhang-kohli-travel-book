@@ -24,12 +24,13 @@ async function metrics(page) {
 
 async function openReview(page) {
   await page.goto(url, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#replayDialog .replay-shell');
+  await page.waitForSelector('#replayDialog .replay-shell', { state: 'attached' });
   await page.evaluate(() => {
     const dialog = document.querySelector('#replayDialog');
     if (dialog.open) dialog.close();
     dialog.showModal();
   });
+  await page.waitForFunction(() => document.querySelector('#replayDialog')?.open === true);
   await page.waitForTimeout(80);
 }
 
