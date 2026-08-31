@@ -1,4 +1,4 @@
-name: K-Mate v35.6 all-screen iPhone safe area r6
+name: K-Mate v35.6 all-screen iPhone safe area r7
 
 on:
   push:
@@ -33,6 +33,7 @@ jobs:
           grep -q 'styles-v7.css?v=35.6.0' kmate-trainer/index.html
           grep -q 'review-v35-4.js?v=35.6.0' kmate-trainer/index.html
           grep -q 'K-Mate v35.6 — every iPhone screen' kmate-trainer/safe-area-v35-6.css
+          grep -q 'body.setup-wizard-mode .shell' kmate-trainer/safe-area-v35-6.css
           grep -q '#positionImportDialog' kmate-trainer/safe-area-v35-6.css
           grep -q '#aboutBetaDialog' kmate-trainer/safe-area-v35-6.css
           grep -q '#promotionDialog' kmate-trainer/safe-area-v35-6.css
