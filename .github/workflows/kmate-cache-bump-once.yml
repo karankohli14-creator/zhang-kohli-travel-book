@@ -26,7 +26,7 @@ jobs:
           from pathlib import Path
           path = Path("kmate-trainer/index.html")
           text = path.read_text()
-          old = "./app-v7.js?v=35.4.0"
+          old = "./app-v7.js?v=35.6.0"
           new = "./app-v7.js?v=36.0.0"
           if old not in text and new not in text:
               raise SystemExit("Expected K-Mate app script reference was not found")
