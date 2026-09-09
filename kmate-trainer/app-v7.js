@@ -47,6 +47,13 @@ if (responses[0].endsWith('\n  }') && responses[1].startsWith(' }\n')) {
 const moduleUrl = URL.createObjectURL(new Blob([responses.join('')], { type: 'text/javascript' }));
 try {
   await import(moduleUrl);
+  try {
+    await import('./position-importers-v1.js?v=36.0.0');
+  } catch (error) {
+    // Position imports are an optional enhancement. A network or module error
+    // must never prevent the core K-Mate trainer from loading.
+    console.warn('Optional picture and Chess.com position importers could not load.', error);
+  }
 } finally {
   URL.revokeObjectURL(moduleUrl);
 }
