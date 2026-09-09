@@ -1,0 +1,42 @@
+name: K-Mate smoke tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kmate-trainer/**"
+      - ".github/workflows/kmate-smoke.yml"
+  pull_request:
+    paths:
+      - "kmate-trainer/**"
+      - ".github/workflows/kmate-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-wiring:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check kmate-trainer/app-v7.js
+          node --check kmate-trainer/position-importers-v1.js
+
+      - name: Check importer wiring
+        shell: bash
+        run: |
+          grep -q "position-importers-v1.js?v=36.0.0" kmate-trainer/app-v7.js
+          grep -q "kmImportImagePanel" kmate-trainer/position-importers-v1.js
+          grep -q "kmImportChessPanel" kmate-trainer/position-importers-v1.js
+          grep -q "fenshot-MIT" <(find kmate-trainer/licenses -maxdepth 1 -type f -printf '%f\n')
