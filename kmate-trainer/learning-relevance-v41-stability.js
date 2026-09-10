@@ -31,6 +31,17 @@ function km41StabilityRecommendation() {
   }
 }
 
+function km41StabilityEvidenceKey(recommendation) {
+  const moves = (recommendation.moveEvidence || [])
+    .slice(0, 4)
+    .map((item) => `${item.id}:${item.loss}:${item.focus}:${item.bestSan || ''}`)
+    .join('|');
+  const plan = (recommendation.puzzlePlan || [])
+    .map((slot) => `${slot.slot}:${slot.focus}:${slot.sourceMoveId || ''}`)
+    .join('|');
+  return `${recommendation.sourceSessionId || 'none'}::${moves}::${plan}::${recommendation.relevance?.summary || ''}`;
+}
+
 function km41StabilityEvidenceRow(item) {
   return `
     <article class="km41-evidence-row" data-km41-evidence="${km41StabilityEscape(item.id)}">
@@ -58,6 +69,9 @@ function km41RepairEvidenceCard() {
     if (grid) grid.before(card);
     else view.append(card);
   }
+  const renderKey = km41StabilityEvidenceKey(recommendation);
+  if (card.dataset.km41EvidenceKey === renderKey) return card;
+
   const evidence = recommendation.moveEvidence || [];
   const evidenceMarkup = evidence.length
     ? evidence.slice(0, 4).map(km41StabilityEvidenceRow).join('')
@@ -70,6 +84,7 @@ function km41RepairEvidenceCard() {
     </div>
     <div class="km41-evidence-list">${evidenceMarkup}</div>
     ${plan.length ? `<div class="km41-plan-title">Five-puzzle composition</div><div class="km41-plan-chips">${plan.map(km41StabilityPlanChip).join('')}</div>` : ''}`;
+  card.dataset.km41EvidenceKey = renderKey;
   return card;
 }
 
