@@ -198,7 +198,8 @@ test('recent Chess.com practice becomes a matched lesson and five-puzzle workout
   expect(recommendation.sourceLabel).toContain('Chess.com');
   expect(recommendation.reasons.join(' ')).toContain('260');
 
-  await page.locator('#learningNavButton').click();
+  await expect(page.locator('#wizardLearningButton')).toBeVisible();
+  await page.locator('#wizardLearningButton').click();
   await expect(page.locator('#learningView')).toBeVisible();
   await expect(page.locator('#learningFocusTitle')).toContainText('loose pieces');
   await expect(page.locator('#learningStartPuzzles')).toContainText('11,902 CC0 available');
@@ -216,11 +217,11 @@ test('recent Chess.com practice becomes a matched lesson and five-puzzle workout
   await expect(page.locator('#learningPuzzleBoard .learning-puzzle-square')).toHaveCount(64);
   await expect(page.locator('#learningPuzzleCounter')).toHaveText('1 / 5');
 
-  await page.locator('[data-square="e2"]', { has: page.locator('.learning-puzzle-piece') }).click();
-  await page.locator('[data-square="e4"]').click();
+  await page.locator('#learningPuzzleBoard [data-square="e2"]').click();
+  await page.locator('#learningPuzzleBoard [data-square="e4"]').click();
   await expect(page.locator('#learningPuzzleStatus')).toContainText('Continue', { timeout: 10_000 });
-  await page.locator('[data-square="g1"]', { has: page.locator('.learning-puzzle-piece') }).click();
-  await page.locator('[data-square="f3"]').click();
+  await page.locator('#learningPuzzleBoard [data-square="g1"]').click();
+  await page.locator('#learningPuzzleBoard [data-square="f3"]').click();
   await expect(page.locator('#learningPuzzleStatus')).toContainText('Solved');
   await expect(page.locator('#learningPuzzleNext')).toBeVisible();
 
