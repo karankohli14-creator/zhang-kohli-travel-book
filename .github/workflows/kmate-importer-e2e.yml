@@ -2,7 +2,7 @@ name: K-Mate importer browser QA
 
 on:
   push:
-    branches: [main, kmate-importer-qa-v37, kmate-chess-position-fix-v38]
+    branches: [main]
     paths:
       - "kmate-trainer/**"
       - ".github/workflows/kmate-importer-e2e.yml"
