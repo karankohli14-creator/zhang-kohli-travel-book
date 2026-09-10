@@ -94,7 +94,7 @@ jobs:
           grep -q "km41RecommendationEvidence" kmate-trainer/learning-relevance-v41.js
           grep -q "km41LessonChoices" kmate-trainer/learning-relevance-v41.js
           grep -q "km41PuzzleMode" kmate-trainer/learning-relevance-v41.js
-          grep -q "--kmate-safe-top" kmate-trainer/learning-relevance-v41.css
+          grep -q -- "--kmate-safe-top" kmate-trainer/learning-relevance-v41.css
           grep -q "position-importers-v1.js?v=36.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-hardening-v37.js?v=37.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-chess-v38.js?v=38.0.0" kmate-trainer/app-v7.js
