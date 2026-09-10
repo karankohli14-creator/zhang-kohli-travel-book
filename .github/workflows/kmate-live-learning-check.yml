@@ -1,0 +1,107 @@
+name: K-Mate live learning deployment check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kmate-trainer/**"
+      - ".github/workflows/kmate-live-learning-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kmate-live-learning-check
+  cancel-in-progress: true
+
+jobs:
+  verify-live-learning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wait for the public GitHub Pages build
+        env:
+          LIVE_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/
+        run: |
+          for attempt in {1..60}; do
+            html="$(curl --fail --silent --show-error --location --max-time 20 "${LIVE_URL}?deploy=${GITHUB_SHA}" || true)"
+            if grep -Fq 'app-v7.js?v=40.1.1' <<<"$html"; then
+              echo "The v40.1.1 public loader is live."
+              exit 0
+            fi
+            echo "Waiting for GitHub Pages deployment (${attempt}/60)…"
+            sleep 5
+          done
+          echo "The public page did not expose the v40.1.1 loader in time."
+          exit 1
+
+      - name: Verify public learning assets
+        env:
+          LIVE_ROOT: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer
+        run: |
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7.js?v=40.1.1" | grep -Fq "learning-library-v40.js?v=40.1.1"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning-library-v40.js?v=40.1.1" | grep -Fq "Puzzles and videos by category"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/puzzles/index.json?v=40.1.1" | grep -Fq '"total":11902'
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/videos-v40.json?v=40.1.1" | grep -Fq '"videos"'
+
+      - name: Install Chromium browser check
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Exercise the live open learning library
+        env:
+          LIVE_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+          const pageErrors = [];
+          page.on('pageerror', (error) => pageErrors.push(String(error?.stack || error)));
+
+          await page.goto(`${process.env.LIVE_URL}?deploy=${process.env.GITHUB_SHA}`, {
+            waitUntil: 'domcontentloaded',
+            timeout: 90_000,
+          });
+          await page.waitForFunction(
+            () => Boolean(window.__KMATE_LEARNING_LIBRARY__?.state?.().ready),
+            undefined,
+            { timeout: 90_000 },
+          );
+
+          const wizard = page.locator('#wizardLearningButton');
+          await wizard.waitFor({ state: 'visible', timeout: 30_000 });
+          const wizardText = (await wizard.textContent()) || '';
+          if (!wizardText.includes('Puzzles & videos')) {
+            throw new Error(`Unexpected learning button text: ${wizardText}`);
+          }
+          await wizard.click();
+          await page.locator('#learningOpenLibrary').waitFor({ state: 'visible', timeout: 30_000 });
+          const categories = await page.locator('[data-library-focus-card]').count();
+          if (categories !== 8) throw new Error(`Expected 8 learning categories, found ${categories}.`);
+
+          await page.locator('#learningBrowseAllVideos').click();
+          await page.locator('#learningLibraryDialog').waitFor({ state: 'visible', timeout: 30_000 });
+          const videos = await page.locator('#learningLibraryVideos .learning-library-video').count();
+          if (videos < 20) throw new Error(`Expected at least 20 instructional videos, found ${videos}.`);
+
+          const state = await page.evaluate(() => window.__KMATE_LEARNING_LIBRARY__.state());
+          if (!state.ready || !state.section || state.categories !== 8) {
+            throw new Error(`Unexpected learning-library state: ${JSON.stringify(state)}`);
+          }
+          if (pageErrors.length) throw new Error(`Live page errors: ${pageErrors.join('\n')}`);
+
+          console.log(JSON.stringify({ status: 'pass', categories, videos, state }, null, 2));
+          await browser.close();
+          NODE
