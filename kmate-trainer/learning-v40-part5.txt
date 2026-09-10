@@ -46,10 +46,10 @@ function ensureWizardLearningButton() {
   return button;
 }
 
-const km40InitializeLearningWithWizard = initializeLearning;
-initializeLearning = function initializeLearningV40(attempt = 0) {
-  km40InitializeLearningWithWizard(attempt);
-  if (core() && $('#learningView')) ensureWizardLearningButton();
-};
+function waitForWizardLearningButton(attempt = 0) {
+  const button = ensureWizardLearningButton();
+  if (button || attempt >= 120) return;
+  window.setTimeout(() => waitForWizardLearningButton(attempt + 1), 100);
+}
 
-ensureWizardLearningButton();
+waitForWizardLearningButton();
