@@ -16,6 +16,63 @@ function km41StabilityEscape(value) {
     .replaceAll("'", '&#039;');
 }
 
+function km41StabilityLoss(loss) {
+  const value = Number(loss);
+  if (!Number.isFinite(value)) return 'review';
+  return `−${(value / 100).toFixed(value >= 100 ? 1 : 2)}`;
+}
+
+function km41StabilityRecommendation() {
+  try {
+    return window.__KMATE_RELEVANCE__?.recommendation?.() || null;
+  } catch (error) {
+    console.warn('K-Mate v41 could not restore the move evidence.', error);
+    return null;
+  }
+}
+
+function km41StabilityEvidenceRow(item) {
+  return `
+    <article class="km41-evidence-row" data-km41-evidence="${km41StabilityEscape(item.id)}">
+      <div class="km41-move-badge"><b>${km41StabilityEscape(item.moveLabel || item.san || 'Decision')}</b><span>${km41StabilityEscape(km41StabilityLoss(item.loss))} · ${km41StabilityEscape(item.quality || 'review')}</span></div>
+      <div class="km41-evidence-copy"><b>${km41StabilityEscape(item.focusLabel || 'Learning')} · ${km41StabilityEscape(item.skill || 'decision quality')}</b><span>${km41StabilityEscape(item.explanation || item.details?.[0] || 'This move generated the current learning focus.')}${item.bestSan ? ` The engine preferred ${km41StabilityEscape(item.bestSan)}.` : ''}</span></div>
+      ${item.bestSan ? `<div class="km41-best-move">Best: ${km41StabilityEscape(item.bestSan)}</div>` : ''}
+    </article>`;
+}
+
+function km41StabilityPlanChip(slot) {
+  const themes = (slot.themes || []).slice(0, 2).map((theme) => String(theme).replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()).join(' / ');
+  return `<span class="km41-plan-chip"><b>${slot.slot}. ${km41StabilityEscape(slot.focusLabel || slot.focus)}</b><br>${km41StabilityEscape(slot.sourceMove || 'baseline')}${themes ? ` · ${km41StabilityEscape(themes)}` : ''}</span>`;
+}
+
+function km41RepairEvidenceCard() {
+  const view = km41Stability$('#learningView');
+  const recommendation = km41StabilityRecommendation();
+  if (!view || !recommendation) return null;
+  let card = km41Stability$('#km41RecommendationEvidence', view);
+  if (!card) {
+    card = document.createElement('section');
+    card.id = 'km41RecommendationEvidence';
+    card.className = 'card km41-evidence-card';
+    const grid = km41Stability$('.learning-grid', view);
+    if (grid) grid.before(card);
+    else view.append(card);
+  }
+  const evidence = recommendation.moveEvidence || [];
+  const evidenceMarkup = evidence.length
+    ? evidence.slice(0, 4).map(km41StabilityEvidenceRow).join('')
+    : '<div class="km41-evidence-row"><div class="km41-evidence-copy"><b>No large move-level signal yet</b><span>Complete a practice so K-Mate can tie each puzzle and lesson directly to your decisions.</span></div></div>';
+  const plan = recommendation.puzzlePlan || [];
+  card.innerHTML = `
+    <div class="km41-evidence-head">
+      <div><div class="eyebrow">Why this exact learning set</div><h2>Built from the moves you actually played</h2><p>${km41StabilityEscape(recommendation.relevance?.summary || recommendation.puzzleSetSummary || '')}</p></div>
+      <span class="km41-confidence">${km41StabilityEscape(recommendation.relevance?.confidence || 'baseline')} relevance</span>
+    </div>
+    <div class="km41-evidence-list">${evidenceMarkup}</div>
+    ${plan.length ? `<div class="km41-plan-title">Five-puzzle composition</div><div class="km41-plan-chips">${plan.map(km41StabilityPlanChip).join('')}</div>` : ''}`;
+  return card;
+}
+
 function km41StabilityRow(entry, index) {
   const video = entry.video || {};
   const moves = [...new Set((entry.evidence || []).map((item) => item.moveLabel).filter(Boolean))].slice(0, 3).join(', ');
@@ -38,6 +95,7 @@ async function km41RepairRankedLessons() {
   const api = window.__KMATE_RELEVANCE__;
   const view = km41Stability$('#learningView');
   const card = km41Stability$('#learningVideoCard');
+  km41RepairEvidenceCard();
   if (!api?.rankLessons || !view || view.hidden || !card || km41StabilityBusy) return;
   if (card.classList.contains('km41-ranked-lessons') && card.querySelectorAll('.km41-lesson-row').length >= 3) return;
 
@@ -64,11 +122,19 @@ async function km41RepairRankedLessons() {
   }
 }
 
-function km41ScheduleRepair() {
+function km41ScheduleRepair(delay = 45) {
   window.clearTimeout(km41StabilityTimer);
   km41StabilityTimer = window.setTimeout(() => {
     void km41RepairRankedLessons();
-  }, 45);
+  }, delay);
+}
+
+function km41EntryClick(event) {
+  const target = event.target instanceof Element ? event.target.closest('#wizardLearningButton,#learningNavButton,[data-view="learning"]') : null;
+  if (!target) return;
+  km41ScheduleRepair(0);
+  window.setTimeout(() => km41ScheduleRepair(0), 120);
+  window.setTimeout(() => km41ScheduleRepair(0), 500);
 }
 
 function km41BeginStability(attempt = 0) {
@@ -77,21 +143,23 @@ function km41BeginStability(attempt = 0) {
     return;
   }
   if (!km41StabilityObserver) {
-    km41StabilityObserver = new MutationObserver(km41ScheduleRepair);
+    km41StabilityObserver = new MutationObserver(() => km41ScheduleRepair());
     km41StabilityObserver.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
       attributeFilter: ['hidden'],
     });
+    document.addEventListener('click', km41EntryClick, true);
   }
-  window.setInterval(km41ScheduleRepair, 1400);
-  km41ScheduleRepair();
+  window.setInterval(() => km41ScheduleRepair(), 1400);
+  km41ScheduleRepair(0);
   window.__KMATE_RELEVANCE_STABILITY__ = {
     version: KM41_STABILITY_VERSION,
     repair: km41RepairRankedLessons,
     state: () => ({
       ready: true,
+      evidenceCard: Boolean(km41Stability$('#km41RecommendationEvidence')),
       rankedRows: km41Stability$('#learningVideoCard')?.querySelectorAll('.km41-lesson-row').length || 0,
     }),
   };
