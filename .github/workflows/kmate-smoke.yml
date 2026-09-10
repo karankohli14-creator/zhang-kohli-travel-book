@@ -32,11 +32,17 @@ jobs:
         run: |
           node --check kmate-trainer/app-v7.js
           node --check kmate-trainer/position-importers-v1.js
+          node --check kmate-trainer/position-importers-hardening-v37.js
+          node --check kmate-trainer/tests/importers.spec.mjs
+          node --check kmate-trainer/tests/chesscom-live-contract.mjs
 
       - name: Check importer wiring
         shell: bash
         run: |
           grep -q "position-importers-v1.js?v=36.0.0" kmate-trainer/app-v7.js
+          grep -q "position-importers-hardening-v37.js?v=37.0.0" kmate-trainer/app-v7.js
           grep -q "kmImportImagePanel" kmate-trainer/position-importers-v1.js
           grep -q "kmImportChessPanel" kmate-trainer/position-importers-v1.js
+          grep -q "wizardImportPositionButton" kmate-trainer/position-importers-hardening-v37.js
+          grep -q "wizardPositionImportButton" kmate-trainer/position-importers-hardening-v37.js
           grep -q "fenshot-MIT" <(find kmate-trainer/licenses -maxdepth 1 -type f -printf '%f\n')

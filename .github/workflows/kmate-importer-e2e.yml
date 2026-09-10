@@ -1,0 +1,94 @@
+name: K-Mate importer browser QA
+
+on:
+  push:
+    branches: [main, kmate-importer-qa-v37]
+    paths:
+      - "kmate-trainer/**"
+      - ".github/workflows/kmate-importer-e2e.yml"
+  pull_request:
+    paths:
+      - "kmate-trainer/**"
+      - ".github/workflows/kmate-importer-e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-qa:
+    name: Chromium importer journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install deterministic browser-test dependencies
+        run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Download a real Chess.com screenshot fixture
+        run: |
+          mkdir -p /tmp/kmate-fixtures
+          curl --fail --location --retry 3 --retry-delay 2 \
+            https://raw.githubusercontent.com/scoriiu/fenshot/main/packages/fenshot/tests/fixtures/chesscom-italian-white.png \
+            --output /tmp/kmate-fixtures/chesscom-italian-white.png
+          test -s /tmp/kmate-fixtures/chesscom-italian-white.png
+
+      - name: Start static K-Mate server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-http.log 2>&1 &
+          echo $! > /tmp/kmate-http.pid
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/kmate-http.log
+          exit 1
+
+      - name: Run desktop, mobile, image, and Chess.com importer tests
+        env:
+          KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
+          KMATE_REAL_IMAGE_FIXTURE: /tmp/kmate-fixtures/chesscom-italian-white.png
+        run: npx playwright test kmate-trainer/tests/importers.spec.mjs --reporter=line,html
+
+      - name: Upload browser traces and screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmate-importer-browser-failure
+          path: |
+            test-results
+            playwright-report
+            /tmp/kmate-http.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  chesscom-live-contract:
+    name: Live Kmate_00 archive contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify public Chess.com archive compatibility
+        env:
+          KMATE_CHESSCOM_USER: Kmate_00
+        run: node kmate-trainer/tests/chesscom-live-contract.mjs
