@@ -1,0 +1,285 @@
+          <button class="btn primary wide" id="learningPuzzleNext" type="button" hidden>Next puzzle</button>
+        </div>
+        <a class="learning-mini-button" id="learningPuzzleSource" target="_blank" rel="noopener noreferrer">Source game on Lichess</a>
+      </aside>
+    </div>`;
+  $('#learningPuzzleReveal')?.addEventListener('click', revealPuzzleMove);
+  $('#learningPuzzleSkip')?.addEventListener('click', skipPuzzle);
+  $('#learningPuzzleNext')?.addEventListener('click', nextPuzzle);
+}
+
+function finishWorkout() {
+  const body = $('#learningPuzzleBody');
+  const recommendation = puzzleRun.recommendation;
+  const accuracy = puzzleRun.puzzles.length ? Math.round((puzzleRun.solved / puzzleRun.puzzles.length) * 100) : 0;
+  const progress = loadProgress();
+  progress.workouts.push({
+    at: new Date().toISOString(),
+    focus: recommendation?.focus?.key || null,
+    rating: recommendation?.puzzleRating || null,
+    solved: puzzleRun.solved,
+    total: puzzleRun.puzzles.length,
+    wrong: puzzleRun.totalWrong,
+  });
+  saveProgress(progress);
+  body.innerHTML = `
+    <section class="learning-workout-summary">
+      <div class="eyebrow">Workout complete</div>
+      <h2>${escapeHtml(recommendation?.focus?.label || 'Learning')} reinforced</h2>
+      <p>You can repeat the set later, switch focus, or return to the exact practice position that triggered the recommendation.</p>
+      <div class="learning-workout-score">
+        <div><b>${puzzleRun.solved}</b><span>Solved</span></div>
+        <div><b>${accuracy}%</b><span>Completion</span></div>
+        <div><b>${puzzleRun.totalWrong}</b><span>Corrections</span></div>
+      </div>
+      <div class="learning-hero-actions" style="justify-content:center">
+        <button class="btn primary" id="learningWorkoutAgain" type="button">Another 5 puzzles</button>
+        <button class="btn" id="learningWorkoutRetry" type="button">Retry practice position</button>
+        <button class="btn" id="learningWorkoutDone" type="button">Done</button>
+      </div>
+    </section>`;
+  $('#learningWorkoutAgain')?.addEventListener('click', () => startRecommendedWorkout());
+  $('#learningWorkoutRetry')?.addEventListener('click', () => {
+    $('#learningPuzzleDialog')?.close?.();
+    retryExactPosition();
+  });
+  $('#learningWorkoutRetry').disabled = !recommendation?.exactRetryAvailable;
+  $('#learningWorkoutDone')?.addEventListener('click', () => {
+    $('#learningPuzzleDialog')?.close?.();
+    void renderLearningView();
+  });
+  void renderLearningView();
+}
+
+function adjacentBands(index, bandKey) {
+  const bands = index?.bands || [];
+  const position = Math.max(0, bands.findIndex((band) => band.key === bandKey));
+  return [bands[position], bands[position - 1], bands[position + 1], bands[position - 2], bands[position + 2]].filter(Boolean);
+}
+
+async function loadPuzzleCandidates(recommendation, count = 5) {
+  const index = await loadPuzzleIndex();
+  const focus = recommendation.focus.key;
+  const desired = [];
+  const shards = [];
+  for (const band of adjacentBands(index, recommendation.puzzleBand)) {
+    const direct = index.shards.find((shard) => shard.focus === focus && shard.band === band.key && shard.count > 0);
+    if (direct) shards.push(direct);
+  }
+  if (focus !== 'calculation') {
+    const fallback = index.shards.find((shard) => shard.focus === 'calculation' && shard.band === recommendation.puzzleBand && shard.count > 0);
+    if (fallback) shards.push(fallback);
+  }
+  const progress = loadProgress();
+  const seen = new Set(progress.seen || []);
+  const opening = normalizeOpening(recommendation.opening);
+  for (const shard of shards) {
+    if (desired.length >= count * 5) break;
+    const url = new URL(`./learning/puzzles/${shard.file}?v=${LEARNING_VERSION}`, KMATE_LEARNING_BASE_URL).href;
+    const payload = await fetchJson(url);
+    for (const puzzle of payload.puzzles || []) {
+      const openingText = normalizeOpening((puzzle.openingTags || []).join(' '));
+      const openingBoost = focus === 'openings' && opening && openingText.includes(opening.split(' ')[0]);
+      desired.push({ puzzle, seen: seen.has(puzzle.id), openingBoost });
+    }
+  }
+  desired.sort((a, b) => {
+    if (a.seen !== b.seen) return a.seen ? 1 : -1;
+    if (a.openingBoost !== b.openingBoost) return a.openingBoost ? -1 : 1;
+    const ad = Math.abs(Number(a.puzzle.rating) - recommendation.puzzleRating);
+    const bd = Math.abs(Number(b.puzzle.rating) - recommendation.puzzleRating);
+    if (ad !== bd) return ad - bd;
+    return (Number(b.puzzle.popularity) || 0) - (Number(a.puzzle.popularity) || 0);
+  });
+  const chosen = [];
+  const ids = new Set();
+  for (const entry of desired) {
+    if (ids.has(entry.puzzle.id)) continue;
+    ids.add(entry.puzzle.id);
+    chosen.push(entry.puzzle);
+    if (chosen.length >= count) break;
+  }
+  if (chosen.length < count) throw new Error('The curated puzzle shard did not contain enough valid puzzles.');
+  return chosen;
+}
+
+async function startRecommendedWorkout() {
+  const recommendation = safeRecommendation();
+  if (!recommendation) return;
+  const dialog = ensurePuzzleDialog();
+  renderPuzzleShell();
+  $('#learningPuzzleTitle').textContent = `${recommendation.focus.label} · around ${recommendation.puzzleRating}`;
+  if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+  else dialog.setAttribute('open', '');
+  puzzleStatus('Loading a no-repeat CC0 puzzle set…', '');
+  try {
+    const puzzles = await loadPuzzleCandidates(recommendation, 5);
+    Object.assign(puzzleRun, {
+      puzzles,
+      index: 0,
+      game: null,
+      selected: null,
+      solutionIndex: 0,
+      wrongAttempts: 0,
+      totalWrong: 0,
+      solved: 0,
+      skipped: 0,
+      recommendation,
+      hintSquares: [],
+      locked: false,
+      orientation: 'w',
+      startedAt: new Date().toISOString(),
+    });
+    loadPuzzleAtIndex();
+  } catch (error) {
+    console.error('K-Mate puzzle workout could not load.', error);
+    const body = $('#learningPuzzleBody');
+    body.innerHTML = `<section class="learning-workout-summary"><div class="eyebrow">Content unavailable</div><h2>The puzzle pack could not load</h2><p>${escapeHtml(error?.message || 'Try reloading K-Mate.')}</p><a class="btn primary" href="https://lichess.org/training/themes" target="_blank" rel="noopener noreferrer">Open Lichess puzzle themes</a></section>`;
+  }
+}
+
+function ensureVideoDialog() {
+  let dialog = $('#learningVideoDialog');
+  if (dialog) return dialog;
+  dialog = document.createElement('dialog');
+  dialog.id = 'learningVideoDialog';
+  dialog.className = 'modal learning-modal learning-video-modal';
+  dialog.innerHTML = `
+    <div class="learning-modal-shell">
+      <header class="learning-modal-head"><div><div class="eyebrow">Matched lesson</div><h2 id="learningVideoTitle">Instructional video</h2></div><button class="learning-close" id="learningVideoClose" type="button" aria-label="Close video">×</button></header>
+      <div class="learning-video-frame"><iframe id="learningVideoFrame" title="K-Mate recommended chess lesson" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+      <div class="learning-video-footer"><p id="learningVideoAttribution">Creator-hosted external lesson.</p><a id="learningVideoSource" target="_blank" rel="noopener noreferrer">Open the Lichess library page</a></div>
+    </div>`;
+  document.body.append(dialog);
+  const close = () => {
+    dialog.close?.();
+    $('#learningVideoFrame', dialog)?.removeAttribute('src');
+  };
+  $('#learningVideoClose', dialog)?.addEventListener('click', close);
+  dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
+  dialog.addEventListener('close', () => $('#learningVideoFrame', dialog)?.removeAttribute('src'));
+  return dialog;
+}
+
+function openVideo(video) {
+  if (!video) return false;
+  const dialog = ensureVideoDialog();
+  $('#learningVideoTitle', dialog).textContent = video.title;
+  $('#learningVideoAttribution', dialog).textContent = `${video.creator} · creator-hosted external lesson. K-Mate does not rehost the video.`;
+  $('#learningVideoSource', dialog).href = video.sourceUrl;
+  $('#learningVideoFrame', dialog).src = `${video.embedUrl}?rel=0&modestbranding=1`;
+  const progress = loadProgress();
+  const prior = progress.videos[video.id] || { opens: 0 };
+  progress.videos[video.id] = { ...prior, opens: Number(prior.opens || 0) + 1, lastAt: new Date().toISOString(), title: video.title };
+  saveProgress(progress);
+  if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+  else dialog.setAttribute('open', '');
+  void renderLearningView();
+  return true;
+}
+
+async function openRecommendedVideo() {
+  const recommendation = safeRecommendation();
+  try {
+    const catalog = await loadVideoCatalog();
+    const videoId = $('#learningWatchLesson')?.dataset.videoId || $('#learningResultVideo')?.dataset.videoId;
+    const video = catalog.videos.find((item) => item.id === videoId) || chooseVideo(catalog, recommendation);
+    if (!video) throw new Error('No matching lesson was found.');
+    openVideo(video);
+  } catch (error) {
+    showToast(error?.message || 'The external lesson catalog could not load.');
+  }
+}
+
+function retryExactPosition() {
+  const restart = window.__KMATE_RESTART__;
+  if (restart?.open) {
+    $('#resultDialog')?.close?.();
+    restart.open('result');
+    return true;
+  }
+  if (typeof window.__KMATE__?.restart === 'function') {
+    const result = window.__KMATE__.restart();
+    if (result?.ok) {
+      showToast('Practice position restarted.');
+      $('#learningView').hidden = true;
+      return true;
+    }
+  }
+  showToast('Start a practice position before retrying it.');
+  return false;
+}
+
+function observeResults() {
+  const dialog = $('#resultDialog');
+  if (!dialog || resultObserver) return;
+  resultObserver = new MutationObserver(() => {
+    if (dialog.open || dialog.hasAttribute('open')) void syncResultCard();
+  });
+  resultObserver.observe(dialog, { attributes: true, attributeFilter: ['open'] });
+  ensureResultCard();
+}
+
+function observeApp() {
+  if (appObserver) return;
+  appObserver = new MutationObserver(() => {
+    ensureLearningNav();
+    ensureResultCard();
+    ensureChessLearningNote();
+    const gameView = $('#gameView');
+    const learningView = $('#learningView');
+    if (gameView && !gameView.hidden && learningView && !learningView.hidden) learningView.hidden = true;
+  });
+  appObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['hidden', 'open'],
+  });
+}
+
+function initializeLearning(attempt = 0) {
+  if (!core() || !window.__KM_BOOT__?.Chess || !$('.topnav') || !$('main.shell')) {
+    if (attempt < 120) window.setTimeout(() => initializeLearning(attempt + 1), 100);
+    else console.warn('K-Mate v40 could not initialize the learning system.');
+    return;
+  }
+  installStyles();
+  ensureLearningView();
+  ensureLearningNav();
+  ensureResultCard();
+  ensureChessLearningNote();
+  ensurePuzzleDialog();
+  ensureVideoDialog();
+  observeResults();
+  observeApp();
+  void renderLearningView();
+  void syncResultCard();
+  // Warm the small catalog and puzzle index while leaving all puzzle shards lazy.
+  void Promise.allSettled([loadVideoCatalog(), loadPuzzleIndex()]);
+
+  window.__KMATE_LEARNING__ = {
+    version: LEARNING_VERSION,
+    open: openLearningView,
+    recommendation: safeRecommendation,
+    startWorkout: startRecommendedWorkout,
+    openVideo: openRecommendedVideo,
+    progress: learningStats,
+    state: () => ({
+      ready: true,
+      view: Boolean($('#learningView')),
+      resultCard: Boolean($('#learningResultCard')),
+      puzzleDialog: Boolean($('#learningPuzzleDialog')),
+      videoDialog: Boolean($('#learningVideoDialog')),
+      focus: safeRecommendation()?.focus?.key || null,
+      puzzleRun: {
+        active: Boolean($('#learningPuzzleDialog')?.open),
+        count: puzzleRun.puzzles.length,
+        index: puzzleRun.index,
+        solved: puzzleRun.solved,
+      },
+    }),
+  };
+}
+
+initializeLearning();
