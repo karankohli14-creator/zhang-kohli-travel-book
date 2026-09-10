@@ -140,7 +140,7 @@ function puzzleSet(focus, themes) {
     practiceFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
     solutionUci,
     opponentMove: 'a7a6',
-    rating: 1280 + index * 20,
+    rating: 1400 + index * 20,
     ratingDeviation: 55,
     popularity: 97 - index,
     plays: 5000,
