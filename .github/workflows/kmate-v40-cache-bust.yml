@@ -1,4 +1,4 @@
-name: Finalize K-Mate v40.1 loader
+name: Finalize K-Mate v40.1.1 loader
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
           text = path.read_text(encoding='utf-8')
           updated, count = re.subn(
               r'app-v7\.js\?v=[0-9.]+',
-              'app-v7.js?v=40.1.0',
+              'app-v7.js?v=40.1.1',
               text,
               count=1,
           )
@@ -39,7 +39,7 @@ jobs:
               raise SystemExit('K-Mate application script was not found in index.html')
           path.write_text(updated, encoding='utf-8')
           PY
-          grep -Fq 'app-v7.js?v=40.1.0' kmate-trainer/index.html
+          grep -Fq 'app-v7.js?v=40.1.1' kmate-trainer/index.html
 
       - name: Commit the refreshed loader
         run: |
@@ -50,5 +50,5 @@ jobs:
             echo "The public loader is already current."
             exit 0
           fi
-          git commit -m "Expose K-Mate v40.1 learning library"
+          git commit -m "Expose K-Mate v40.1.1 learning library"
           git push origin HEAD:kmate-learning-v40
