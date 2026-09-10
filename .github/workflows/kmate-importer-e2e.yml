@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   browser-qa:
-    name: Chromium importer, practice, and learning journeys
+    name: Chromium importer, practice, and move-relevant learning journeys
     runs-on: ubuntu-latest
     timeout-minutes: 28
     steps:
@@ -56,7 +56,7 @@ jobs:
           cat /tmp/kmate-http.log
           exit 1
 
-      - name: Run importer, restart, and adaptive-learning tests
+      - name: Run importer, restart, and v41 learning tests
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
           KMATE_REAL_IMAGE_FIXTURE: /tmp/kmate-fixtures/chesscom-italian-white.png
@@ -65,8 +65,7 @@ jobs:
           kmate-trainer/tests/importers.spec.mjs
           kmate-trainer/tests/chess-position-visibility.spec.mjs
           kmate-trainer/tests/restart-practice.spec.mjs
-          kmate-trainer/tests/learning-v40.spec.mjs
-          kmate-trainer/tests/learning-library-v40.spec.mjs
+          kmate-trainer/tests/learning-relevance-v41.spec.mjs
           --reporter=line,html
 
       - name: Upload browser traces and screenshots on failure
