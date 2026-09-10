@@ -38,7 +38,7 @@ jobs:
           node --check kmate-trainer/learning-v40.js
           cat kmate-trainer/app-v7-part{1..9}.txt > /tmp/kmate-app-v40.js
           node --check /tmp/kmate-app-v40.js
-          cat kmate-trainer/learning-v40-part{1..4}.txt > /tmp/kmate-learning-v40.js
+          cat kmate-trainer/learning-v40-part{1..5}.txt > /tmp/kmate-learning-v40.js
           node --check /tmp/kmate-learning-v40.js
           node --check kmate-trainer/tests/importers.spec.mjs
           node --check kmate-trainer/tests/chess-position-visibility.spec.mjs
@@ -69,6 +69,7 @@ jobs:
         shell: bash
         run: |
           grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9]" kmate-trainer/app-v7.js
+          grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/learning-v40.js
           grep -q "practice-restart-v39.js?v=39.0.0" kmate-trainer/app-v7.js
           grep -q "learning-v40.js?v=40.0.0" kmate-trainer/app-v7.js
           grep -q "KMATE_RESTART_CORE_VERSION = '39.0.0'" kmate-trainer/app-v7-part7.txt
@@ -79,6 +80,7 @@ jobs:
           grep -q "resultRestartPractice" kmate-trainer/practice-restart-v39.js
           grep -q "learningNavButton" kmate-trainer/learning-v40-part2.txt
           grep -q "learningPuzzleDialog" kmate-trainer/learning-v40-part3.txt
+          grep -q "wizardLearningButton" kmate-trainer/learning-v40-part5.txt
           grep -q "position-importers-v1.js?v=36.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-hardening-v37.js?v=37.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-chess-v38.js?v=38.0.0" kmate-trainer/app-v7.js
