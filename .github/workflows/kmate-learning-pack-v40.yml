@@ -1,5 +1,6 @@
 name: Build K-Mate v40 CC0 puzzle pack
 
+# Final release build: do not change the branch while this publisher is running.
 on:
   push:
     branches: [kmate-learning-v40]
