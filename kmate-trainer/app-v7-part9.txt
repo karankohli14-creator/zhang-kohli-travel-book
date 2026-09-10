@@ -1,19 +1,95 @@
 
-/* K-Mate v40 — keep learning recommendation/state wrappers non-recursive. */
-const km40RecommendationWithWrappedState = km40Recommendation;
+/* K-Mate v40 — recommendation implementation that never calls the wrapped app state. */
 km40Recommendation = function km40RecommendationSafe(sessionId = null) {
-  const activeState = window.__KMATE__?.state;
-  try {
-    if (window.__KMATE__ && typeof km40BaseState === 'function') window.__KMATE__.state = km40BaseState;
-    const recommendation = km40RecommendationWithWrappedState(sessionId);
-    if (recommendation) {
-      recommendation.exactRetryAvailable = Boolean(current && (currentSession?.startFen || current?.fen));
-    }
-    return recommendation;
-  } finally {
-    if (window.__KMATE__ && activeState) window.__KMATE__.state = activeState;
+  const session = km40FindSession(sessionId);
+  const profile = km40WeaknessProfile(10);
+  const latestSignals = km40SignalsForSession(session);
+  const blended = profile.map((item) => ({
+    ...item,
+    blendedScore: item.score * 0.35 + (latestSignals[item.key] || 0) * 0.65,
+  })).sort((a, b) => b.blendedScore - a.blendedScore);
+
+  let focus = blended[0];
+  if (!focus || focus.blendedScore <= 0.2) {
+    focus = {
+      ...KM40_FOCUS_TAXONOMY.calculation,
+      score: 0,
+      occurrences: 0,
+      pattern: 'baseline',
+      blendedScore: 0,
+    };
   }
+
+  const moves = (session?.userMoves || [])
+    .map(km40DescribeMove)
+    .filter(Boolean)
+    .sort((a, b) => (b.loss || -1) - (a.loss || -1));
+  const keyMove = moves.find((move) => Number.isFinite(move.loss)) || moves[0] || null;
+  const baseRating = Number(
+    session?.opponentRating
+    || session?.positionRating
+    || settings.opponentRating
+    || 1400,
+  );
+  const averageLoss = Number(session?.avgCpLoss);
+  const adjustment = Number.isFinite(averageLoss)
+    ? (averageLoss > 180 ? -100 : averageLoss < 55 ? 100 : 0)
+    : 0;
+  const puzzleRating = Math.max(
+    800,
+    Math.min(2300, Math.round((baseRating + adjustment) / 100) * 100),
+  );
+
+  const reasons = [];
+  if (keyMove && Number.isFinite(keyMove.loss)) {
+    reasons.push(
+      `${keyMove.san} was the largest recent swing at about ${Math.round(keyMove.loss)} centipawns.`,
+    );
+    const evidence = keyMove.diagnoses.find((diagnosis) => diagnosis.evidence)?.evidence;
+    if (evidence) reasons.push(evidence);
+    else if (keyMove.loss >= 110) {
+      const sourceMove = (session?.userMoves || []).find((move) => move.id === keyMove.id);
+      if (sourceMove) reasons.push(reviewMoveAdvice(sourceMove));
+    }
+    if (Number.isFinite(keyMove.spentMs) && keyMove.spentMs < 5000 && keyMove.loss >= 110) {
+      reasons.push(
+        `The decision took only ${Math.max(1, Math.round(keyMove.spentMs / 1000))} seconds, so the prescription emphasizes a slower candidate scan.`,
+      );
+    }
+  } else if (session) {
+    reasons.push(`This focus matches the themes and phase of ${km40SourceLabel(session)}.`);
+  } else {
+    reasons.push('Complete a practice or import a Chess.com position to personalize this prescription.');
+  }
+  if (focus.occurrences >= 2) {
+    reasons.push(`A similar signal appeared in ${focus.occurrences} of your recent sessions.`);
+  }
+
+  return {
+    version: KM40_LEARNING_CORE_VERSION,
+    generatedAt: new Date().toISOString(),
+    sourceSessionId: session?.id || null,
+    sourceLabel: km40SourceLabel(session),
+    focus: {
+      ...focus,
+      description: KM40_FOCUS_TAXONOMY[focus.key].description,
+    },
+    puzzleRating,
+    puzzleBand: km40PuzzleBand(puzzleRating),
+    opening: session?.opening || current?.opening || null,
+    phase: session?.phase || current?.phase || null,
+    reasons,
+    keyMove,
+    recentMoves: moves.slice(0, 3),
+    profile: profile.slice(0, 5),
+    exactRetryAvailable: Boolean(current && (currentSession?.startFen || current?.fen)),
+    sessionCount: km40RecentSessions(10).length,
+  };
 };
 
-if (window.__KMATE_LEARNING_CORE__) window.__KMATE_LEARNING_CORE__.recommend = km40Recommendation;
-if (window.__KMATE__) window.__KMATE__.learningRecommendation = km40Recommendation;
+if (window.__KMATE_LEARNING_CORE__) {
+  window.__KMATE_LEARNING_CORE__.recommend = km40Recommendation;
+}
+if (window.__KMATE__) {
+  window.__KMATE__.learningRecommendation = km40Recommendation;
+}
