@@ -1,0 +1,72 @@
+
+/* K-Mate v41 — ensure a five-puzzle set represents the top three game decisions. */
+const km41UnbalancedRecommendation = km41Recommendation;
+
+function km41BalancedSlot(item, index) {
+  const focus = item?.focus || 'calculation';
+  const taxonomy = KM40_FOCUS_TAXONOMY[focus] || KM40_FOCUS_TAXONOMY.calculation;
+  const lossText = Number.isFinite(item?.loss)
+    ? `${(item.loss / 100).toFixed(item.loss >= 100 ? 1 : 2)} pawns`
+    : 'a meaningful evaluation swing';
+  return {
+    slot: index + 1,
+    focus,
+    focusLabel: taxonomy.label,
+    themes: item?.themes?.length
+      ? item.themes.slice(0, 8)
+      : [...(KM41_FOCUS_DEFAULT_THEMES[focus] || [])],
+    lessonTags: item?.lessonTags?.slice(0, 8) || [],
+    sourceMoveId: item?.id || null,
+    sourceMove: item?.moveLabel || null,
+    playedSan: item?.san || null,
+    bestSan: item?.bestSan || null,
+    loss: item?.loss ?? null,
+    skill: item?.skill || taxonomy.short,
+    reason: item
+      ? `${item.moveLabel} lost about ${lossText}. ${item.explanation || `This exposed a ${taxonomy.label.toLowerCase()} gap.`}`
+      : `Baseline ${taxonomy.label.toLowerCase()} practice near the selected level.`,
+  };
+}
+
+function km41BalancedPuzzlePlan(recommendation) {
+  const evidence = (recommendation?.moveEvidence || [])
+    .filter((item) => Number(item.loss) >= 25 || item.diagnoses?.length)
+    .slice(0, 3);
+  if (!evidence.length) return recommendation?.puzzlePlan || [];
+
+  const allocation = evidence.length >= 3
+    ? [0, 0, 1, 1, 2]
+    : evidence.length === 2
+      ? [0, 0, 0, 1, 1]
+      : [0, 0, 0, 0, 0];
+  return allocation.map((evidenceIndex, slotIndex) => km41BalancedSlot(evidence[evidenceIndex], slotIndex));
+}
+
+function km41BalancedRecommendation(sessionId = null) {
+  const recommendation = km41UnbalancedRecommendation(sessionId);
+  if (!recommendation) return recommendation;
+  const puzzlePlan = km41BalancedPuzzlePlan(recommendation);
+  const representedMoves = [...new Set(puzzlePlan.map((slot) => slot.sourceMove).filter(Boolean))];
+  const moveSummary = representedMoves.length
+    ? `The five positions deliberately represent ${representedMoves.join(', ')}; the two largest errors receive two puzzles each and the third receives one.`
+    : recommendation.relevance?.summary;
+  return {
+    ...recommendation,
+    puzzlePlan,
+    puzzleSetSummary: km41PuzzleSetSummary(puzzlePlan),
+    relevance: {
+      ...(recommendation.relevance || {}),
+      summary: moveSummary || recommendation.relevance?.summary || '',
+      representedMoves,
+    },
+  };
+}
+
+km41Recommendation = km41BalancedRecommendation;
+km40Recommendation = km41BalancedRecommendation;
+if (window.__KMATE_LEARNING_CORE__) {
+  window.__KMATE_LEARNING_CORE__.recommend = km41BalancedRecommendation;
+}
+if (window.__KMATE__) {
+  window.__KMATE__.learningRecommendation = km41BalancedRecommendation;
+}
