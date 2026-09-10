@@ -22,13 +22,32 @@ async function routeChessJs(page) {
   await page.route(/https:\/\/esm\.sh\/chess\.js@1\.4\.0.*/, fulfill);
 }
 
+async function previewGeometry(page) {
+  return page.evaluate(() => {
+    const shell = document.querySelector('#positionImportDialog .position-importer-shell');
+    const preview = document.querySelector('#kmChessPreview');
+    const list = document.querySelector('#kmChessGameList');
+    const shellRect = shell?.getBoundingClientRect();
+    const previewRect = preview?.getBoundingClientRect();
+    const listRect = list?.getBoundingClientRect();
+    return {
+      shellTop: shellRect?.top ?? null,
+      shellBottom: shellRect?.bottom ?? null,
+      previewTop: previewRect?.top ?? null,
+      previewBottom: previewRect?.bottom ?? null,
+      listTop: listRect?.top ?? null,
+      scrollTop: shell?.scrollTop ?? null,
+    };
+  });
+}
+
 test.use({
-  viewport: { width: 1280, height: 800 },
+  viewport: { width: 820, height: 800 },
   screenshot: 'only-on-failure',
   trace: 'retain-on-failure',
 });
 
-test('live Chess.com games render selectable positions', async ({ page }) => {
+test('live Chess.com games render visible, selectable positions in a narrow app pane', async ({ page }) => {
   test.setTimeout(180_000);
   const pageErrors = [];
   const consoleErrors = [];
@@ -39,7 +58,11 @@ test('live Chess.com games render selectable positions', async ({ page }) => {
 
   await routeChessJs(page);
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await page.waitForFunction(() => Boolean(window.__KMATE_POSITION_IMPORTERS__), undefined, { timeout: 45_000 });
+  await page.waitForFunction(
+    () => Boolean(window.__KMATE_POSITION_IMPORTERS__ && window.__KMATE_CHESS_POSITION_FIX__),
+    undefined,
+    { timeout: 45_000 },
+  );
   await page.evaluate(() => window.__KMATE_POSITION_IMPORTERS__.open('chess'));
   await expect(page.locator('#positionImportDialog')).toBeVisible();
 
@@ -47,6 +70,15 @@ test('live Chess.com games render selectable positions', async ({ page }) => {
   await page.locator('#kmLoadChessGames').click();
   await expect(page.locator('#kmChessStatus')).toHaveAttribute('data-state', 'success', { timeout: 90_000 });
   await page.waitForFunction(() => document.querySelectorAll('.km-chess-game').length > 0, undefined, { timeout: 30_000 });
+  await expect(page.locator('#kmChessPreview')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('#kmChessPositionNotice')).toBeVisible();
+  await expect(page.locator('#kmChessBoard .km-import-square')).toHaveCount(64);
+
+  const initialGeometry = await previewGeometry(page);
+  expect(initialGeometry.previewTop).not.toBeNull();
+  expect(initialGeometry.listTop).not.toBeNull();
+  expect(initialGeometry.previewTop).toBeLessThan(initialGeometry.listTop);
+  expect(initialGeometry.previewTop).toBeLessThan(initialGeometry.shellBottom - 80);
 
   const gameCount = await page.locator('.km-chess-game').count();
   expect(gameCount).toBeGreaterThan(0);
@@ -56,6 +88,17 @@ test('live Chess.com games render selectable positions', async ({ page }) => {
     await page.locator('.km-chess-game').nth(index).click();
     await expect(page.locator('#kmChessPreview')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('#kmChessBoard .km-import-square')).toHaveCount(64);
+    await expect.poll(async () => {
+      const geometry = await previewGeometry(page);
+      return Boolean(
+        geometry.previewTop != null
+        && geometry.shellTop != null
+        && geometry.shellBottom != null
+        && geometry.previewTop >= geometry.shellTop - 3
+        && geometry.previewTop < geometry.shellBottom - 80
+      );
+    }, { timeout: 10_000 }).toBe(true);
+
     const title = await page.locator('#kmChessSelectedTitle').innerText();
     const counter = await page.locator('#kmChessMoveCounter').innerText();
     const label = await page.locator('#kmChessMoveLabel').innerText();
@@ -67,7 +110,13 @@ test('live Chess.com games render selectable positions', async ({ page }) => {
     expect(startDisabled).toBe(false);
   }
 
-  console.log(JSON.stringify({ gameCount, results, pageErrors, consoleErrors }, null, 2));
+  const diagnosticState = await page.evaluate(() => window.__KMATE_CHESS_POSITION_FIX__.state());
+  expect(diagnosticState.ready).toBe(true);
+  expect(diagnosticState.boardSquares).toBe(64);
+  expect(diagnosticState.narrowLayout).toBe(true);
+  expect(diagnosticState.noticeVisible).toBe(true);
+
+  console.log(JSON.stringify({ gameCount, initialGeometry, diagnosticState, results, pageErrors, consoleErrors }, null, 2));
   expect(pageErrors).toEqual([]);
   expect(consoleErrors.filter((message) => !/favicon/i.test(message))).toEqual([]);
 });
