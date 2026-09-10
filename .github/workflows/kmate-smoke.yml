@@ -38,7 +38,7 @@ jobs:
           node --check kmate-trainer/learning-v40.js
           node --check kmate-trainer/learning-library-v40.js
           node --check kmate-trainer/learning-relevance-v41.js
-          cat kmate-trainer/app-v7-part{1..10}.txt > /tmp/kmate-app-v41.js
+          cat kmate-trainer/app-v7-part{1..11}.txt > /tmp/kmate-app-v41.js
           node --check /tmp/kmate-app-v41.js
           cat kmate-trainer/learning-v40-part{1..5}.txt > /tmp/kmate-learning-v40.js
           node --check /tmp/kmate-learning-v40.js
@@ -72,7 +72,7 @@ jobs:
       - name: Check feature wiring
         shell: bash
         run: |
-          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" kmate-trainer/app-v7.js
+          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]" kmate-trainer/app-v7.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/learning-v40.js
           grep -q "practice-restart-v39.js?v=39.0.0" kmate-trainer/app-v7.js
           grep -q "learning-v40.js?v=40.1.1" kmate-trainer/app-v7.js
@@ -84,6 +84,8 @@ jobs:
           grep -q "KM41_RELEVANCE_VERSION = '41.0.0'" kmate-trainer/app-v7-part10.txt
           grep -q "moveEvidence" kmate-trainer/app-v7-part10.txt
           grep -q "puzzlePlan" kmate-trainer/app-v7-part10.txt
+          grep -q "km41BalancedPuzzlePlan" kmate-trainer/app-v7-part11.txt
+          grep -q "representedMoves" kmate-trainer/app-v7-part11.txt
           grep -q "restartCurrentPractice" kmate-trainer/app-v7-part7.txt
           grep -q "restartPracticeButton" kmate-trainer/practice-restart-v39.js
           grep -q "resultRestartPractice" kmate-trainer/practice-restart-v39.js
