@@ -87,6 +87,13 @@ try {
     }
     try {
       await import('./learning-relevance-v41.js?v=41.0.0');
+      try {
+        await import('./learning-relevance-v41-stability.js?v=41.0.0');
+      } catch (error) {
+        // This small layer restores ranked lessons if an older view refreshes
+        // its card after v41 has rendered. Core relevance remains available.
+        console.warn('Optional v41 learning-view stability layer could not load.', error);
+      }
     } catch (error) {
       // v41 adds move-level explanations, ranked lessons, and a game-style
       // mobile puzzle view. The v40 learning system remains usable if it fails.
