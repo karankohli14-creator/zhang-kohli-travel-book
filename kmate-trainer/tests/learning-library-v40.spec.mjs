@@ -95,9 +95,13 @@ async function prepare(page) {
   await routeChessJs(page);
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await page.waitForFunction(
-    () => Boolean(window.__KMATE_LEARNING_LIBRARY__ && window.__KMATE_LEARNING__),
+    () => Boolean(
+      window.__KMATE_LEARNING_LIBRARY__
+      && window.__KMATE_LEARNING__
+      && window.__KMATE_RELEVANCE__
+    ),
     undefined,
-    { timeout: 45_000 },
+    { timeout: 60_000 },
   );
 }
 
@@ -120,6 +124,7 @@ test('players can openly browse puzzle and instructional-video categories', asyn
   await expect(page.locator('[data-library-focus-card]')).toHaveCount(8);
   await expect(page.locator('[data-library-focus-card="calculation"]')).toContainText('puzzles');
   await expect(page.locator('[data-library-focus-card="calculation"]')).toContainText('videos');
+  await expect(page.locator('#km41RecommendationEvidence')).toContainText('a3');
 
   await page.locator('#learningBrowseAllVideos').click();
   await expect(page.locator('#learningLibraryDialog')).toBeVisible();
@@ -137,12 +142,13 @@ test('players can openly browse puzzle and instructional-video categories', asyn
   await page.locator('#learningLibraryClose').click();
 
   await page.locator('[data-library-puzzles="calculation"]').click();
-  await expect(page.locator('#learningPuzzleDialog')).toBeVisible();
-  await expect(page.locator('#learningPuzzleBoard .learning-puzzle-square')).toHaveCount(64);
-  await page.locator('#learningPuzzleClose').click();
+  await expect(page.locator('#km41PuzzleMode')).toBeVisible();
+  await expect(page.locator('#km41PuzzleBoard .sq')).toHaveCount(64);
+  await expect(page.locator('#km41PuzzleMode .playerbar')).toHaveCount(2);
+  await page.locator('#km41PuzzleClose').click();
 });
 
-test('the results screen presents a tailor-made lesson and puzzle set after play', async ({ page }) => {
+test('the results screen presents a move-matched lesson and puzzle set after play', async ({ page }) => {
   test.setTimeout(90_000);
   await prepare(page);
 
@@ -154,8 +160,9 @@ test('the results screen presents a tailor-made lesson and puzzle set after play
 
   await expect(page.locator('#resultDialog')).toBeVisible();
   await expect(page.locator('#learningResultCard')).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator('#learningResultCard .learning-result-head small')).toContainText('Tailored to this game');
+  await expect(page.locator('#learningResultCard .learning-result-head small')).toContainText('Move-matched to this game');
   await expect(page.locator('#learningResultTitle')).toContainText('Loose pieces');
+  await expect(page.locator('#km41ResultEvidence')).toContainText('a3');
   await expect(page.locator('#learningResultPuzzles')).toBeEnabled();
   await expect(page.locator('#learningResultVideo')).toBeEnabled();
   await expect(page.locator('#learningResultLibrary')).toBeVisible();

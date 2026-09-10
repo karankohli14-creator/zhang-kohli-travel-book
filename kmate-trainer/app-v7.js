@@ -34,7 +34,7 @@ const narrowLayoutFix = document.createElement('style');
 narrowLayoutFix.textContent = `.card,.table-card,.recent-card,.tables-grid,.table-scroll,.recent-row>span{min-width:0}.table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}@media(max-width:700px){.table-card{overflow:hidden}.recent-row{max-width:100%;overflow:hidden}.recent-row>span:nth-child(2){overflow-wrap:anywhere}}`;
 document.head.append(narrowLayoutFix);
 
-const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((number) => `./app-v7-part${number}.txt?v=40.1.1`);
+const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((number) => `./app-v7-part${number}.txt?v=41.0.0`);
 const responses = await Promise.all(partUrls.map(async (url) => {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Unable to load ${url}: ${response.status}`);
@@ -84,6 +84,20 @@ try {
       // The open library augments the personalized recommendation system.
       // Tailored post-game learning remains available if this layer fails.
       console.warn('Optional open puzzle and video library could not load.', error);
+    }
+    try {
+      await import('./learning-relevance-v41.js?v=41.0.0');
+      try {
+        await import('./learning-relevance-v41-stability.js?v=41.0.0');
+      } catch (error) {
+        // This small layer restores ranked lessons if an older view refreshes
+        // its card after v41 has rendered. Core relevance remains available.
+        console.warn('Optional v41 learning-view stability layer could not load.', error);
+      }
+    } catch (error) {
+      // v41 adds move-level explanations, ranked lessons, and a game-style
+      // mobile puzzle view. The v40 learning system remains usable if it fails.
+      console.warn('Optional move-relevance learning layer could not load.', error);
     }
   } catch (error) {
     // Learning content is optional; core play remains usable if a catalog or
