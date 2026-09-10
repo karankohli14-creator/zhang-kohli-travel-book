@@ -1,0 +1,55 @@
+name: Finalize K-Mate v41 loader
+
+on:
+  push:
+    branches: [kmate-relevance-v41]
+    paths:
+      - ".github/workflows/kmate-v41-cache-bust.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-public-loader:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the v41 branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-relevance-v41
+          fetch-depth: 0
+
+      - name: Update the public cache key
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('kmate-trainer/index.html')
+          text = path.read_text(encoding='utf-8')
+          updated, count = re.subn(
+              r'app-v7\.js\?v=[0-9.]+',
+              'app-v7.js?v=41.0.0',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit('K-Mate application script was not found in index.html')
+          path.write_text(updated, encoding='utf-8')
+          PY
+          grep -Fq 'app-v7.js?v=41.0.0' kmate-trainer/index.html
+
+      - name: Commit the refreshed loader
+        run: |
+          git config user.name "K-Mate release bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add kmate-trainer/index.html
+          if git diff --cached --quiet; then
+            echo "The v41 public loader is already current."
+            exit 0
+          fi
+          git commit -m "Expose K-Mate v41 move-relevance training"
+          git pull --rebase origin kmate-relevance-v41
+          git push origin HEAD:kmate-relevance-v41
