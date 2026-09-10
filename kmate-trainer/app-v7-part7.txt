@@ -1,0 +1,120 @@
+
+/* K-Mate v39 — restart the exact current practice position. */
+const KMATE_RESTART_CORE_VERSION = '39.0.0';
+
+function cloneCurrentPositionForRestart(position, startFen) {
+  if (!position || !startFen) return null;
+  const cloned = { ...position, fen: startFen };
+  if (Array.isArray(position.tags)) cloned.tags = [...position.tags];
+  if (Array.isArray(position.sourceMoves)) cloned.sourceMoves = [...position.sourceMoves];
+  if (Array.isArray(position.principles)) cloned.principles = position.principles.map((item) => ({ ...item }));
+  return cloned;
+}
+
+function restartCurrentPractice() {
+  const previousPosition = current;
+  const previousSession = currentSession;
+  const startFen = previousSession?.startFen || previousPosition?.fen || '';
+  const restartPosition = cloneCurrentPositionForRestart(previousPosition, startFen);
+
+  if (!restartPosition || !startFen) {
+    return { ok: false, message: 'Start a practice position before restarting.' };
+  }
+
+  try {
+    // Validate the saved root before replacing the current attempt. This keeps a
+    // corrupt or stale snapshot from interrupting an otherwise usable session.
+    const validation = new Chess(startFen);
+    if (validation.isGameOver()) {
+      return { ok: false, message: 'This position is already over and cannot be restarted.' };
+    }
+  } catch (error) {
+    return { ok: false, message: String(error?.message || 'The original position is no longer valid.') };
+  }
+
+  const preservedUserColor = previousSession?.userColor || userColor;
+  const preservedOpponentRating = Number.isFinite(Number(previousSession?.opponentRating))
+    ? Number(previousSession.opponentRating)
+    : activeOpponentRating;
+  const previousSessionId = previousSession?.id || null;
+  const previousAttempt = Number(previousSession?.restartAttempt || 0);
+  const previousWasCompleted = Boolean(previousSession?.completed || finalized);
+
+  // startPosition normally re-rolls Random color and blind-calibration strength.
+  // Override only those selectors for this one synchronous start so Restart is
+  // an exact retry rather than a merely similar session.
+  const originalChooseUserColor = chooseUserColor;
+  const originalChooseCalibrationRating = chooseCalibrationRating;
+  chooseUserColor = () => preservedUserColor;
+  chooseCalibrationRating = () => preservedOpponentRating;
+  queuedCustomPosition = restartPosition;
+
+  try {
+    // An unfinished attempt is intentionally discarded rather than recorded as
+    // an abandoned game. A completed attempt is already safely stored.
+    startPosition({ preservePrevious: true });
+    if (!currentSession) throw new Error('K-Mate could not create the restarted practice session.');
+
+    currentSession.restartAttempt = previousAttempt + 1;
+    currentSession.restartedFromSessionId = previousSessionId;
+    currentSession.restartSource = previousWasCompleted ? 'completed-position-retry' : 'active-position-restart';
+    currentSession.restartVersion = KMATE_RESTART_CORE_VERSION;
+
+    return {
+      ok: true,
+      sessionId: currentSession.id,
+      restartedFromSessionId: previousSessionId,
+      attempt: currentSession.restartAttempt,
+      startFen: currentSession.startFen,
+      userColor: currentSession.userColor,
+      opponentRating: currentSession.opponentRating,
+      previousWasCompleted,
+    };
+  } catch (error) {
+    queuedCustomPosition = null;
+    console.error('K-Mate could not restart the current practice.', error);
+    return { ok: false, message: String(error?.message || 'K-Mate could not restart this practice.') };
+  } finally {
+    chooseUserColor = originalChooseUserColor;
+    chooseCalibrationRating = originalChooseCalibrationRating;
+  }
+}
+
+if (window.__KMATE__) {
+  const baseKmateState = window.__KMATE__.state;
+  window.__KMATE__.restart = restartCurrentPractice;
+  window.__KMATE__.restartVersion = KMATE_RESTART_CORE_VERSION;
+  window.__KMATE__.state = () => {
+    const base = typeof baseKmateState === 'function' ? baseKmateState() : {};
+    return {
+      ...base,
+      startFen: currentSession?.startFen || current?.fen || null,
+      restart: {
+        version: KMATE_RESTART_CORE_VERSION,
+        available: Boolean(current && (currentSession?.startFen || current?.fen)),
+        attempt: Number(currentSession?.restartAttempt || 0),
+        currentSessionId: currentSession?.id || null,
+        restartedFromSessionId: currentSession?.restartedFromSessionId || null,
+        source: currentSession?.restartSource || null,
+        userColor: currentSession?.userColor || userColor || null,
+        opponentRating: Number.isFinite(Number(currentSession?.opponentRating))
+          ? Number(currentSession.opponentRating)
+          : (Number.isFinite(Number(activeOpponentRating)) ? Number(activeOpponentRating) : null),
+      },
+    };
+  };
+}
+
+window.__KMATE_RESTART_CORE__ = {
+  version: KMATE_RESTART_CORE_VERSION,
+  restart: restartCurrentPractice,
+  state: () => ({
+    available: Boolean(current && (currentSession?.startFen || current?.fen)),
+    currentPositionId: current?.id || null,
+    currentSessionId: currentSession?.id || null,
+    startFen: currentSession?.startFen || current?.fen || null,
+    currentFen: game?.fen?.() || null,
+    attempt: Number(currentSession?.restartAttempt || 0),
+    finalized: Boolean(finalized),
+  }),
+};
