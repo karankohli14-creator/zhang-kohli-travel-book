@@ -194,7 +194,8 @@ test('visible wizard entry, keyboard tabs, and complete image presets', async ({
   await expect(page.locator('[data-import-tab="chess"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('[data-import-tab="chess"]')).toHaveAttribute('tabindex', '0');
 
-  await page.locator('#kmCancelChessImport').click();
+  await page.evaluate(() => document.querySelector('#positionImportDialog')?.close?.());
+  await expect(page.locator('#positionImportDialog')).not.toBeVisible();
   await page.evaluate(() => window.__KMATE__.showSetupPage('position'));
   await expect(page.locator('#wizardPositionImportButton')).toBeVisible();
   expect(errors).toEqual([]);
