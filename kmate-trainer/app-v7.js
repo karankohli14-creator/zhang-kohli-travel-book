@@ -34,7 +34,7 @@ const narrowLayoutFix = document.createElement('style');
 narrowLayoutFix.textContent = `.card,.table-card,.recent-card,.tables-grid,.table-scroll,.recent-row>span{min-width:0}.table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}@media(max-width:700px){.table-card{overflow:hidden}.recent-row{max-width:100%;overflow:hidden}.recent-row>span:nth-child(2){overflow-wrap:anywhere}}`;
 document.head.append(narrowLayoutFix);
 
-const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((number) => `./app-v7-part${number}.txt?v=40.1.0`);
+const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((number) => `./app-v7-part${number}.txt?v=40.1.1`);
 const responses = await Promise.all(partUrls.map(async (url) => {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Unable to load ${url}: ${response.status}`);
@@ -77,9 +77,9 @@ try {
   }
 
   try {
-    await import('./learning-v40.js?v=40.1.0');
+    await import('./learning-v40.js?v=40.1.1');
     try {
-      await import('./learning-library-v40.js?v=40.1.0');
+      await import('./learning-library-v40.js?v=40.1.1');
     } catch (error) {
       // The open library augments the personalized recommendation system.
       // Tailored post-game learning remains available if this layer fails.
