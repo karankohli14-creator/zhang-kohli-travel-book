@@ -2,7 +2,7 @@ name: K-Mate importer browser QA
 
 on:
   push:
-    branches: [main, kmate-importer-qa-v37]
+    branches: [main]
     paths:
       - "kmate-trainer/**"
       - ".github/workflows/kmate-importer-e2e.yml"
@@ -60,7 +60,11 @@ jobs:
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
           KMATE_REAL_IMAGE_FIXTURE: /tmp/kmate-fixtures/chesscom-italian-white.png
-        run: npx playwright test kmate-trainer/tests/importers.spec.mjs --reporter=line,html
+        run: >-
+          npx playwright test
+          kmate-trainer/tests/importers.spec.mjs
+          kmate-trainer/tests/chess-position-visibility.spec.mjs
+          --reporter=line,html
 
       - name: Upload browser traces and screenshots on failure
         if: failure()
