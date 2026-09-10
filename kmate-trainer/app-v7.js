@@ -56,6 +56,13 @@ try {
       // diagnostics. The core importer remains usable when this layer fails.
       console.warn('Optional position-importer hardening could not load.', error);
     }
+    try {
+      await import('./position-importers-chess-v38.js?v=38.0.0');
+    } catch (error) {
+      // The v38 layer keeps selected Chess.com positions visible in narrow
+      // app panes and adds an explicit jump to the loaded board.
+      console.warn('Optional Chess.com position visibility fix could not load.', error);
+    }
   } catch (error) {
     // Position imports are an optional enhancement. A network or module error
     // must never prevent the core K-Mate trainer from loading.
