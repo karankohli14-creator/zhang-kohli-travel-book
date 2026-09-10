@@ -1,24 +1,32 @@
-name: K-Mate learning library QA
+name: K-Mate learning library and relevance QA
 
 on:
   push:
-    branches: [kmate-learning-v40]
+    branches: [main]
     paths:
       - "kmate-trainer/learning-v40*.js"
       - "kmate-trainer/learning-v40-part*.txt"
       - "kmate-trainer/learning-library-v40.js"
+      - "kmate-trainer/learning-relevance-v41*.js"
+      - "kmate-trainer/learning-relevance-v41.css"
+      - "kmate-trainer/app-v7-part10.txt"
+      - "kmate-trainer/app-v7-part11.txt"
       - "kmate-trainer/learning/**"
-      - "kmate-trainer/tests/learning-v40.spec.mjs"
       - "kmate-trainer/tests/learning-library-v40.spec.mjs"
+      - "kmate-trainer/tests/learning-relevance-v41.spec.mjs"
       - ".github/workflows/kmate-learning-library-qa.yml"
   pull_request:
     paths:
       - "kmate-trainer/learning-v40*.js"
       - "kmate-trainer/learning-v40-part*.txt"
       - "kmate-trainer/learning-library-v40.js"
+      - "kmate-trainer/learning-relevance-v41*.js"
+      - "kmate-trainer/learning-relevance-v41.css"
+      - "kmate-trainer/app-v7-part10.txt"
+      - "kmate-trainer/app-v7-part11.txt"
       - "kmate-trainer/learning/**"
-      - "kmate-trainer/tests/learning-v40.spec.mjs"
       - "kmate-trainer/tests/learning-library-v40.spec.mjs"
+      - "kmate-trainer/tests/learning-relevance-v41.spec.mjs"
       - ".github/workflows/kmate-learning-library-qa.yml"
   workflow_dispatch:
 
@@ -28,7 +36,7 @@ permissions:
 jobs:
   focused-learning-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 16
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,20 +57,20 @@ jobs:
           done
           cat /tmp/kmate-learning-http.log
           exit 1
-      - name: Test open categories and tailored post-game learning
+      - name: Test open categories, move relevance, lessons, and phone puzzles
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
         run: >-
           npx playwright test
-          kmate-trainer/tests/learning-v40.spec.mjs
           kmate-trainer/tests/learning-library-v40.spec.mjs
+          kmate-trainer/tests/learning-relevance-v41.spec.mjs
           --workers=1
           --reporter=line
       - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: kmate-learning-library-failure
+          name: kmate-learning-relevance-failure
           path: |
             test-results
             /tmp/kmate-learning-http.log
