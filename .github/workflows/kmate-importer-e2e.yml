@@ -1,4 +1,4 @@
-name: K-Mate importer and practice browser QA
+name: K-Mate importer, practice, and learning browser QA
 
 on:
   push:
@@ -17,9 +17,9 @@ permissions:
 
 jobs:
   browser-qa:
-    name: Chromium importer and practice journeys
+    name: Chromium importer, practice, and learning journeys
     runs-on: ubuntu-latest
-    timeout-minutes: 22
+    timeout-minutes: 25
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -56,7 +56,7 @@ jobs:
           cat /tmp/kmate-http.log
           exit 1
 
-      - name: Run importer, narrow-layout, and restart tests
+      - name: Run importer, restart, and adaptive-learning tests
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
           KMATE_REAL_IMAGE_FIXTURE: /tmp/kmate-fixtures/chesscom-italian-white.png
@@ -65,6 +65,7 @@ jobs:
           kmate-trainer/tests/importers.spec.mjs
           kmate-trainer/tests/chess-position-visibility.spec.mjs
           kmate-trainer/tests/restart-practice.spec.mjs
+          kmate-trainer/tests/learning-v40.spec.mjs
           --reporter=line,html
 
       - name: Upload browser traces and screenshots on failure
