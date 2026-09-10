@@ -217,7 +217,8 @@ function syncControls() {
     button.dataset.restartAttempt = String(attempt);
   }
   if (header) header.title = attempt ? `Restart this position · attempt ${attempt + 1}` : 'Restart this position';
-  if (tool) tool.textContent = attempt ? `Restart this position · attempt ${attempt + 1}` : 'Restart this position';
+  const toolLabel = attempt ? `Restart this position · attempt ${attempt + 1}` : 'Restart this position';
+  if (tool && tool.textContent !== toolLabel) tool.textContent = toolLabel;
 }
 
 function scheduleSync() {
