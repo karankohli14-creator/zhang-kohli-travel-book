@@ -48,13 +48,11 @@ const VARIANT_GAME = {
 };
 
 function chessModuleSource() {
-  const candidates = [
-    path.resolve('node_modules/chess.js/dist/esm/chess.js'),
-    path.resolve('node_modules/chess.js/dist/esm/chess.js'),
-  ];
-  const match = candidates.find((candidate) => fs.existsSync(candidate));
-  if (!match) throw new Error('The deterministic chess.js test dependency was not installed.');
-  return fs.readFileSync(match, 'utf8');
+  const modulePath = path.resolve('node_modules/chess.js/dist/esm/chess.js');
+  if (!fs.existsSync(modulePath)) {
+    throw new Error('The deterministic chess.js test dependency was not installed.');
+  }
+  return fs.readFileSync(modulePath, 'utf8');
 }
 
 async function routeChessJs(page) {
@@ -150,11 +148,17 @@ async function prepareApp(page, { mockFenshot = true, mockChessCom = false } = {
   return pageErrors;
 }
 
+function importerPanelId(tab) {
+  if (tab === 'image') return '#kmImportImagePanel';
+  if (tab === 'chess') return '#kmImportChessPanel';
+  return '#kmImportManualPanel';
+}
+
 async function openImporter(page, tab = 'manual') {
-  await page.locator('#openPositionImport').click();
+  await page.evaluate((source) => window.__KMATE_POSITION_IMPORTERS__.open(source), tab);
   await expect(page.locator('#positionImportDialog')).toBeVisible();
-  await page.locator(`[data-import-tab="${tab}"]`).click();
-  await expect(page.locator(`#kmImport${tab === 'manual' ? 'Manual' : tab === 'image' ? 'Image' : 'Chess'}Panel`)).toBeVisible();
+  await expect(page.locator(`[data-import-tab="${tab}"]`)).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator(importerPanelId(tab))).toBeVisible();
 }
 
 test.use({
@@ -163,9 +167,14 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('importer shell, keyboard tabs, and complete image presets', async ({ page }) => {
+test('visible wizard entry, keyboard tabs, and complete image presets', async ({ page }) => {
   const errors = await prepareApp(page);
-  await openImporter(page, 'image');
+
+  await expect(page.locator('#wizardImportPositionButton')).toBeVisible();
+  await page.locator('#wizardImportPositionButton').click();
+  await expect(page.locator('#positionImportDialog')).toBeVisible();
+  await page.locator('[data-import-tab="image"]').click();
+  await expect(page.locator('#kmImportImagePanel')).toBeVisible();
 
   await expect(page.locator('[data-import-tab]')).toHaveCount(3);
   const diagnostics = await page.evaluate(() => window.__KMATE_IMPORTER_QA__.run());
@@ -184,6 +193,10 @@ test('importer shell, keyboard tabs, and complete image presets', async ({ page 
   await manualTab.press('End');
   await expect(page.locator('[data-import-tab="chess"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('[data-import-tab="chess"]')).toHaveAttribute('tabindex', '0');
+
+  await page.locator('#kmCancelChessImport').click();
+  await page.evaluate(() => window.__KMATE__.showSetupPage('position'));
+  await expect(page.locator('#wizardPositionImportButton')).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -239,6 +252,7 @@ test('Chess.com import keeps only completed standard games and opens the chosen 
 test('importer remains contained on a phone-sized viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = await prepareApp(page);
+  await expect(page.locator('#wizardImportPositionButton')).toBeVisible();
   await openImporter(page, 'image');
   await page.locator('#kmImageStartPreset').click();
 
