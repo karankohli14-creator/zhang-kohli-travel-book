@@ -36,6 +36,7 @@ jobs:
           node --check kmate-trainer/position-importers-chess-v38.js
           node --check kmate-trainer/practice-restart-v39.js
           node --check kmate-trainer/learning-v40.js
+          node --check kmate-trainer/learning-library-v40.js
           cat kmate-trainer/app-v7-part{1..9}.txt > /tmp/kmate-app-v40.js
           node --check /tmp/kmate-app-v40.js
           cat kmate-trainer/learning-v40-part{1..5}.txt > /tmp/kmate-learning-v40.js
@@ -44,6 +45,7 @@ jobs:
           node --check kmate-trainer/tests/chess-position-visibility.spec.mjs
           node --check kmate-trainer/tests/restart-practice.spec.mjs
           node --check kmate-trainer/tests/learning-v40.spec.mjs
+          node --check kmate-trainer/tests/learning-library-v40.spec.mjs
           node --check kmate-trainer/tests/chesscom-live-contract.mjs
 
       - name: Validate learning catalogs
@@ -57,12 +59,12 @@ jobs:
             if (!video.sourceUrl.startsWith('https://lichess.org/video/')) throw new Error(`Missing Lichess source: ${video.id}`);
             if (!video.embedUrl.startsWith('https://www.youtube-nocookie.com/embed/')) throw new Error(`Unsafe embed URL: ${video.id}`);
           }
-          if (fs.existsSync('kmate-trainer/learning/puzzles/index.json')) {
-            const index = JSON.parse(fs.readFileSync('kmate-trainer/learning/puzzles/index.json', 'utf8'));
-            if (index.license !== 'CC0-1.0' || index.total < 10000 || index.shards.length !== 56) {
-              throw new Error('CC0 puzzle index failed validation.');
-            }
+          const index = JSON.parse(fs.readFileSync('kmate-trainer/learning/puzzles/index.json', 'utf8'));
+          if (index.license !== 'CC0-1.0' || index.total < 10000 || index.shards.length !== 56) {
+            throw new Error('CC0 puzzle index failed validation.');
           }
+          const focusKeys = new Set(index.shards.map((shard) => shard.focus));
+          if (focusKeys.size !== 8) throw new Error(`Expected 8 open puzzle categories, found ${focusKeys.size}.`);
           NODE
 
       - name: Check feature wiring
@@ -71,7 +73,8 @@ jobs:
           grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9]" kmate-trainer/app-v7.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/learning-v40.js
           grep -q "practice-restart-v39.js?v=39.0.0" kmate-trainer/app-v7.js
-          grep -q "learning-v40.js?v=40.0.0" kmate-trainer/app-v7.js
+          grep -q "learning-v40.js?v=40.1.0" kmate-trainer/app-v7.js
+          grep -q "learning-library-v40.js?v=40.1.0" kmate-trainer/app-v7.js
           grep -q "KMATE_RESTART_CORE_VERSION = '39.0.0'" kmate-trainer/app-v7-part7.txt
           grep -q "KM40_LEARNING_CORE_VERSION = '40.0.0'" kmate-trainer/app-v7-part8.txt
           grep -q "km40RecommendationSafe" kmate-trainer/app-v7-part9.txt
@@ -81,6 +84,8 @@ jobs:
           grep -q "learningNavButton" kmate-trainer/learning-v40-part2.txt
           grep -q "learningPuzzleDialog" kmate-trainer/learning-v40-part3.txt
           grep -q "wizardLearningButton" kmate-trainer/learning-v40-part5.txt
+          grep -q "learningOpenLibrary" kmate-trainer/learning-library-v40.js
+          grep -q "Tailored to this game" kmate-trainer/learning-library-v40.js
           grep -q "position-importers-v1.js?v=36.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-hardening-v37.js?v=37.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-chess-v38.js?v=38.0.0" kmate-trainer/app-v7.js
