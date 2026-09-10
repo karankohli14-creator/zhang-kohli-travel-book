@@ -34,13 +34,21 @@ jobs:
           node --check kmate-trainer/position-importers-v1.js
           node --check kmate-trainer/position-importers-hardening-v37.js
           node --check kmate-trainer/position-importers-chess-v38.js
+          node --check kmate-trainer/practice-restart-v39.js
           node --check kmate-trainer/tests/importers.spec.mjs
           node --check kmate-trainer/tests/chess-position-visibility.spec.mjs
+          node --check kmate-trainer/tests/restart-practice.spec.mjs
           node --check kmate-trainer/tests/chesscom-live-contract.mjs
 
-      - name: Check importer wiring
+      - name: Check feature wiring
         shell: bash
         run: |
+          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7]" kmate-trainer/app-v7.js
+          grep -q "practice-restart-v39.js?v=39.0.0" kmate-trainer/app-v7.js
+          grep -q "KMATE_RESTART_CORE_VERSION = '39.0.0'" kmate-trainer/app-v7-part7.txt
+          grep -q "restartCurrentPractice" kmate-trainer/app-v7-part7.txt
+          grep -q "restartPracticeButton" kmate-trainer/practice-restart-v39.js
+          grep -q "resultRestartPractice" kmate-trainer/practice-restart-v39.js
           grep -q "position-importers-v1.js?v=36.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-hardening-v37.js?v=37.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-chess-v38.js?v=38.0.0" kmate-trainer/app-v7.js
