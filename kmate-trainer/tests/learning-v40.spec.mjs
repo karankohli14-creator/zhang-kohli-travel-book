@@ -97,7 +97,7 @@ const puzzles = puzzleLines.map((solutionUci, index) => ({
   practiceFen: START_FEN,
   solutionUci,
   opponentMove: 'a7a6',
-  rating: 1280 + index * 10,
+  rating: 1300 + index * 10,
   ratingDeviation: 55,
   popularity: 96,
   plays: 5000,
