@@ -1,0 +1,280 @@
+    .learning-puzzle-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}
+    .learning-puzzle-actions .btn{padding-inline:9px;font-size:10px}.learning-puzzle-actions .wide{grid-column:1/-1}
+    .learning-puzzle-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+    .learning-puzzle-meta span{padding:4px 7px;border:1px solid #ffffff13;border-radius:99px;background:#ffffff06;color:var(--muted);font-size:8px}
+    .learning-workout-summary{padding:24px;text-align:center}
+    .learning-workout-summary h2{margin:7px 0;font-size:34px}.learning-workout-summary p{color:var(--muted)}
+    .learning-workout-score{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px auto;max-width:520px}
+    .learning-workout-score div{padding:14px;border:1px solid #ffffff12;border-radius:14px;background:#ffffff05}
+    .learning-workout-score b,.learning-workout-score span{display:block}.learning-workout-score b{font-size:26px}.learning-workout-score span{color:var(--muted);font-size:9px;text-transform:uppercase}
+    .learning-video-modal{width:min(980px,calc(100% - 18px));max-width:none}
+    .learning-video-frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border:1px solid var(--line);border-radius:17px;background:#050805}
+    .learning-video-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+    .learning-video-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+    .learning-video-footer p{margin:0;color:var(--muted);font-size:10px}.learning-video-footer a{color:var(--accent);font-weight:850}
+    @media(max-width:880px){
+      .learning-hero-grid,.learning-grid,.learning-puzzle-layout{grid-template-columns:1fr}
+      .learning-score-card{max-width:520px}
+      .learning-focus-browser{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .learning-puzzle-board-wrap{max-width:680px;margin:auto}
+    }
+    @media(max-width:620px){
+      .learning-hero,.learning-card{padding:17px}
+      .learning-video-card{grid-template-columns:1fr}.learning-video-thumb{min-height:140px}
+      .learning-modal{inset:0;width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0}
+      .learning-modal-shell{height:100dvh;max-height:100dvh;padding:10px;overflow:auto}
+      .learning-modal-head{position:sticky;top:-10px;z-index:9;margin:0 -2px 8px;padding:8px 2px;background:#0b120dea;backdrop-filter:blur(14px)}
+      .learning-puzzle-side{padding:14px}.learning-puzzle-actions{grid-template-columns:1fr 1fr}
+      .learning-workout-score{grid-template-columns:1fr 1fr}.learning-workout-score div:last-child{grid-column:1/-1}
+      .learning-video-footer{align-items:flex-start;flex-direction:column}
+    }
+  `;
+  document.head.append(style);
+}
+
+function ensureLearningView() {
+  let view = $('#learningView');
+  if (view) return view;
+  view = document.createElement('section');
+  view.id = 'learningView';
+  view.className = 'view learning-view';
+  view.hidden = true;
+  view.innerHTML = `
+    <section class="card learning-hero">
+      <div class="learning-hero-grid">
+        <div>
+          <div class="eyebrow">Adaptive learning prescription</div>
+          <h1 id="learningFocusTitle">Turn your last game into the next lesson.</h1>
+          <p id="learningFocusDescription">K-Mate will connect your move-quality signals with one focused lesson, five matching puzzles, and an exact-position retry.</p>
+          <div class="learning-focus-pill"><span id="learningFocusIcon">⌁</span><b id="learningFocusLabel">Calculation</b><em id="learningFocusBand">around 1400</em></div>
+          <p class="learning-reason" id="learningReason">Complete a practice or import a Chess.com position to personalize this prescription.</p>
+          <div class="learning-hero-actions">
+            <button class="btn primary" id="learningStartPuzzles" type="button">Start 5 recommended puzzles</button>
+            <button class="btn" id="learningWatchLesson" type="button">Watch matched lesson</button>
+            <button class="btn" id="learningRetryPosition" type="button">Retry practice position</button>
+          </div>
+        </div>
+        <div class="learning-score-card" aria-label="Learning progress">
+          <div><strong id="learningSolvedCount">0</strong><span>Puzzles solved</span></div>
+          <div><strong id="learningWorkoutCount">0</strong><span>Workouts</span></div>
+          <div><strong id="learningVideoCount">0</strong><span>Lessons opened</span></div>
+          <div><strong id="learningStreakCount">0</strong><span>Day streak</span></div>
+        </div>
+      </div>
+    </section>
+    <div class="learning-grid">
+      <section class="card learning-card">
+        <div class="eyebrow">Understand first</div>
+        <h2>One lesson for the main signal</h2>
+        <p>K-Mate recommends a creator-hosted video from the Lichess-curated library, then reinforces the same idea with CC0 puzzles.</p>
+        <div class="learning-video-card" id="learningVideoCard">
+          <div class="learning-video-thumb" aria-hidden="true"></div>
+          <div class="learning-video-copy">
+            <small>Loading lesson…</small>
+            <b>Finding the closest match</b>
+            <span>The catalog is checked separately from your local training data.</span>
+          </div>
+        </div>
+      </section>
+      <section class="card learning-card">
+        <div class="eyebrow">Weakness profile</div>
+        <h2>Today, emerging, persistent</h2>
+        <p>One mistake is a focus for today; repeated signals across sessions become a pattern.</p>
+        <div class="learning-profile" id="learningProfile"></div>
+      </section>
+    </div>
+    <section class="card learning-card">
+      <div class="eyebrow">Choose a different focus</div>
+      <h2>Browse the curated puzzle pack</h2>
+      <p>The default prescription follows your recent play, but every focus can be trained directly.</p>
+      <div class="learning-focus-browser" id="learningFocusBrowser"></div>
+    </section>
+    <details class="card learning-license">
+      <summary>Content sources and licenses</summary>
+      <p><span class="learning-content-label cc0">CC0 puzzles</span> Puzzle positions come from the official Lichess puzzle database, are transformed into player-to-move positions, and retain their source IDs and game links. The database is released under CC0.</p>
+      <p><span class="learning-content-label">External video</span> Video files remain creator-hosted. K-Mate embeds the privacy-enhanced player and links to the corresponding Lichess library page; it does not download, edit, or rehost those videos.</p>
+    </details>`;
+  const shell = $('main.shell');
+  shell?.append(view);
+  bindLearningViewControls(view);
+  return view;
+}
+
+function ensureLearningNav() {
+  const nav = $('.topnav');
+  if (!nav) return null;
+  let button = $('#learningNavButton');
+  if (!button) {
+    button = document.createElement('button');
+    button.id = 'learningNavButton';
+    button.className = 'navbutton';
+    button.type = 'button';
+    button.dataset.view = 'learning';
+    button.textContent = 'Learn';
+    button.addEventListener('click', openLearningView);
+    nav.append(button);
+  }
+  for (const existing of $$('.navbutton', nav)) {
+    if (existing === button || existing.dataset.learningHideBound) continue;
+    existing.dataset.learningHideBound = LEARNING_VERSION;
+    existing.addEventListener('click', () => {
+      const view = $('#learningView');
+      if (view) view.hidden = true;
+    }, { capture: true });
+  }
+  return button;
+}
+
+function openLearningView() {
+  const state = window.__KMATE__?.state?.();
+  if (state && !state.finalized && !$('#gameView')?.hidden) {
+    showToast('Finish the current position or return to setup before opening Learning.');
+    return false;
+  }
+  const view = ensureLearningView();
+  $('#setupView').hidden = true;
+  $('#gameView').hidden = true;
+  $('#insightsView').hidden = true;
+  view.hidden = false;
+  document.documentElement.classList.remove('game-mode');
+  document.body.classList.remove('game-mode', 'board-focus', 'game-panel-open');
+  $$('.navbutton').forEach((button) => button.classList.toggle('active', button.dataset.view === 'learning'));
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  void renderLearningView();
+  return true;
+}
+
+function bindLearningViewControls(view) {
+  $('#learningStartPuzzles', view)?.addEventListener('click', () => startRecommendedWorkout());
+  $('#learningWatchLesson', view)?.addEventListener('click', () => openRecommendedVideo());
+  $('#learningRetryPosition', view)?.addEventListener('click', retryExactPosition);
+}
+
+function focusBrowser(recommendation) {
+  const container = $('#learningFocusBrowser');
+  const taxonomy = core()?.taxonomy || {};
+  if (!container) return;
+  const active = dashboardFocusOverride || recommendation?.focus?.key || 'calculation';
+  container.innerHTML = Object.values(taxonomy).map((focus) => `
+    <button class="learning-focus-choice ${focus.key === active ? 'active' : ''}" type="button" data-learning-focus="${escapeHtml(focus.key)}">
+      <span>${escapeHtml(focus.icon)}</span><b>${escapeHtml(focus.label)}</b>
+    </button>`).join('');
+  for (const button of $$('[data-learning-focus]', container)) {
+    button.addEventListener('click', () => {
+      dashboardFocusOverride = button.dataset.learningFocus === recommendation?.focus?.key ? null : button.dataset.learningFocus;
+      void renderLearningView();
+    });
+  }
+}
+
+function profileMarkup(profile) {
+  if (!profile?.length || profile.every((item) => item.score <= 0)) {
+    return '<div class="learning-profile-row"><span>◎</span><div><b>Build your baseline</b><small>Complete a few positions so repeated signals can emerge.</small></div><em class="learning-pattern">baseline</em></div>';
+  }
+  return profile.slice(0, 4).map((item) => `
+    <div class="learning-profile-row">
+      <span>${escapeHtml(item.icon)}</span>
+      <div><b>${escapeHtml(item.label)}</b><small>${item.occurrences ? `${item.occurrences} recent session${item.occurrences === 1 ? '' : 's'}` : 'Contextual focus'}</small></div>
+      <em class="learning-pattern ${escapeHtml(item.pattern)}">${escapeHtml(item.pattern)}</em>
+    </div>`).join('');
+}
+
+function videoCardMarkup(video, catalog) {
+  if (!video) return '<div class="learning-video-copy"><small>Lesson unavailable</small><b>Use the puzzle workout for now</b><span>The external video catalog could not be loaded.</span></div>';
+  const label = catalog?.contentPolicy?.labels?.[video.licenseClass] || 'External lesson';
+  return `
+    <div class="learning-video-thumb" aria-hidden="true"></div>
+    <div class="learning-video-copy">
+      <small>${escapeHtml(label)}</small>
+      <b>${escapeHtml(video.title)}</b>
+      <span>${escapeHtml(video.creator)} · ${escapeHtml(video.level)}</span>
+      <div class="learning-video-actions">
+        <button class="learning-mini-button primary-lite" type="button" data-open-learning-video="${escapeHtml(video.id)}">Watch lesson</button>
+        <a class="learning-mini-button" href="${escapeHtml(video.sourceUrl)}" target="_blank" rel="noopener noreferrer">Open on Lichess</a>
+      </div>
+    </div>`;
+}
+
+async function renderLearningView() {
+  const recommendation = safeRecommendation();
+  if (!recommendation) return;
+  const taxonomy = recommendation.focus;
+  $('#learningFocusTitle').textContent = `Train ${taxonomy.label.toLowerCase()} next.`;
+  $('#learningFocusDescription').textContent = taxonomy.description;
+  $('#learningFocusIcon').textContent = taxonomy.icon;
+  $('#learningFocusLabel').textContent = taxonomy.label;
+  $('#learningFocusBand').textContent = `around ${recommendation.puzzleRating}`;
+  $('#learningReason').textContent = (recommendation.reasons || []).slice(0, 2).join(' ');
+  $('#learningProfile').innerHTML = profileMarkup(recommendation.profile);
+  focusBrowser(recommendation);
+
+  const stats = learningStats();
+  $('#learningSolvedCount').textContent = String(stats.solved);
+  $('#learningWorkoutCount').textContent = String(stats.workouts);
+  $('#learningVideoCount').textContent = String(stats.videos);
+  $('#learningStreakCount').textContent = String(stats.streak);
+  const retry = $('#learningRetryPosition');
+  if (retry) retry.disabled = !recommendation.exactRetryAvailable;
+
+  try {
+    const catalog = await loadVideoCatalog();
+    const video = chooseVideo(catalog, recommendation);
+    const card = $('#learningVideoCard');
+    if (card) {
+      card.innerHTML = videoCardMarkup(video, catalog);
+      $('[data-open-learning-video]', card)?.addEventListener('click', () => openVideo(video));
+    }
+    $('#learningWatchLesson').disabled = !video;
+    $('#learningWatchLesson').dataset.videoId = video?.id || '';
+  } catch (error) {
+    console.warn('K-Mate video catalog failed to load.', error);
+    $('#learningVideoCard').innerHTML = videoCardMarkup(null, null);
+    $('#learningWatchLesson').disabled = true;
+  }
+
+  try {
+    const index = await loadPuzzleIndex();
+    const button = $('#learningStartPuzzles');
+    if (button) button.textContent = `Start 5 puzzles · ${Number(index.total || 0).toLocaleString()} CC0 available`;
+  } catch {
+    const button = $('#learningStartPuzzles');
+    if (button) button.textContent = 'Start 5 recommended puzzles';
+  }
+}
+
+function ensureResultCard() {
+  let card = $('#learningResultCard');
+  if (card) return card;
+  const dialog = $('#resultDialog');
+  const actions = dialog?.querySelector('.result-actions');
+  if (!dialog || !actions) return null;
+  card = document.createElement('section');
+  card.id = 'learningResultCard';
+  card.className = 'learning-result-card';
+  card.hidden = true;
+  card.innerHTML = `
+    <div class="learning-result-head"><div><small>Your next 12 minutes</small><b id="learningResultTitle">Matched learning prescription</b></div><span class="learning-content-label cc0">CC0 puzzles</span></div>
+    <p id="learningResultReason">K-Mate is matching this session to a lesson and a five-puzzle workout.</p>
+    <div class="learning-result-actions">
+      <button class="learning-mini-button primary-lite" id="learningResultPuzzles" type="button">Start 5 puzzles</button>
+      <button class="learning-mini-button" id="learningResultVideo" type="button">Watch lesson</button>
+      <button class="learning-mini-button" id="learningResultRetry" type="button">Retry position</button>
+      <button class="learning-mini-button" id="learningResultOpen" type="button">Open Learning</button>
+    </div>`;
+  actions.before(card);
+  $('#learningResultPuzzles', card)?.addEventListener('click', () => startRecommendedWorkout());
+  $('#learningResultVideo', card)?.addEventListener('click', () => openRecommendedVideo());
+  $('#learningResultRetry', card)?.addEventListener('click', retryExactPosition);
+  $('#learningResultOpen', card)?.addEventListener('click', () => {
+    dialog.close?.();
+    openLearningView();
+  });
+  return card;
+}
+
+async function syncResultCard() {
+  const card = ensureResultCard();
+  if (!card) return;
+  const recommendation = safeRecommendation();
+  card.hidden = !recommendation;
+  if (!recommendation) return;

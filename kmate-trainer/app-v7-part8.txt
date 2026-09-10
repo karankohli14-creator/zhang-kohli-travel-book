@@ -1,0 +1,350 @@
+
+/* K-Mate v40 — adaptive learning prescriptions from recent play. */
+const KM40_LEARNING_CORE_VERSION = '40.0.0';
+
+const KM40_FOCUS_TAXONOMY = Object.freeze({
+  loosePieces: Object.freeze({
+    key: 'loosePieces', label: 'Loose pieces', short: 'Protect and exploit loose pieces', icon: '◇',
+    description: 'Spot undefended pieces, overloaded defenders, and tactical targets before they become losses.',
+    puzzleThemes: ['hangingPiece', 'capturingDefender', 'trappedPiece'],
+  }),
+  calculation: Object.freeze({
+    key: 'calculation', label: 'Calculation', short: 'Checks, captures, threats', icon: '⌁',
+    description: 'Build a disciplined forcing-move scan and compare at least two serious candidates.',
+    puzzleThemes: ['fork', 'pin', 'skewer', 'discoveredAttack', 'doubleCheck', 'deflection', 'intermezzo'],
+  }),
+  kingSafety: Object.freeze({
+    key: 'kingSafety', label: 'King safety', short: 'Recognize attacks and mating patterns', icon: '♔',
+    description: 'Notice forcing checks, exposed kings, mating nets, and urgent defensive moves.',
+    puzzleThemes: ['mate', 'backRankMate', 'smotheredMate', 'exposedKing', 'kingsideAttack'],
+  }),
+  defense: Object.freeze({
+    key: 'defense', label: 'Defense', short: 'Neutralize the opponent’s idea', icon: '🛡',
+    description: 'Identify the opponent’s strongest threat and find resources that keep the position together.',
+    puzzleThemes: ['defensiveMove', 'equality', 'interference', 'quietMove'],
+  }),
+  endgames: Object.freeze({
+    key: 'endgames', label: 'Endgames', short: 'Convert and defend technical positions', icon: '♜',
+    description: 'Improve king and rook activity, calculate pawn races, and handle technical transitions.',
+    puzzleThemes: ['rookEndgame', 'pawnEndgame', 'zugzwang', 'promotion', 'underPromotion'],
+  }),
+  pawnPlay: Object.freeze({
+    key: 'pawnPlay', label: 'Pawn play', short: 'Calculate permanent pawn decisions', icon: '♙',
+    description: 'Prepare pawn breaks, evaluate structural concessions, and use passed pawns accurately.',
+    puzzleThemes: ['advancedPawn', 'promotion', 'underPromotion'],
+  }),
+  positionalPlay: Object.freeze({
+    key: 'positionalPlay', label: 'Positional play', short: 'Evaluate, coordinate, and make a plan', icon: '◎',
+    description: 'Improve the least active piece, compare plans, and find strong non-forcing moves.',
+    puzzleThemes: ['quietMove', 'advantage', 'equality', 'defensiveMove'],
+  }),
+  openings: Object.freeze({
+    key: 'openings', label: 'Opening patterns', short: 'Reinforce plans from your openings', icon: '▤',
+    description: 'Practice tactical and strategic patterns that recur in the opening families you play.',
+    puzzleThemes: [],
+  }),
+});
+
+const KM40_PRINCIPLE_FOCUS = Object.freeze({
+  'loose-pieces': 'loosePieces',
+  'forcing-scan': 'calculation',
+  'candidate-comparison': 'calculation',
+  'king-safety': 'kingSafety',
+  'opponent-threat': 'defense',
+  'piece-activity': 'positionalPlay',
+  'central-control': 'positionalPlay',
+  'pawn-breaks': 'pawnPlay',
+  'pawn-structure': 'pawnPlay',
+  'conversion': 'endgames',
+  'endgame-transition': 'endgames',
+  'rook-activity': 'endgames',
+  'passed-pawns': 'pawnPlay',
+  'king-activity': 'endgames',
+  'opposition': 'endgames',
+});
+
+const KM40_TAG_FOCUS = Object.freeze({
+  calculation: 'calculation',
+  'king safety': 'kingSafety',
+  prophylaxis: 'defense',
+  'piece activity': 'positionalPlay',
+  space: 'positionalPlay',
+  'pawn structure': 'pawnPlay',
+  'pawn breaks': 'pawnPlay',
+  'passed pawns': 'pawnPlay',
+  conversion: 'endgames',
+  'endgame transition': 'endgames',
+  'rook activity': 'endgames',
+  'king activity': 'endgames',
+  opposition: 'endgames',
+});
+
+function km40EmptySignals() {
+  return Object.fromEntries(Object.keys(KM40_FOCUS_TAXONOMY).map((key) => [key, 0]));
+}
+
+function km40SafeLoss(move) {
+  const loss = effectiveMoveLoss(move);
+  return Number.isFinite(loss) ? Math.max(0, Number(loss)) : null;
+}
+
+function km40AddSignal(signals, key, amount) {
+  if (!key || signals[key] === undefined || !Number.isFinite(Number(amount))) return;
+  signals[key] += Number(amount);
+}
+
+function km40DescribeMove(move) {
+  if (!move) return null;
+  const loss = km40SafeLoss(move);
+  const diagnoses = Array.isArray(move.principleDiagnoses) ? move.principleDiagnoses : [];
+  return {
+    id: move.id || null,
+    san: move.san || readableEngineMove(move.uci),
+    uci: move.uci || null,
+    loss,
+    quality: qualityForMoveRecord(move).key,
+    spentMs: Number.isFinite(Number(move.spentMs)) ? Number(move.spentMs) : null,
+    fenBefore: move.fenBefore || null,
+    bestMove: move.bestMove || null,
+    diagnoses: diagnoses.slice(0, 3).map((diagnosis) => ({
+      key: diagnosis.key,
+      title: diagnosis.title || CHESS_PRINCIPLE_BY_KEY[diagnosis.key]?.title || diagnosis.key,
+      confidence: diagnosis.confidence || null,
+      evidence: diagnosis.evidence || null,
+    })),
+  };
+}
+
+function km40SignalsForMove(move, session) {
+  const signals = km40EmptySignals();
+  const loss = km40SafeLoss(move);
+  if (!Number.isFinite(loss) || loss < 25) return signals;
+
+  const severity = loss >= 220 ? 6 : loss >= 180 ? 5 : loss >= 110 ? 4 : loss >= 60 ? 2.5 : 1;
+  let diagnosed = false;
+  for (const diagnosis of move.principleDiagnoses || []) {
+    const focus = KM40_PRINCIPLE_FOCUS[diagnosis.key];
+    if (!focus) continue;
+    diagnosed = true;
+    const confidence = String(diagnosis.confidence || '').toLowerCase();
+    const multiplier = confidence.includes('high') ? 1.35 : confidence.includes('medium') ? 1.15 : 1;
+    km40AddSignal(signals, focus, severity * multiplier);
+  }
+  for (const key of move.ignoredPrinciples || []) {
+    const focus = KM40_PRINCIPLE_FOCUS[key];
+    if (focus) {
+      diagnosed = true;
+      km40AddSignal(signals, focus, severity * 0.65);
+    }
+  }
+
+  try {
+    const before = new Chess(move.fenBefore);
+    const selected = before.move({ from: move.from || move.uci?.slice(0, 2), to: move.to || move.uci?.slice(2, 4), promotion: move.uci?.[4] || 'q' });
+    const bestGame = new Chess(move.fenBefore);
+    const best = move.bestMove ? bestGame.move({ from: move.bestMove.slice(0, 2), to: move.bestMove.slice(2, 4), promotion: move.bestMove[4] || 'q' }) : null;
+    if (best?.captured && !selected?.captured) km40AddSignal(signals, 'loosePieces', severity * 1.25);
+    if ((best?.san?.includes('+') || best?.san?.includes('#')) && !(selected?.san?.includes('+') || selected?.san?.includes('#'))) {
+      km40AddSignal(signals, 'calculation', severity * 1.2);
+      if (best.san.includes('#')) km40AddSignal(signals, 'kingSafety', severity);
+    }
+  } catch {}
+
+  if (!diagnosed) km40AddSignal(signals, session?.phase === 'endgame' ? 'endgames' : 'calculation', severity);
+  if (Number.isFinite(Number(move.spentMs)) && Number(move.spentMs) < 5000 && loss >= 110) {
+    km40AddSignal(signals, 'calculation', severity * 0.9);
+    km40AddSignal(signals, 'defense', severity * 0.45);
+  }
+  return signals;
+}
+
+function km40SignalsForSession(session) {
+  const signals = km40EmptySignals();
+  if (!session) return signals;
+  const moves = Array.isArray(session.userMoves) ? session.userMoves : [];
+  for (const move of moves) {
+    const moveSignals = km40SignalsForMove(move, session);
+    for (const [key, value] of Object.entries(moveSignals)) km40AddSignal(signals, key, value);
+  }
+  for (const tag of session.tags || []) {
+    const focus = KM40_TAG_FOCUS[String(tag).toLowerCase()];
+    if (focus) km40AddSignal(signals, focus, 0.7);
+  }
+  const opening = String(session.opening || '');
+  if (opening && !['Various', 'Imported game'].includes(opening)) km40AddSignal(signals, 'openings', 1.15);
+  if (session.phase === 'endgame') km40AddSignal(signals, 'endgames', 1.25);
+  if (session.outcome === 'loss') km40AddSignal(signals, 'defense', 0.75);
+  if (Number.isFinite(Number(session.timeUsedPct)) && Number(session.timeUsedPct) < 0.25 && moves.some((move) => (km40SafeLoss(move) || 0) >= 110)) {
+    km40AddSignal(signals, 'calculation', 1.8);
+  }
+  return signals;
+}
+
+function km40RecentSessions(limit = 10) {
+  const sessions = [];
+  if (currentSession?.id && Array.isArray(currentSession.userMoves) && currentSession.userMoves.length) sessions.push(currentSession);
+  for (const session of store.sessions || []) {
+    if (!session?.id || sessions.some((item) => item.id === session.id)) continue;
+    if (!Array.isArray(session.userMoves) || !session.userMoves.length) continue;
+    sessions.push(session);
+    if (sessions.length >= limit) break;
+  }
+  return sessions.slice(0, limit);
+}
+
+function km40WeaknessProfile(limit = 10) {
+  const sessions = km40RecentSessions(limit);
+  const totals = km40EmptySignals();
+  const occurrences = Object.fromEntries(Object.keys(totals).map((key) => [key, 0]));
+  const lastSeen = {};
+  sessions.forEach((session, index) => {
+    const signals = km40SignalsForSession(session);
+    const recency = Math.max(0.38, 1 - index * 0.075);
+    for (const [key, value] of Object.entries(signals)) {
+      totals[key] += value * recency;
+      if (value >= 1.5) {
+        occurrences[key] += 1;
+        if (!lastSeen[key]) lastSeen[key] = session.endedAt || session.startedAt || null;
+      }
+    }
+  });
+  return Object.keys(totals)
+    .map((key) => ({
+      ...KM40_FOCUS_TAXONOMY[key],
+      score: Math.round(totals[key] * 10) / 10,
+      occurrences: occurrences[key],
+      lastSeen: lastSeen[key] || null,
+      pattern: occurrences[key] >= 3 ? 'persistent' : occurrences[key] >= 2 ? 'emerging' : occurrences[key] === 1 ? 'today' : 'baseline',
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+
+function km40PuzzleBand(rating) {
+  const value = Math.max(800, Math.min(2300, Math.round((Number(rating) || 1400) / 100) * 100));
+  if (value < 1000) return '0800-0999';
+  if (value < 1200) return '1000-1199';
+  if (value < 1400) return '1200-1399';
+  if (value < 1600) return '1400-1599';
+  if (value < 1800) return '1600-1799';
+  if (value < 2000) return '1800-1999';
+  return '2000-2300';
+}
+
+function km40FindSession(sessionId = null) {
+  if (sessionId && currentSession?.id === sessionId) return currentSession;
+  if (sessionId) return (store.sessions || []).find((session) => session.id === sessionId) || null;
+  if (currentSession?.userMoves?.length) return currentSession;
+  return (store.sessions || []).find((session) => session?.userMoves?.length) || null;
+}
+
+function km40SourceLabel(session) {
+  const title = String(session?.title || current?.title || '');
+  if (/chess\.com/i.test(title) || String(session?.opening || '') === 'Imported game') return 'recent Chess.com practice';
+  return session?.completed ? 'your latest completed practice' : 'your current practice';
+}
+
+function km40Recommendation(sessionId = null) {
+  const session = km40FindSession(sessionId);
+  const profile = km40WeaknessProfile(10);
+  const latestSignals = km40SignalsForSession(session);
+  const blended = profile.map((item) => ({
+    ...item,
+    blendedScore: item.score * 0.35 + (latestSignals[item.key] || 0) * 0.65,
+  })).sort((a, b) => b.blendedScore - a.blendedScore);
+
+  let focus = blended[0];
+  if (!focus || focus.blendedScore <= 0.2) {
+    focus = { ...KM40_FOCUS_TAXONOMY.calculation, score: 0, occurrences: 0, pattern: 'baseline', blendedScore: 0 };
+  }
+  const moves = (session?.userMoves || []).map(km40DescribeMove).filter(Boolean).sort((a, b) => (b.loss || -1) - (a.loss || -1));
+  const keyMove = moves.find((move) => Number.isFinite(move.loss)) || moves[0] || null;
+  const baseRating = Number(session?.opponentRating || session?.positionRating || settings.opponentRating || 1400);
+  const averageLoss = Number(session?.avgCpLoss);
+  const adjustment = Number.isFinite(averageLoss) ? (averageLoss > 180 ? -100 : averageLoss < 55 ? 100 : 0) : 0;
+  const puzzleRating = Math.max(800, Math.min(2300, Math.round((baseRating + adjustment) / 100) * 100));
+
+  const reasons = [];
+  if (keyMove && Number.isFinite(keyMove.loss)) {
+    reasons.push(`${keyMove.san} was the largest recent swing at about ${Math.round(keyMove.loss)} centipawns.`);
+    const evidence = keyMove.diagnoses.find((diagnosis) => diagnosis.evidence)?.evidence;
+    if (evidence) reasons.push(evidence);
+    else if (keyMove.loss >= 110) reasons.push(reviewMoveAdvice((session?.userMoves || []).find((move) => move.id === keyMove.id)));
+    if (Number.isFinite(keyMove.spentMs) && keyMove.spentMs < 5000 && keyMove.loss >= 110) {
+      reasons.push(`The decision took only ${Math.max(1, Math.round(keyMove.spentMs / 1000))} seconds, so the prescription emphasizes a slower candidate scan.`);
+    }
+  } else if (session) {
+    reasons.push(`This focus matches the themes and phase of ${km40SourceLabel(session)}.`);
+  } else {
+    reasons.push('Complete a practice or import a Chess.com position to personalize this prescription.');
+  }
+  if (focus.occurrences >= 2) reasons.push(`A similar signal appeared in ${focus.occurrences} of your recent sessions.`);
+
+  return {
+    version: KM40_LEARNING_CORE_VERSION,
+    generatedAt: new Date().toISOString(),
+    sourceSessionId: session?.id || null,
+    sourceLabel: km40SourceLabel(session),
+    focus: { ...focus, description: KM40_FOCUS_TAXONOMY[focus.key].description },
+    puzzleRating,
+    puzzleBand: km40PuzzleBand(puzzleRating),
+    opening: session?.opening || current?.opening || null,
+    phase: session?.phase || current?.phase || null,
+    reasons,
+    keyMove,
+    recentMoves: moves.slice(0, 3),
+    profile: profile.slice(0, 5),
+    exactRetryAvailable: Boolean(window.__KMATE__?.state?.()?.restart?.available),
+    sessionCount: km40RecentSessions(10).length,
+  };
+}
+
+function km40LearningSnapshot() {
+  return {
+    version: KM40_LEARNING_CORE_VERSION,
+    recommendation: km40Recommendation(),
+    profile: km40WeaknessProfile(10),
+    recentSessions: km40RecentSessions(10).map((session) => ({
+      id: session.id,
+      startedAt: session.startedAt || null,
+      endedAt: session.endedAt || null,
+      title: session.title || null,
+      opening: session.opening || null,
+      phase: session.phase || null,
+      outcome: session.outcome || null,
+      completed: Boolean(session.completed),
+      avgCpLoss: Number.isFinite(Number(session.avgCpLoss)) ? Number(session.avgCpLoss) : null,
+      userMoves: Array.isArray(session.userMoves) ? session.userMoves.length : 0,
+    })),
+  };
+}
+
+if (window.__KMATE__) {
+  const km40BaseState = window.__KMATE__.state;
+  window.__KMATE__.learningVersion = KM40_LEARNING_CORE_VERSION;
+  window.__KMATE__.learningRecommendation = km40Recommendation;
+  window.__KMATE__.learningProfile = km40WeaknessProfile;
+  window.__KMATE__.state = () => {
+    const base = typeof km40BaseState === 'function' ? km40BaseState() : {};
+    const recommendation = km40Recommendation();
+    return {
+      ...base,
+      learning: {
+        version: KM40_LEARNING_CORE_VERSION,
+        sourceSessionId: recommendation.sourceSessionId,
+        focus: recommendation.focus.key,
+        label: recommendation.focus.label,
+        puzzleRating: recommendation.puzzleRating,
+        puzzleBand: recommendation.puzzleBand,
+        sessionCount: recommendation.sessionCount,
+      },
+    };
+  };
+}
+
+window.__KMATE_LEARNING_CORE__ = {
+  version: KM40_LEARNING_CORE_VERSION,
+  taxonomy: KM40_FOCUS_TAXONOMY,
+  recommend: km40Recommendation,
+  profile: km40WeaknessProfile,
+  snapshot: km40LearningSnapshot,
+};

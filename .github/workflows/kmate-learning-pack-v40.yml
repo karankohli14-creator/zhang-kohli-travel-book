@@ -1,0 +1,76 @@
+name: Build K-Mate v40 CC0 puzzle pack
+
+# Final release build: do not change the branch while this publisher is running.
+on:
+  push:
+    branches: [kmate-learning-v40]
+    paths:
+      - "scripts/build_kmate_learning_pack.py"
+      - ".github/workflows/kmate-learning-pack-v40.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kmate-learning-pack-v40
+  cancel-in-progress: false
+
+jobs:
+  build-learning-pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out v40 branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-learning-v40
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install stream and chess dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y zstd
+          python -m pip install --disable-pip-version-check python-chess==1.999
+
+      - name: Stream and curate the official Lichess puzzle export
+        run: |
+          rm -rf kmate-trainer/learning/puzzles
+          mkdir -p kmate-trainer/learning/puzzles
+          curl --fail --location --retry 4 --retry-delay 4 \
+            https://database.lichess.org/lichess_db_puzzle.csv.zst \
+            | zstd --decompress --stdout \
+            | python scripts/build_kmate_learning_pack.py \
+                --output kmate-trainer/learning/puzzles \
+                --per-bucket 215
+
+      - name: Validate generated pack
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('kmate-trainer/learning/puzzles')
+          index = json.loads((root / 'index.json').read_text())
+          assert index['license'] == 'CC0-1.0'
+          assert index['total'] >= 10000, index['total']
+          assert len(index['shards']) == 56
+          assert all((root / shard['file']).exists() for shard in index['shards'])
+          print(f"Validated {index['total']:,} curated CC0 puzzles across {len(index['shards'])} shards.")
+          PY
+
+      - name: Commit generated puzzle shards
+        run: |
+          git config user.name "K-Mate content bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add kmate-trainer/learning/puzzles
+          if git diff --cached --quiet; then
+            echo "Puzzle pack already up to date."
+            exit 0
+          fi
+          git commit -m "Generate curated CC0 puzzle pack for K-Mate v40"
+          git push origin HEAD:kmate-learning-v40
