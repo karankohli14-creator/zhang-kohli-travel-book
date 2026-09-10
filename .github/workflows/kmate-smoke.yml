@@ -73,8 +73,8 @@ jobs:
           grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9]" kmate-trainer/app-v7.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/learning-v40.js
           grep -q "practice-restart-v39.js?v=39.0.0" kmate-trainer/app-v7.js
-          grep -q "learning-v40.js?v=40.1.0" kmate-trainer/app-v7.js
-          grep -q "learning-library-v40.js?v=40.1.0" kmate-trainer/app-v7.js
+          grep -q "learning-v40.js?v=40.1.1" kmate-trainer/app-v7.js
+          grep -q "learning-library-v40.js?v=40.1.1" kmate-trainer/app-v7.js
           grep -q "KMATE_RESTART_CORE_VERSION = '39.0.0'" kmate-trainer/app-v7-part7.txt
           grep -q "KM40_LEARNING_CORE_VERSION = '40.0.0'" kmate-trainer/app-v7-part8.txt
           grep -q "km40RecommendationSafe" kmate-trainer/app-v7-part9.txt
