@@ -22,6 +22,84 @@ function dispatch(element, type) {
   element.dispatchEvent(new Event(type, { bubbles: true }));
 }
 
+function installHardeningStyles() {
+  if ($('#kmateImporterHardeningStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'kmateImporterHardeningStyles';
+  style.textContent = `
+    .wizard-welcome-footer.kmate-import-footer{grid-template-columns:.85fr .85fr 1.35fr}
+    .wizard-position-import-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:4px 0 12px;padding:14px 15px;border:1px solid #d8ef7c44;border-radius:17px;background:linear-gradient(145deg,#b9f47412,#171e16);box-shadow:inset 0 1px #fff1}
+    .wizard-position-import-card>div{min-width:0;text-align:left}
+    .wizard-position-import-card small,.wizard-position-import-card b{display:block}
+    .wizard-position-import-card small{color:var(--accent);font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+    .wizard-position-import-card b{margin-top:3px;color:#fff5df;font-size:15px}
+    .wizard-position-import-card p{margin:3px 0 0;color:var(--muted);font-size:10px}
+    .wizard-position-import-card button{flex:0 0 auto;min-height:43px;padding:0 14px;border:1px solid #d2a75b60;border-radius:13px;background:linear-gradient(180deg,#3b352a,#1a2019);color:#fff5df;font-weight:900;cursor:pointer;box-shadow:inset 0 1px #fff2,0 7px 15px #0004}
+    .wizard-position-import-card button:active{transform:translateY(2px)}
+    @media(max-width:760px){
+      .wizard-welcome-footer.kmate-import-footer{grid-template-columns:.82fr .82fr 1.25fr}
+      .wizard-welcome-footer.kmate-import-footer .wizard-button{padding-inline:7px;gap:5px;font-size:12px}
+      .wizard-position-import-card{padding:10px 11px;margin-bottom:8px}
+      .wizard-position-import-card p{display:none}
+      .wizard-position-import-card button{min-height:39px;padding-inline:10px;font-size:11px}
+    }
+    @media(max-width:430px){
+      .wizard-welcome-footer.kmate-import-footer{grid-template-columns:.75fr .75fr 1.2fr}
+      #wizardImportPositionButton span{display:none}
+      .wizard-position-import-card b{font-size:12px}
+    }
+  `;
+  document.head.append(style);
+}
+
+function openImporter(source = 'manual') {
+  const importer = window.__KMATE_POSITION_IMPORTERS__;
+  if (importer?.open) {
+    importer.open(source);
+    return true;
+  }
+  const legacyButton = $('#openPositionImport');
+  legacyButton?.click();
+  return Boolean(legacyButton);
+}
+
+function exposeImporterInWizard() {
+  const wizard = $('#setupWizard');
+  const welcomeFooter = $('.wizard-welcome-footer', wizard || document);
+  const positionSlot = $('[data-wizard-slot="position"]', wizard || document);
+  if (!wizard || !welcomeFooter || !positionSlot) return false;
+
+  installHardeningStyles();
+  welcomeFooter.classList.add('kmate-import-footer');
+  if (!$('#wizardImportPositionButton')) {
+    const button = document.createElement('button');
+    button.id = 'wizardImportPositionButton';
+    button.type = 'button';
+    button.className = 'wizard-button wizard-secondary';
+    button.setAttribute('aria-label', 'Import a FEN, picture, or completed Chess.com game');
+    button.innerHTML = '<span aria-hidden="true">▧</span><b>Import</b>';
+    button.addEventListener('click', () => openImporter('manual'));
+    const primary = $('[data-wizard-next="position"]', welcomeFooter);
+    welcomeFooter.insertBefore(button, primary || null);
+  }
+
+  if (!$('#wizardPositionImportCard')) {
+    const card = document.createElement('div');
+    card.id = 'wizardPositionImportCard';
+    card.className = 'wizard-position-import-card';
+    card.innerHTML = `
+      <div>
+        <small>Your position</small>
+        <b>Practice from a picture or one of your games</b>
+        <p>Paste FEN/PGN, scan a board, or choose a completed Chess.com position.</p>
+      </div>
+      <button id="wizardPositionImportButton" type="button">Open importer</button>`;
+    $('#wizardPositionImportButton', card)?.addEventListener('click', () => openImporter('manual'));
+    positionSlot.prepend(card);
+  }
+  return true;
+}
+
 function applyImageMetadataPreset({ turn = 'w', castling = [], enPassant = '' } = {}) {
   const turnControl = $('#kmImageTurn');
   if (turnControl) {
@@ -150,11 +228,25 @@ function bindImageWarmup() {
   }
 }
 
+function fixChessStatusGrammar() {
+  const status = $('#kmChessStatus');
+  if (!status || status.dataset.grammarFixBound) return;
+  status.dataset.grammarFixBound = HARDENING_VERSION;
+  const correct = () => {
+    if (/^1 recent completed games loaded\./.test(status.textContent || '')) {
+      status.textContent = status.textContent.replace('1 recent completed games loaded.', '1 recent completed game loaded.');
+    }
+  };
+  new MutationObserver(correct).observe(status, { childList: true, characterData: true, subtree: true });
+  correct();
+}
+
 function installDiagnostics() {
   window.__KMATE_IMPORTER_QA__ = {
     version: HARDENING_VERSION,
     warmImageAssets: warmImageImporterAssets,
     applyImageMetadataPreset,
+    open: openImporter,
     run() {
       const dialog = $('#positionImportDialog');
       const tabs = dialog ? [...dialog.querySelectorAll('[data-import-tab]')] : [];
@@ -168,6 +260,8 @@ function installDiagnostics() {
         imageEditor: Boolean($('#kmImageBoard') && $('#kmPiecePalette')),
         chessLoader: Boolean($('#kmChessUsername') && $('#kmLoadChessGames')),
         presetMetadataFix: $('#kmImageStartPreset')?.dataset.metadataPresetBound === HARDENING_VERSION,
+        welcomeEntry: Boolean($('#wizardImportPositionButton')),
+        positionEntry: Boolean($('#wizardPositionImportButton')),
       };
       return {
         version: HARDENING_VERSION,
@@ -179,13 +273,18 @@ function installDiagnostics() {
 }
 
 function initializeHardening(attempt = 0) {
-  if (!window.__KMATE_POSITION_IMPORTERS__ || !$('#kmImportImagePanel') || !$('#kmImportChessPanel')) {
-    if (attempt < 60) window.setTimeout(() => initializeHardening(attempt + 1), 100);
+  const importerReady = Boolean(window.__KMATE_POSITION_IMPORTERS__ && $('#kmImportImagePanel') && $('#kmImportChessPanel'));
+  const wizardReady = Boolean($('#setupWizard'));
+  if (!importerReady || !wizardReady) {
+    if (attempt < 80) window.setTimeout(() => initializeHardening(attempt + 1), 100);
+    else console.warn('K-Mate importer hardening could not find the importer or setup wizard.');
     return;
   }
+  exposeImporterInWizard();
   bindImagePresetMetadata();
   bindTabAccessibility();
   bindImageWarmup();
+  fixChessStatusGrammar();
   installDiagnostics();
 }
 
