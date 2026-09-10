@@ -1,0 +1,280 @@
+  $('#learningResultTitle', card).textContent = `${recommendation.focus.label} · ${recommendation.puzzleRating} puzzle set`;
+  $('#learningResultReason', card).textContent = (recommendation.reasons || []).slice(0, 2).join(' ');
+  $('#learningResultRetry', card).disabled = !recommendation.exactRetryAvailable;
+  try {
+    const catalog = await loadVideoCatalog();
+    const video = chooseVideo(catalog, recommendation);
+    $('#learningResultVideo', card).disabled = !video;
+    $('#learningResultVideo', card).dataset.videoId = video?.id || '';
+  } catch {
+    $('#learningResultVideo', card).disabled = true;
+  }
+}
+
+function ensureChessLearningNote() {
+  const panel = $('#kmImportChessPanel');
+  if (!panel || $('#kmChessLearningNote', panel)) return;
+  const status = $('#kmChessPositionNotice', panel) || $('#kmChessStatus', panel);
+  if (!status) return;
+  const note = document.createElement('div');
+  note.id = 'kmChessLearningNote';
+  note.className = 'learning-chess-note';
+  note.textContent = 'Practice a selected Chess.com position, and K-Mate will use your move quality, timing, and coaching signals to prescribe a matched lesson and five CC0 puzzles.';
+  status.insertAdjacentElement('afterend', note);
+}
+
+function ensurePuzzleDialog() {
+  let dialog = $('#learningPuzzleDialog');
+  if (dialog) return dialog;
+  dialog = document.createElement('dialog');
+  dialog.id = 'learningPuzzleDialog';
+  dialog.className = 'modal learning-modal';
+  dialog.innerHTML = `
+    <div class="learning-modal-shell">
+      <header class="learning-modal-head">
+        <div><div class="eyebrow">Five-puzzle reinforcement</div><h2 id="learningPuzzleTitle">Recommended workout</h2></div>
+        <button class="learning-close" id="learningPuzzleClose" type="button" aria-label="Close puzzle workout">×</button>
+      </header>
+      <div id="learningPuzzleBody"></div>
+    </div>`;
+  document.body.append(dialog);
+  $('#learningPuzzleClose', dialog)?.addEventListener('click', () => dialog.close?.());
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    dialog.close?.();
+  });
+  return dialog;
+}
+
+function orderedSquares(orientation) {
+  const files = orientation === 'b' ? [...FILES].reverse() : [...FILES];
+  const ranks = orientation === 'b' ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
+  return ranks.flatMap((rank) => files.map((file) => `${file}${rank}`));
+}
+
+function renderPuzzleBoard() {
+  const board = $('#learningPuzzleBoard');
+  if (!board || !puzzleRun.game) return;
+  const orientation = puzzleRun.orientation || puzzleRun.game.turn();
+  const last = puzzleRun.game.history({ verbose: true }).at(-1) || null;
+  const expected = puzzleRun.puzzles[puzzleRun.index]?.solutionUci?.[puzzleRun.solutionIndex] || '';
+  board.innerHTML = '';
+  for (const [index, square] of orderedSquares(orientation).entries()) {
+    const piece = puzzleRun.game.get(square);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `learning-puzzle-square ${((FILES.indexOf(square[0]) + Number(square[1])) % 2) ? 'light' : 'dark'}`;
+    button.dataset.square = square;
+    if (square === puzzleRun.selected) button.classList.add('selected');
+    if (last && (last.from === square || last.to === square)) button.classList.add('last');
+    if (puzzleRun.hintSquares[0] === square) button.classList.add('hint-from');
+    if (puzzleRun.hintSquares[1] === square) button.classList.add('hint-to');
+    if (piece) {
+      const glyph = document.createElement('span');
+      glyph.className = `learning-puzzle-piece ${piece.color === 'w' ? 'white' : 'black'}`;
+      glyph.textContent = PIECE_GLYPHS[piece.color][piece.type];
+      button.append(glyph);
+    }
+    if (index % 8 === 0) {
+      const rank = document.createElement('span'); rank.className = 'learning-puzzle-coordinate rank'; rank.textContent = square[1]; button.append(rank);
+    }
+    if (index >= 56) {
+      const file = document.createElement('span'); file.className = 'learning-puzzle-coordinate file'; file.textContent = square[0]; button.append(file);
+    }
+    button.setAttribute('aria-label', `${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ' empty'}`);
+    button.addEventListener('click', () => handlePuzzleSquare(square, expected));
+    board.append(button);
+  }
+}
+
+function puzzleStatus(text, state = '') {
+  const status = $('#learningPuzzleStatus');
+  if (!status) return;
+  status.textContent = text;
+  status.className = `learning-puzzle-status ${state}`.trim();
+}
+
+function updatePuzzleProgress() {
+  const total = puzzleRun.puzzles.length || 5;
+  const current = Math.min(total, puzzleRun.index + 1);
+  $('#learningPuzzleCounter').textContent = `${current} / ${total}`;
+  $('#learningPuzzleProgressBar').style.width = `${((puzzleRun.index) / total) * 100}%`;
+}
+
+function currentPuzzle() {
+  return puzzleRun.puzzles[puzzleRun.index] || null;
+}
+
+function uciForAttempt(from, to, expected) {
+  const promotion = expected?.startsWith(`${from}${to}`) && expected.length === 5 ? expected[4] : 'q';
+  return `${from}${to}${expected?.startsWith(`${from}${to}`) && expected.length === 5 ? promotion : ''}`;
+}
+
+function handlePuzzleSquare(square, expected) {
+  if (puzzleRun.locked || !puzzleRun.game || !expected) return;
+  const piece = puzzleRun.game.get(square);
+  if (!puzzleRun.selected) {
+    if (piece?.color !== puzzleRun.game.turn()) return;
+    puzzleRun.selected = square;
+    puzzleRun.hintSquares = [];
+    renderPuzzleBoard();
+    return;
+  }
+  const from = puzzleRun.selected;
+  if (piece?.color === puzzleRun.game.turn()) {
+    puzzleRun.selected = square;
+    renderPuzzleBoard();
+    return;
+  }
+  puzzleRun.selected = null;
+  const attempted = uciForAttempt(from, square, expected);
+  if (attempted !== expected) {
+    puzzleRun.wrongAttempts += 1;
+    puzzleRun.totalWrong += 1;
+    puzzleRun.hintSquares = puzzleRun.wrongAttempts >= 2 ? [expected.slice(0, 2)] : [];
+    puzzleStatus(puzzleRun.wrongAttempts >= 2 ? 'Not this move. The correct piece is now highlighted—scan its forcing moves.' : 'Not quite. Re-check checks, captures, threats, and the opponent’s reply.', 'bad');
+    renderPuzzleBoard();
+    return;
+  }
+  applySolutionMove(expected, true);
+}
+
+function applySolutionMove(uci, playerMove) {
+  if (!puzzleRun.game) return false;
+  try {
+    const move = puzzleRun.game.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || 'q' });
+    if (!move) return false;
+  } catch {
+    puzzleStatus('This puzzle line could not be replayed. Skip to the next puzzle.', 'bad');
+    return false;
+  }
+  puzzleRun.solutionIndex += 1;
+  puzzleRun.selected = null;
+  puzzleRun.hintSquares = [];
+  renderPuzzleBoard();
+  const puzzle = currentPuzzle();
+  if (puzzleRun.solutionIndex >= puzzle.solutionUci.length) {
+    finishPuzzle(true);
+    return true;
+  }
+  if (playerMove) {
+    puzzleRun.locked = true;
+    puzzleStatus('Correct. K-Mate is playing the puzzle reply…', 'good');
+    window.setTimeout(() => {
+      const reply = puzzle.solutionUci[puzzleRun.solutionIndex];
+      applySolutionMove(reply, false);
+      const continues = puzzleRun.solutionIndex < puzzle.solutionUci.length;
+      puzzleRun.locked = !continues;
+      if (continues) puzzleStatus('Your move. Continue the best line.', '');
+    }, 480);
+  }
+  return true;
+}
+
+function recordPuzzleResult(puzzle, solved) {
+  const progress = loadProgress();
+  const prior = progress.puzzles[puzzle.id] || { attempts: 0, solves: 0, wrong: 0 };
+  progress.puzzles[puzzle.id] = {
+    ...prior,
+    attempts: Number(prior.attempts || 0) + 1,
+    solves: Number(prior.solves || 0) + (solved ? 1 : 0),
+    wrong: Number(prior.wrong || 0) + puzzleRun.wrongAttempts,
+    solved: Boolean(prior.solved || solved),
+    focus: puzzle.focus,
+    rating: puzzle.rating,
+    lastAt: new Date().toISOString(),
+  };
+  progress.seen.push(puzzle.id);
+  saveProgress(progress);
+}
+
+function finishPuzzle(solved) {
+  const puzzle = currentPuzzle();
+  if (!puzzle) return;
+  puzzleRun.locked = true;
+  if (solved) puzzleRun.solved += 1;
+  else puzzleRun.skipped += 1;
+  recordPuzzleResult(puzzle, solved);
+  puzzleStatus(solved ? `Solved${puzzleRun.wrongAttempts ? ` after ${puzzleRun.wrongAttempts} correction${puzzleRun.wrongAttempts === 1 ? '' : 's'}` : ' cleanly'}.` : 'Puzzle skipped. The position will remain eligible for a later review.', solved ? 'good' : 'bad');
+  $('#learningPuzzleNext').hidden = false;
+  $('#learningPuzzleReveal').disabled = true;
+  $('#learningPuzzleSkip').disabled = true;
+  $('#learningPuzzleProgressBar').style.width = `${((puzzleRun.index + 1) / puzzleRun.puzzles.length) * 100}%`;
+}
+
+function revealPuzzleMove() {
+  const puzzle = currentPuzzle();
+  const expected = puzzle?.solutionUci?.[puzzleRun.solutionIndex];
+  if (!expected) return;
+  puzzleRun.hintSquares = [expected.slice(0, 2), expected.slice(2, 4)];
+  puzzleRun.wrongAttempts += 1;
+  puzzleRun.totalWrong += 1;
+  puzzleStatus(`Hint: move from ${expected.slice(0, 2)} to ${expected.slice(2, 4)}${expected[4] ? ` and promote to ${expected[4].toUpperCase()}` : ''}.`, 'bad');
+  renderPuzzleBoard();
+}
+
+function skipPuzzle() {
+  if (puzzleRun.locked) return;
+  finishPuzzle(false);
+}
+
+function nextPuzzle() {
+  puzzleRun.index += 1;
+  if (puzzleRun.index >= puzzleRun.puzzles.length) {
+    finishWorkout();
+    return;
+  }
+  loadPuzzleAtIndex();
+}
+
+function loadPuzzleAtIndex() {
+  const puzzle = currentPuzzle();
+  const Chess = window.__KM_BOOT__?.Chess;
+  if (!puzzle || !Chess) return;
+  try {
+    puzzleRun.game = new Chess(puzzle.practiceFen);
+  } catch (error) {
+    console.warn('Invalid curated puzzle skipped.', puzzle?.id, error);
+    puzzleRun.index += 1;
+    if (puzzleRun.index >= puzzleRun.puzzles.length) finishWorkout();
+    else loadPuzzleAtIndex();
+    return;
+  }
+  puzzleRun.selected = null;
+  puzzleRun.orientation = puzzleRun.game.turn();
+  puzzleRun.solutionIndex = 0;
+  puzzleRun.wrongAttempts = 0;
+  puzzleRun.hintSquares = [];
+  puzzleRun.locked = false;
+  $('#learningPuzzleNext').hidden = true;
+  $('#learningPuzzleReveal').disabled = false;
+  $('#learningPuzzleSkip').disabled = false;
+  $('#learningPuzzleFocus').textContent = puzzleRun.recommendation.focus.label;
+  $('#learningPuzzleInstruction').textContent = `${puzzleRun.game.turn() === 'w' ? 'White' : 'Black'} to move. Find the best continuation.`;
+  $('#learningPuzzleMeta').innerHTML = [
+    `Rating ${puzzle.rating}`,
+    ...(puzzle.themes || []).slice(0, 4),
+  ].map((item) => `<span>${escapeHtml(item)}</span>`).join('');
+  $('#learningPuzzleSource').href = puzzle.sourceGame || 'https://lichess.org/training';
+  updatePuzzleProgress();
+  puzzleStatus('Your move. Solve the complete line.', '');
+  renderPuzzleBoard();
+}
+
+function renderPuzzleShell() {
+  const body = $('#learningPuzzleBody');
+  if (!body) return;
+  body.innerHTML = `
+    <div class="learning-puzzle-layout">
+      <div class="learning-puzzle-board-wrap"><div class="learning-puzzle-board" id="learningPuzzleBoard" aria-label="Puzzle board"></div></div>
+      <aside class="learning-puzzle-side">
+        <div class="learning-puzzle-progress"><b id="learningPuzzleCounter">1 / 5</b><span id="learningPuzzleFocus">Calculation</span></div>
+        <div class="learning-progress-track"><span id="learningPuzzleProgressBar" style="width:0%"></span></div>
+        <div class="eyebrow">Recommended reinforcement</div>
+        <h3 id="learningPuzzleInstruction">Find the best move</h3>
+        <p>Play the full forced line. K-Mate automatically plays the opponent’s replies.</p>
+        <div class="learning-puzzle-status" id="learningPuzzleStatus">Your move.</div>
+        <div class="learning-puzzle-meta" id="learningPuzzleMeta"></div>
+        <div class="learning-puzzle-actions">
+          <button class="btn" id="learningPuzzleReveal" type="button">Show move hint</button>
+          <button class="btn" id="learningPuzzleSkip" type="button">Skip</button>
