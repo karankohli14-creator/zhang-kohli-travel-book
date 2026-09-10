@@ -45,7 +45,8 @@ test('live Chess.com games render selectable positions', async ({ page }) => {
 
   await page.locator('#kmChessUsername').fill('Kmate_00');
   await page.locator('#kmLoadChessGames').click();
-  await expect(page.locator('#kmChessStatus')).toContainText('recent completed game', { timeout: 90_000 });
+  await expect(page.locator('#kmChessStatus')).toHaveAttribute('data-state', 'success', { timeout: 90_000 });
+  await page.waitForFunction(() => document.querySelectorAll('.km-chess-game').length > 0, undefined, { timeout: 30_000 });
 
   const gameCount = await page.locator('.km-chess-game').count();
   expect(gameCount).toBeGreaterThan(0);
