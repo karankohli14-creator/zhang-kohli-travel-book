@@ -1,0 +1,19 @@
+
+/* K-Mate v40 — keep learning recommendation/state wrappers non-recursive. */
+const km40RecommendationWithWrappedState = km40Recommendation;
+km40Recommendation = function km40RecommendationSafe(sessionId = null) {
+  const activeState = window.__KMATE__?.state;
+  try {
+    if (window.__KMATE__ && typeof km40BaseState === 'function') window.__KMATE__.state = km40BaseState;
+    const recommendation = km40RecommendationWithWrappedState(sessionId);
+    if (recommendation) {
+      recommendation.exactRetryAvailable = Boolean(current && (currentSession?.startFen || current?.fen));
+    }
+    return recommendation;
+  } finally {
+    if (window.__KMATE__ && activeState) window.__KMATE__.state = activeState;
+  }
+};
+
+if (window.__KMATE_LEARNING_CORE__) window.__KMATE_LEARNING_CORE__.recommend = km40Recommendation;
+if (window.__KMATE__) window.__KMATE__.learningRecommendation = km40Recommendation;
