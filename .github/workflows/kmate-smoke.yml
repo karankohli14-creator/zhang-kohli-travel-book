@@ -2,7 +2,7 @@ name: K-Mate smoke tests
 
 on:
   push:
-    branches: [main, kmate-chess-position-fix-v38]
+    branches: [main]
     paths:
       - "kmate-trainer/**"
       - ".github/workflows/kmate-smoke.yml"
