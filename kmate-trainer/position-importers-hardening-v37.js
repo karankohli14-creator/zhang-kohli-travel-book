@@ -27,6 +27,8 @@ function installHardeningStyles() {
   const style = document.createElement('style');
   style.id = 'kmateImporterHardeningStyles';
   style.textContent = `
+    .position-importer-modal-v1{width:min(1160px,calc(100vw - 16px));max-width:none}
+    .position-importer-modal-v1 .position-importer-shell{width:100%;max-width:none}
     .wizard-welcome-footer.kmate-import-footer{grid-template-columns:.85fr .85fr 1.35fr}
     .wizard-position-import-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:4px 0 12px;padding:14px 15px;border:1px solid #d8ef7c44;border-radius:17px;background:linear-gradient(145deg,#b9f47412,#171e16);box-shadow:inset 0 1px #fff1}
     .wizard-position-import-card>div{min-width:0;text-align:left}
@@ -37,6 +39,8 @@ function installHardeningStyles() {
     .wizard-position-import-card button{flex:0 0 auto;min-height:43px;padding:0 14px;border:1px solid #d2a75b60;border-radius:13px;background:linear-gradient(180deg,#3b352a,#1a2019);color:#fff5df;font-weight:900;cursor:pointer;box-shadow:inset 0 1px #fff2,0 7px 15px #0004}
     .wizard-position-import-card button:active{transform:translateY(2px)}
     @media(max-width:760px){
+      .position-importer-modal-v1{width:calc(100vw - 8px);max-width:calc(100vw - 8px);margin-inline:auto;padding-inline:4px}
+      .position-importer-modal-v1 .position-importer-shell{width:100%;max-width:100%;padding-inline:14px}
       .wizard-welcome-footer.kmate-import-footer{grid-template-columns:.82fr .82fr 1.25fr}
       .wizard-welcome-footer.kmate-import-footer .wizard-button{padding-inline:7px;gap:5px;font-size:12px}
       .wizard-position-import-card{padding:10px 11px;margin-bottom:8px}
