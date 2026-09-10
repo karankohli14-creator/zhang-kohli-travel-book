@@ -1,4 +1,4 @@
-const KMATE_LIBRARY_VERSION = '40.1.0';
+const KMATE_LIBRARY_VERSION = '40.1.1';
 const KMATE_LIBRARY_BASE = new URL('./', import.meta.url);
 const KMATE_LIBRARY_VIDEO_URL = new URL(`./learning/videos-v40.json?v=${KMATE_LIBRARY_VERSION}`, KMATE_LIBRARY_BASE).href;
 const KMATE_LIBRARY_PUZZLE_INDEX_URL = new URL(`./learning/puzzles/index.json?v=${KMATE_LIBRARY_VERSION}`, KMATE_LIBRARY_BASE).href;
@@ -17,7 +17,9 @@ const KMATE_LIBRARY_ORDER = [
 
 let kmateLibraryVideosPromise = null;
 let kmateLibraryIndexPromise = null;
-let kmateLibraryObserver = null;
+let kmateLibraryResultObserver = null;
+let kmateLibrarySyncTimer = null;
+let kmateLibraryCategoryRenderKey = '';
 
 function kmateLibrary$(selector, root = document) {
   return root.querySelector(selector);
@@ -36,6 +38,18 @@ function kmateLibraryEscape(value) {
     .replaceAll("'", '&#039;');
 }
 
+function kmateLibrarySetText(node, value) {
+  if (!node) return;
+  const next = String(value ?? '');
+  if (node.textContent !== next) node.textContent = next;
+}
+
+function kmateLibrarySetAttribute(node, name, value) {
+  if (!node) return;
+  const next = String(value ?? '');
+  if (node.getAttribute(name) !== next) node.setAttribute(name, next);
+}
+
 async function kmateLibraryFetchJson(url, label) {
   const response = await fetch(url, { cache: 'force-cache' });
   if (!response.ok) throw new Error(`${label} could not load (${response.status}).`);
@@ -44,14 +58,20 @@ async function kmateLibraryFetchJson(url, label) {
 
 function kmateLibraryVideos() {
   if (!kmateLibraryVideosPromise) {
-    kmateLibraryVideosPromise = kmateLibraryFetchJson(KMATE_LIBRARY_VIDEO_URL, 'The instructional-video catalog');
+    kmateLibraryVideosPromise = kmateLibraryFetchJson(
+      KMATE_LIBRARY_VIDEO_URL,
+      'The instructional-video catalog',
+    );
   }
   return kmateLibraryVideosPromise;
 }
 
 function kmateLibraryPuzzleIndex() {
   if (!kmateLibraryIndexPromise) {
-    kmateLibraryIndexPromise = kmateLibraryFetchJson(KMATE_LIBRARY_PUZZLE_INDEX_URL, 'The puzzle library');
+    kmateLibraryIndexPromise = kmateLibraryFetchJson(
+      KMATE_LIBRARY_PUZZLE_INDEX_URL,
+      'The puzzle library',
+    );
   }
   return kmateLibraryIndexPromise;
 }
@@ -60,13 +80,13 @@ function kmateLibraryTaxonomy() {
   return window.__KMATE_LEARNING_CORE__?.taxonomy || {};
 }
 
-function kmateLibraryFocusDefinition(key) {
-  return kmateLibraryTaxonomy()[key] || {
-    key,
-    label: key,
-    icon: '♟',
-    description: 'Focused chess training.',
-  };
+function kmateLibraryRecommendation() {
+  try {
+    return window.__KMATE_LEARNING__?.recommendation?.() || null;
+  } catch (error) {
+    console.warn('K-Mate could not read the current learning recommendation.', error);
+    return null;
+  }
 }
 
 function kmateLibraryInstallStyles() {
@@ -134,9 +154,18 @@ function kmateLibraryInstallStyles() {
   document.head.append(style);
 }
 
-function kmateLibraryUpdateProgress(video) {
+function kmateLibraryReadProgress() {
   try {
-    const progress = JSON.parse(localStorage.getItem(KMATE_LIBRARY_PROGRESS_KEY) || '{}');
+    const parsed = JSON.parse(localStorage.getItem(KMATE_LIBRARY_PROGRESS_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function kmateLibraryRecordVideo(video) {
+  try {
+    const progress = kmateLibraryReadProgress();
     progress.version = 40;
     progress.seen = Array.isArray(progress.seen) ? progress.seen : [];
     progress.puzzles = progress.puzzles && typeof progress.puzzles === 'object' ? progress.puzzles : {};
@@ -153,6 +182,21 @@ function kmateLibraryUpdateProgress(video) {
   } catch {}
 }
 
+function kmateLibraryShowDialog(dialog) {
+  if (!dialog) return;
+  if (typeof dialog.showModal === 'function') {
+    if (!dialog.open) dialog.showModal();
+  } else {
+    dialog.setAttribute('open', '');
+  }
+}
+
+function kmateLibraryCloseDialog(dialog) {
+  if (!dialog) return;
+  if (dialog.open && typeof dialog.close === 'function') dialog.close();
+  else dialog.removeAttribute('open');
+}
+
 function kmateLibraryEnsurePlayer() {
   let dialog = kmateLibrary$('#learningLibraryPlayer');
   if (dialog) return dialog;
@@ -160,7 +204,7 @@ function kmateLibraryEnsurePlayer() {
   dialog.id = 'learningLibraryPlayer';
   dialog.className = 'modal learning-library-player';
   dialog.innerHTML = `
-    <div class="learning-modal-shell">
+    <div class="learning-library-dialog-shell">
       <header class="learning-library-dialog-head">
         <div><div class="eyebrow">Instructional video</div><h2 id="learningLibraryPlayerTitle">Chess lesson</h2><p id="learningLibraryPlayerCreator">Creator-hosted external lesson</p></div>
         <button class="learning-library-close" id="learningLibraryPlayerClose" type="button" aria-label="Close video">×</button>
@@ -171,25 +215,36 @@ function kmateLibraryEnsurePlayer() {
   document.body.append(dialog);
   const close = () => {
     kmateLibrary$('#learningLibraryPlayerFrame', dialog)?.removeAttribute('src');
-    if (dialog.open && typeof dialog.close === 'function') dialog.close();
-    else dialog.removeAttribute('open');
+    kmateLibraryCloseDialog(dialog);
   };
   kmateLibrary$('#learningLibraryPlayerClose', dialog)?.addEventListener('click', close);
-  dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
-  dialog.addEventListener('close', () => kmateLibrary$('#learningLibraryPlayerFrame', dialog)?.removeAttribute('src'));
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    close();
+  });
+  dialog.addEventListener('close', () => {
+    kmateLibrary$('#learningLibraryPlayerFrame', dialog)?.removeAttribute('src');
+  });
   return dialog;
 }
 
 function kmateLibraryPlayVideo(video) {
   if (!video) return;
   const dialog = kmateLibraryEnsurePlayer();
-  kmateLibrary$('#learningLibraryPlayerTitle', dialog).textContent = video.title || 'Chess lesson';
-  kmateLibrary$('#learningLibraryPlayerCreator', dialog).textContent = `${video.creator || 'Chess educator'} · ${video.level || 'all levels'}`;
-  kmateLibrary$('#learningLibraryPlayerSource', dialog).href = video.sourceUrl || `https://lichess.org/video/${video.id}`;
-  kmateLibrary$('#learningLibraryPlayerFrame', dialog).src = `${video.embedUrl || `https://www.youtube-nocookie.com/embed/${video.id}`}?rel=0&modestbranding=1`;
-  kmateLibraryUpdateProgress(video);
-  if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
-  else dialog.setAttribute('open', '');
+  kmateLibrarySetText(kmateLibrary$('#learningLibraryPlayerTitle', dialog), video.title || 'Chess lesson');
+  kmateLibrarySetText(
+    kmateLibrary$('#learningLibraryPlayerCreator', dialog),
+    `${video.creator || 'Chess educator'} · ${video.level || 'all levels'}`,
+  );
+  const source = kmateLibrary$('#learningLibraryPlayerSource', dialog);
+  if (source) source.href = video.sourceUrl || `https://lichess.org/video/${video.id}`;
+  const frame = kmateLibrary$('#learningLibraryPlayerFrame', dialog);
+  if (frame) {
+    const base = video.embedUrl || `https://www.youtube-nocookie.com/embed/${video.id}`;
+    frame.src = `${base}${base.includes('?') ? '&' : '?'}rel=0&modestbranding=1`;
+  }
+  kmateLibraryRecordVideo(video);
+  kmateLibraryShowDialog(dialog);
 }
 
 function kmateLibraryEnsureVideoDialog() {
@@ -208,12 +263,12 @@ function kmateLibraryEnsureVideoDialog() {
       <div class="learning-library-video-grid" id="learningLibraryVideos"></div>
     </div>`;
   document.body.append(dialog);
-  const close = () => {
-    if (dialog.open && typeof dialog.close === 'function') dialog.close();
-    else dialog.removeAttribute('open');
-  };
+  const close = () => kmateLibraryCloseDialog(dialog);
   kmateLibrary$('#learningLibraryClose', dialog)?.addEventListener('click', close);
-  dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    close();
+  });
   return dialog;
 }
 
@@ -238,19 +293,24 @@ async function kmateLibraryOpenVideos(focusKey = 'all') {
   const grid = kmateLibrary$('#learningLibraryVideos', dialog);
   filters.innerHTML = [
     `<button class="learning-library-filter ${focusKey === 'all' ? 'active' : ''}" type="button" data-library-video-focus="all">All lessons</button>`,
-    ...KMATE_LIBRARY_ORDER.filter((key) => taxonomy[key]).map((key) => `<button class="learning-library-filter ${focusKey === key ? 'active' : ''}" type="button" data-library-video-focus="${kmateLibraryEscape(key)}">${kmateLibraryEscape(taxonomy[key].label)}</button>`),
+    ...KMATE_LIBRARY_ORDER
+      .filter((key) => taxonomy[key])
+      .map((key) => `<button class="learning-library-filter ${focusKey === key ? 'active' : ''}" type="button" data-library-video-focus="${kmateLibraryEscape(key)}">${kmateLibraryEscape(taxonomy[key].label)}</button>`),
   ].join('');
   grid.innerHTML = '<div class="learning-library-empty">Loading instructional videos…</div>';
-  if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
-  else dialog.setAttribute('open', '');
+  kmateLibraryShowDialog(dialog);
 
   for (const button of kmateLibrary$$('[data-library-video-focus]', filters)) {
-    button.addEventListener('click', () => kmateLibraryOpenVideos(button.dataset.libraryVideoFocus));
+    button.addEventListener('click', () => {
+      void kmateLibraryOpenVideos(button.dataset.libraryVideoFocus || 'all');
+    });
   }
 
   try {
     const catalog = await kmateLibraryVideos();
-    const videos = (catalog.videos || []).filter((video) => focusKey === 'all' || (video.focus || []).includes(focusKey));
+    const videos = (catalog.videos || []).filter(
+      (video) => focusKey === 'all' || (video.focus || []).includes(focusKey),
+    );
     grid.innerHTML = videos.length
       ? videos.map(kmateLibraryVideoMarkup).join('')
       : '<div class="learning-library-empty">No lesson has been assigned to this category yet. The matching puzzle library is still available.</div>';
@@ -266,19 +326,24 @@ async function kmateLibraryOpenVideos(focusKey = 'all') {
   }
 }
 
+function kmateLibraryEscapeSelector(value) {
+  if (window.CSS?.escape) return window.CSS.escape(String(value));
+  return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+}
+
 function kmateLibrarySelectFocus(focusKey) {
-  const existing = document.querySelector(`[data-learning-focus="${CSS.escape(focusKey)}"]`);
-  if (existing) {
-    existing.click();
-    return true;
-  }
-  return false;
+  const selector = `[data-learning-focus="${kmateLibraryEscapeSelector(focusKey)}"]`;
+  const button = document.querySelector(selector);
+  if (!button) return false;
+  button.click();
+  return true;
 }
 
 async function kmateLibraryStartPuzzles(focusKey) {
-  window.__KMATE_LEARNING__?.open?.();
+  const opened = window.__KMATE_LEARNING__?.open?.();
+  if (opened === false) return false;
   kmateLibrarySelectFocus(focusKey);
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  await new Promise((resolve) => window.setTimeout(resolve, 60));
   if (typeof window.__KMATE_LEARNING__?.startWorkout === 'function') {
     await window.__KMATE_LEARNING__.startWorkout();
     return true;
@@ -287,41 +352,64 @@ async function kmateLibraryStartPuzzles(focusKey) {
 }
 
 async function kmateLibraryCounts() {
-  const [catalog, index] = await Promise.allSettled([kmateLibraryVideos(), kmateLibraryPuzzleIndex()]);
-  const videos = catalog.status === 'fulfilled' ? catalog.value.videos || [] : [];
-  const shards = index.status === 'fulfilled' ? index.value.shards || [] : [];
-  return { videos, shards, total: index.status === 'fulfilled' ? Number(index.value.total || 0) : 0 };
+  const [catalog, index] = await Promise.allSettled([
+    kmateLibraryVideos(),
+    kmateLibraryPuzzleIndex(),
+  ]);
+  return {
+    videos: catalog.status === 'fulfilled' ? catalog.value.videos || [] : [],
+    shards: index.status === 'fulfilled' ? index.value.shards || [] : [],
+    total: index.status === 'fulfilled' ? Number(index.value.total || 0) : 0,
+  };
 }
 
-async function kmateLibraryRenderCategories() {
+async function kmateLibraryRenderCategories({ force = false } = {}) {
   const grid = kmateLibrary$('#learningLibraryCategoryGrid');
   if (!grid) return;
   const taxonomy = kmateLibraryTaxonomy();
-  const recommendation = window.__KMATE_LEARNING__?.recommendation?.();
+  const recommendation = kmateLibraryRecommendation();
   const recommendedKey = recommendation?.focus?.key || null;
-  const { videos, shards } = await kmateLibraryCounts();
-  grid.innerHTML = KMATE_LIBRARY_ORDER.filter((key) => taxonomy[key]).map((key) => {
-    const focus = taxonomy[key];
-    const puzzleCount = shards.filter((shard) => shard.focus === key).reduce((sum, shard) => sum + Number(shard.count || 0), 0);
-    const videoCount = videos.filter((video) => (video.focus || []).includes(key)).length;
-    return `
-      <article class="learning-library-category ${key === recommendedKey ? 'recommended' : ''}" data-library-focus-card="${kmateLibraryEscape(key)}">
-        <span class="learning-library-category-icon">${kmateLibraryEscape(focus.icon)}</span>
-        <h3>${kmateLibraryEscape(focus.label)}</h3>
-        <p>${kmateLibraryEscape(focus.description)}</p>
-        <div class="learning-library-counts"><span>${puzzleCount.toLocaleString()} puzzles</span><span>${videoCount} video${videoCount === 1 ? '' : 's'}</span>${key === recommendedKey ? '<span>Recommended now</span>' : ''}</div>
-        <div class="learning-library-actions">
-          <button class="learning-library-action puzzles" type="button" data-library-puzzles="${kmateLibraryEscape(key)}" ${puzzleCount ? '' : 'disabled'}>Practice puzzles</button>
-          <button class="learning-library-action" type="button" data-library-videos="${kmateLibraryEscape(key)}" ${videoCount ? '' : 'disabled'}>Browse videos</button>
-        </div>
-      </article>`;
-  }).join('');
+  const { videos, shards, total } = await kmateLibraryCounts();
+  const renderKey = `${recommendedKey || 'none'}:${videos.length}:${shards.length}:${total}`;
+  if (!force && renderKey === kmateLibraryCategoryRenderKey && grid.dataset.rendered === 'true') return;
+  kmateLibraryCategoryRenderKey = renderKey;
+
+  grid.innerHTML = KMATE_LIBRARY_ORDER
+    .filter((key) => taxonomy[key])
+    .map((key) => {
+      const focus = taxonomy[key];
+      const puzzleCount = shards
+        .filter((shard) => shard.focus === key)
+        .reduce((sum, shard) => sum + Number(shard.count || 0), 0);
+      const videoCount = videos.filter((video) => (video.focus || []).includes(key)).length;
+      return `
+        <article class="learning-library-category ${key === recommendedKey ? 'recommended' : ''}" data-library-focus-card="${kmateLibraryEscape(key)}">
+          <span class="learning-library-category-icon">${kmateLibraryEscape(focus.icon)}</span>
+          <h3>${kmateLibraryEscape(focus.label)}</h3>
+          <p>${kmateLibraryEscape(focus.description)}</p>
+          <div class="learning-library-counts">
+            <span>${puzzleCount.toLocaleString()} puzzles</span>
+            <span>${videoCount} video${videoCount === 1 ? '' : 's'}</span>
+            ${key === recommendedKey ? '<span>Recommended now</span>' : ''}
+          </div>
+          <div class="learning-library-actions">
+            <button class="learning-library-action puzzles" type="button" data-library-puzzles="${kmateLibraryEscape(key)}" ${puzzleCount ? '' : 'disabled'}>Practice puzzles</button>
+            <button class="learning-library-action" type="button" data-library-videos="${kmateLibraryEscape(key)}" ${videoCount ? '' : 'disabled'}>Browse videos</button>
+          </div>
+        </article>`;
+    })
+    .join('');
+  grid.dataset.rendered = 'true';
 
   for (const button of kmateLibrary$$('[data-library-puzzles]', grid)) {
-    button.addEventListener('click', () => kmateLibraryStartPuzzles(button.dataset.libraryPuzzles));
+    button.addEventListener('click', () => {
+      void kmateLibraryStartPuzzles(button.dataset.libraryPuzzles);
+    });
   }
   for (const button of kmateLibrary$$('[data-library-videos]', grid)) {
-    button.addEventListener('click', () => kmateLibraryOpenVideos(button.dataset.libraryVideos));
+    button.addEventListener('click', () => {
+      void kmateLibraryOpenVideos(button.dataset.libraryVideos);
+    });
   }
 }
 
@@ -342,8 +430,10 @@ function kmateLibraryEnsureSection() {
   const license = kmateLibrary$('.learning-license', view);
   if (license) license.before(section);
   else view.append(section);
-  kmateLibrary$('#learningBrowseAllVideos', section)?.addEventListener('click', () => kmateLibraryOpenVideos('all'));
-  void kmateLibraryRenderCategories();
+  kmateLibrary$('#learningBrowseAllVideos', section)?.addEventListener('click', () => {
+    void kmateLibraryOpenVideos('all');
+  });
+  void kmateLibraryRenderCategories({ force: true });
   return section;
 }
 
@@ -363,25 +453,106 @@ function kmateLibraryEnhancePrimaryActions() {
 
   const wizardButton = kmateLibrary$('#wizardLearningButton');
   if (wizardButton) {
-    const label = wizardButton.querySelector('b');
-    if (label) label.textContent = 'Puzzles & videos';
-    wizardButton.setAttribute('aria-label', 'Open puzzles and instructional videos');
-    wizardButton.title = 'Open puzzles and instructional videos';
+    kmateLibrarySetText(wizardButton.querySelector('b'), 'Puzzles & videos');
+    kmateLibrarySetAttribute(wizardButton, 'aria-label', 'Open puzzles and instructional videos');
+    if (wizardButton.title !== 'Open puzzles and instructional videos') {
+      wizardButton.title = 'Open puzzles and instructional videos';
+    }
   }
 
   const navButton = kmateLibrary$('#learningNavButton');
   if (navButton) {
-    navButton.textContent = 'Learn';
-    navButton.title = 'Puzzles, videos, and tailor-made training';
+    kmateLibrarySetText(navButton, 'Learn');
+    if (navButton.title !== 'Puzzles, videos, and tailor-made training') {
+      navButton.title = 'Puzzles, videos, and tailor-made training';
+    }
   }
 }
 
-function kmateLibraryEnhanceResultCard() {
-  const card = kmateLibrary$('#learningResultCard');
+function kmateLibraryRetryPosition() {
+  const dialog = kmateLibrary$('#resultDialog');
+  if (window.__KMATE_RESTART__?.open) {
+    window.__KMATE_RESTART__.open(dialog?.open ? 'result' : 'game');
+    return;
+  }
+  const result = window.__KMATE__?.restart?.();
+  if (!result?.ok) {
+    const toast = kmateLibrary$('#toast');
+    if (toast) {
+      kmateLibrarySetText(toast, 'Start a practice position before retrying it.');
+      toast.classList.add('show');
+      window.setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+  }
+}
+
+function kmateLibraryEnsureResultCard() {
+  let card = kmateLibrary$('#learningResultCard');
+  if (card) return card;
+  const dialog = kmateLibrary$('#resultDialog');
+  const actions = dialog?.querySelector('.result-actions');
+  if (!dialog || !actions) return null;
+  card = document.createElement('section');
+  card.id = 'learningResultCard';
+  card.className = 'learning-result-card';
+  card.hidden = true;
+  card.innerHTML = `
+    <div class="learning-result-head"><div><small>Tailored to this game · Your next 12 minutes</small><b id="learningResultTitle">Matched learning prescription</b></div><span class="learning-content-label cc0">CC0 puzzles</span></div>
+    <p id="learningResultReason">K-Mate is matching this session to a lesson and a five-puzzle workout.</p>
+    <div class="learning-result-actions">
+      <button class="learning-mini-button primary-lite" id="learningResultPuzzles" type="button">Start 5 tailored puzzles</button>
+      <button class="learning-mini-button" id="learningResultVideo" type="button">Watch tailored lesson</button>
+      <button class="learning-mini-button" id="learningResultRetry" type="button">Retry position</button>
+      <button class="learning-mini-button" id="learningResultOpen" type="button">Open Learning</button>
+    </div>`;
+  actions.before(card);
+  kmateLibrary$('#learningResultPuzzles', card)?.addEventListener('click', () => {
+    void window.__KMATE_LEARNING__?.startWorkout?.();
+  });
+  kmateLibrary$('#learningResultVideo', card)?.addEventListener('click', () => {
+    void window.__KMATE_LEARNING__?.openVideo?.();
+  });
+  kmateLibrary$('#learningResultRetry', card)?.addEventListener('click', kmateLibraryRetryPosition);
+  kmateLibrary$('#learningResultOpen', card)?.addEventListener('click', () => {
+    kmateLibraryCloseDialog(dialog);
+    window.__KMATE_LEARNING__?.open?.();
+  });
+  return card;
+}
+
+function kmateLibraryOpenFullLibrary() {
+  const resultDialog = kmateLibrary$('#resultDialog');
+  kmateLibraryCloseDialog(resultDialog);
+  window.__KMATE_LEARNING__?.open?.();
+  window.requestAnimationFrame(() => {
+    kmateLibraryEnsureSection()?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+function kmateLibrarySyncResultCard() {
+  const card = kmateLibraryEnsureResultCard();
   if (!card) return;
-  card.setAttribute('aria-live', 'polite');
-  const kicker = card.querySelector('.learning-result-head small');
-  if (kicker) kicker.textContent = 'Tailored to this game · Your next 12 minutes';
+  kmateLibrarySetAttribute(card, 'aria-live', 'polite');
+  kmateLibrarySetText(
+    card.querySelector('.learning-result-head small'),
+    'Tailored to this game · Your next 12 minutes',
+  );
+
+  const recommendation = kmateLibraryRecommendation();
+  if (recommendation) {
+    card.hidden = false;
+    kmateLibrarySetText(
+      kmateLibrary$('#learningResultTitle', card),
+      `${recommendation.focus?.label || 'Recommended focus'} · ${recommendation.puzzleRating || 1400} puzzle set`,
+    );
+    kmateLibrarySetText(
+      kmateLibrary$('#learningResultReason', card),
+      (recommendation.reasons || []).slice(0, 2).join(' ') || 'This lesson and puzzle set match the most important signal from the game you just played.',
+    );
+    const retry = kmateLibrary$('#learningResultRetry', card);
+    if (retry) retry.disabled = !recommendation.exactRetryAvailable;
+  }
+
   const actions = card.querySelector('.learning-result-actions');
   if (actions && !kmateLibrary$('#learningResultLibrary', actions)) {
     const button = document.createElement('button');
@@ -389,49 +560,78 @@ function kmateLibraryEnhanceResultCard() {
     button.className = 'learning-mini-button';
     button.type = 'button';
     button.textContent = 'Browse full library';
-    button.addEventListener('click', () => {
-      kmateLibrary$('#resultDialog')?.close?.();
-      window.__KMATE_LEARNING__?.open?.();
-      requestAnimationFrame(() => kmateLibraryEnsureSection()?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-    });
+    button.addEventListener('click', kmateLibraryOpenFullLibrary);
     actions.append(button);
   }
 }
 
-function kmateLibraryObserve() {
-  if (kmateLibraryObserver) return;
-  kmateLibraryObserver = new MutationObserver(() => {
-    kmateLibraryEnsureSection();
-    kmateLibraryEnhancePrimaryActions();
-    kmateLibraryEnhanceResultCard();
+function kmateLibraryObserveResultDialog() {
+  const dialog = kmateLibrary$('#resultDialog');
+  if (!dialog || kmateLibraryResultObserver) return;
+  kmateLibraryResultObserver = new MutationObserver(() => {
+    if (dialog.open || dialog.hasAttribute('open')) kmateLibrarySyncResultCard();
   });
-  kmateLibraryObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'hidden'] });
+  kmateLibraryResultObserver.observe(dialog, {
+    attributes: true,
+    attributeFilter: ['open'],
+  });
+  dialog.addEventListener('toggle', () => {
+    if (dialog.open) kmateLibrarySyncResultCard();
+  });
+}
+
+function kmateLibrarySyncDynamicUi() {
+  kmateLibraryEnsureSection();
+  kmateLibraryEnhancePrimaryActions();
+  kmateLibrarySyncResultCard();
+  kmateLibraryObserveResultDialog();
+}
+
+function kmateLibraryBeginLightweightSync() {
+  if (kmateLibrarySyncTimer) return;
+  const tick = () => {
+    kmateLibrarySyncDynamicUi();
+    kmateLibrarySyncTimer = window.setTimeout(tick, 900);
+  };
+  tick();
 }
 
 function kmateLibraryInitialize(attempt = 0) {
-  if (!window.__KMATE_LEARNING__ || !window.__KMATE_LEARNING_CORE__ || !kmateLibrary$('#learningView')) {
-    if (attempt < 160) window.setTimeout(() => kmateLibraryInitialize(attempt + 1), 100);
-    else console.warn('K-Mate open learning library could not initialize.');
+  if (
+    !window.__KMATE_LEARNING__
+    || !window.__KMATE_LEARNING_CORE__
+    || !kmateLibrary$('#learningView')
+  ) {
+    if (attempt < 160) {
+      window.setTimeout(() => kmateLibraryInitialize(attempt + 1), 100);
+    } else {
+      console.warn('K-Mate open learning library could not initialize.');
+    }
     return;
   }
+
   kmateLibraryInstallStyles();
   kmateLibraryEnsureSection();
   kmateLibraryEnhancePrimaryActions();
-  kmateLibraryEnhanceResultCard();
+  kmateLibrarySyncResultCard();
   kmateLibraryEnsureVideoDialog();
   kmateLibraryEnsurePlayer();
-  kmateLibraryObserve();
-  void kmateLibraryRenderCategories();
+  kmateLibraryObserveResultDialog();
+  kmateLibraryBeginLightweightSync();
+  void kmateLibraryRenderCategories({ force: true });
 
   window.__KMATE_LEARNING_LIBRARY__ = {
     version: KMATE_LIBRARY_VERSION,
     open: () => {
       window.__KMATE_LEARNING__?.open?.();
       const section = kmateLibraryEnsureSection();
-      requestAnimationFrame(() => section?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      window.requestAnimationFrame(() => {
+        section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     },
     openVideos: kmateLibraryOpenVideos,
     startPuzzles: kmateLibraryStartPuzzles,
+    refresh: () => kmateLibraryRenderCategories({ force: true }),
     state: () => ({
       ready: true,
       categories: kmateLibrary$$('[data-library-focus-card]').length,
