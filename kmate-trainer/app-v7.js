@@ -49,6 +49,13 @@ try {
   await import(moduleUrl);
   try {
     await import('./position-importers-v1.js?v=36.0.0');
+    try {
+      await import('./position-importers-hardening-v37.js?v=37.0.0');
+    } catch (error) {
+      // The v37 layer improves presets, accessibility, preload behavior, and
+      // diagnostics. The core importer remains usable when this layer fails.
+      console.warn('Optional position-importer hardening could not load.', error);
+    }
   } catch (error) {
     // Position imports are an optional enhancement. A network or module error
     // must never prevent the core K-Mate trainer from loading.
