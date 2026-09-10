@@ -19,7 +19,7 @@ jobs:
   browser-qa:
     name: Chromium importer, practice, and learning journeys
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 28
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -66,6 +66,7 @@ jobs:
           kmate-trainer/tests/chess-position-visibility.spec.mjs
           kmate-trainer/tests/restart-practice.spec.mjs
           kmate-trainer/tests/learning-v40.spec.mjs
+          kmate-trainer/tests/learning-library-v40.spec.mjs
           --reporter=line,html
 
       - name: Upload browser traces and screenshots on failure
