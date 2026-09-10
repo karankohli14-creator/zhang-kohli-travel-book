@@ -1,0 +1,494 @@
+
+/* K-Mate v41 — move-level evidence and highly relevant learning plans. */
+const KM41_RELEVANCE_VERSION = '41.0.0';
+
+const KM41_FOCUS_DEFAULT_THEMES = Object.freeze({
+  loosePieces: Object.freeze(['hangingPiece', 'capturingDefender', 'trappedPiece']),
+  calculation: Object.freeze(['fork', 'pin', 'skewer', 'discoveredAttack', 'deflection', 'intermezzo', 'sacrifice']),
+  kingSafety: Object.freeze(['mate', 'mateIn1', 'mateIn2', 'mateIn3', 'backRankMate', 'smotheredMate', 'exposedKing', 'kingsideAttack']),
+  defense: Object.freeze(['defensiveMove', 'equality', 'interference', 'quietMove']),
+  endgames: Object.freeze(['endgame', 'rookEndgame', 'pawnEndgame', 'zugzwang', 'promotion', 'queenEndgame']),
+  pawnPlay: Object.freeze(['advancedPawn', 'promotion', 'pawnEndgame', 'underPromotion']),
+  positionalPlay: Object.freeze(['quietMove', 'advantage', 'equality', 'defensiveMove']),
+  openings: Object.freeze([]),
+});
+
+const KM41_DIAGNOSIS_RULES = Object.freeze({
+  'loose-pieces': Object.freeze({
+    focus: 'loosePieces',
+    themes: ['hangingPiece', 'capturingDefender', 'trappedPiece'],
+    lessonTags: ['hanging pieces', 'undefended pieces', 'counting attackers', 'unprotected pieces'],
+    skill: 'loose-piece awareness',
+  }),
+  'forcing-scan': Object.freeze({
+    focus: 'calculation',
+    themes: ['fork', 'pin', 'skewer', 'discoveredAttack', 'deflection', 'intermezzo', 'sacrifice'],
+    lessonTags: ['forcing moves', 'candidate moves', 'checks captures threats', 'calculation', 'scanning'],
+    skill: 'forcing-move scanning',
+  }),
+  'candidate-comparison': Object.freeze({
+    focus: 'calculation',
+    themes: ['fork', 'pin', 'skewer', 'deflection', 'intermezzo', 'quietMove'],
+    lessonTags: ['candidate moves', 'calculation', 'visualization', 'evaluation'],
+    skill: 'candidate comparison',
+  }),
+  'king-safety': Object.freeze({
+    focus: 'kingSafety',
+    themes: ['mate', 'mateIn1', 'mateIn2', 'mateIn3', 'backRankMate', 'smotheredMate', 'exposedKing', 'kingsideAttack'],
+    lessonTags: ['king safety', 'mating patterns', 'mating threats', 'king attack'],
+    skill: 'king-safety recognition',
+  }),
+  'opponent-threat': Object.freeze({
+    focus: 'defense',
+    themes: ['defensiveMove', 'equality', 'interference', 'quietMove'],
+    lessonTags: ['opponent threat', 'defense', 'prophylaxis', 'active defense'],
+    skill: 'threat recognition',
+  }),
+  'piece-activity': Object.freeze({
+    focus: 'positionalPlay',
+    themes: ['quietMove', 'advantage', 'equality'],
+    lessonTags: ['piece activity', 'coordination', 'planning', 'evaluation'],
+    skill: 'piece activity',
+  }),
+  'central-control': Object.freeze({
+    focus: 'positionalPlay',
+    themes: ['quietMove', 'advantage', 'equality'],
+    lessonTags: ['central control', 'coordination', 'planning', 'evaluation'],
+    skill: 'central control',
+  }),
+  'pawn-breaks': Object.freeze({
+    focus: 'pawnPlay',
+    themes: ['advancedPawn', 'promotion', 'quietMove'],
+    lessonTags: ['pawn breaks', 'pawn structure', 'plans'],
+    skill: 'pawn-break timing',
+  }),
+  'pawn-structure': Object.freeze({
+    focus: 'pawnPlay',
+    themes: ['advancedPawn', 'pawnEndgame', 'quietMove'],
+    lessonTags: ['pawn structure', 'isolated pawn', 'hanging pawns', 'plans'],
+    skill: 'pawn-structure decisions',
+  }),
+  conversion: Object.freeze({
+    focus: 'endgames',
+    themes: ['endgame', 'rookEndgame', 'pawnEndgame', 'promotion', 'zugzwang'],
+    lessonTags: ['conversion', 'rook endgame', 'pawn endgame', 'technique'],
+    skill: 'conversion technique',
+  }),
+  'endgame-transition': Object.freeze({
+    focus: 'endgames',
+    themes: ['endgame', 'rookEndgame', 'pawnEndgame', 'queenEndgame'],
+    lessonTags: ['endgame', 'transition', 'rook endgame', 'pawn endgame'],
+    skill: 'endgame transitions',
+  }),
+  'rook-activity': Object.freeze({
+    focus: 'endgames',
+    themes: ['rookEndgame', 'endgame', 'defensiveMove'],
+    lessonTags: ['rook endgame', 'Lucena', 'Philidor', 'rook activity'],
+    skill: 'rook activity',
+  }),
+  'passed-pawns': Object.freeze({
+    focus: 'pawnPlay',
+    themes: ['advancedPawn', 'promotion', 'pawnEndgame'],
+    lessonTags: ['passed pawn', 'promotion', 'pawn endgame'],
+    skill: 'passed-pawn calculation',
+  }),
+  'king-activity': Object.freeze({
+    focus: 'endgames',
+    themes: ['pawnEndgame', 'zugzwang', 'endgame'],
+    lessonTags: ['king activity', 'opposition', 'pawn endgame'],
+    skill: 'king activity',
+  }),
+  opposition: Object.freeze({
+    focus: 'endgames',
+    themes: ['pawnEndgame', 'zugzwang', 'promotion'],
+    lessonTags: ['opposition', 'pawn endgame', 'promotion'],
+    skill: 'opposition',
+  }),
+});
+
+function km41Severity(loss) {
+  const value = Number(loss);
+  if (!Number.isFinite(value)) return 0;
+  if (value >= 300) return 8;
+  if (value >= 220) return 7;
+  if (value >= 180) return 6;
+  if (value >= 110) return 4.5;
+  if (value >= 60) return 2.8;
+  if (value >= 25) return 1.2;
+  return 0;
+}
+
+function km41ConfidenceMultiplier(value) {
+  const confidence = String(value || '').toLowerCase();
+  if (confidence.includes('high')) return 1.35;
+  if (confidence.includes('medium')) return 1.15;
+  return 1;
+}
+
+function km41MovePrefix(fen) {
+  const fields = String(fen || '').trim().split(/\s+/);
+  const turn = fields[1] || 'w';
+  const number = Number(fields[5]) || 1;
+  return turn === 'b' ? `${number}...` : `${number}.`;
+}
+
+function km41SanForUci(fen, uci) {
+  if (!fen || !uci) return null;
+  try {
+    const game = new Chess(fen);
+    const move = game.move({
+      from: String(uci).slice(0, 2),
+      to: String(uci).slice(2, 4),
+      promotion: String(uci)[4] || 'q',
+    });
+    return move?.san || null;
+  } catch {
+    return null;
+  }
+}
+
+function km41MoveMechanics(move) {
+  const result = {
+    playedSan: move?.san || readableEngineMove(move?.uci),
+    bestSan: km41SanForUci(move?.fenBefore, move?.bestMove),
+    playedCapture: false,
+    bestCapture: false,
+    playedCheck: false,
+    bestCheck: false,
+    bestMate: false,
+  };
+  if (!move?.fenBefore) return result;
+  try {
+    const selectedGame = new Chess(move.fenBefore);
+    const selected = selectedGame.move({
+      from: move.from || move.uci?.slice(0, 2),
+      to: move.to || move.uci?.slice(2, 4),
+      promotion: move.uci?.[4] || 'q',
+    });
+    result.playedCapture = Boolean(selected?.captured);
+    result.playedCheck = Boolean(selected?.san?.includes('+') || selected?.san?.includes('#'));
+    if (selected?.san) result.playedSan = selected.san;
+  } catch {}
+  try {
+    const bestGame = new Chess(move.fenBefore);
+    const best = move.bestMove ? bestGame.move({
+      from: move.bestMove.slice(0, 2),
+      to: move.bestMove.slice(2, 4),
+      promotion: move.bestMove[4] || 'q',
+    }) : null;
+    result.bestCapture = Boolean(best?.captured);
+    result.bestCheck = Boolean(best?.san?.includes('+') || best?.san?.includes('#'));
+    result.bestMate = Boolean(best?.san?.includes('#'));
+    if (best?.san) result.bestSan = best.san;
+  } catch {}
+  return result;
+}
+
+function km41MoveEvidence(move, session, order) {
+  const loss = km40SafeLoss(move);
+  const diagnoses = Array.isArray(move?.principleDiagnoses) ? move.principleDiagnoses : [];
+  const ignored = Array.isArray(move?.ignoredPrinciples) ? move.ignoredPrinciples : [];
+  if ((!Number.isFinite(loss) || loss < 20) && !diagnoses.length && !ignored.length) return null;
+
+  const severity = Math.max(0.8, km41Severity(loss));
+  const mechanics = km41MoveMechanics(move);
+  const scores = km40EmptySignals();
+  const themes = new Set();
+  const lessonTags = new Set();
+  const skills = new Set();
+  const evidenceText = [];
+
+  for (const diagnosis of diagnoses) {
+    const rule = KM41_DIAGNOSIS_RULES[diagnosis.key];
+    const focus = rule?.focus || KM40_PRINCIPLE_FOCUS[diagnosis.key];
+    if (!focus) continue;
+    const amount = severity * km41ConfidenceMultiplier(diagnosis.confidence);
+    km40AddSignal(scores, focus, amount);
+    for (const theme of rule?.themes || KM41_FOCUS_DEFAULT_THEMES[focus] || []) themes.add(theme);
+    for (const tag of rule?.lessonTags || []) lessonTags.add(tag);
+    if (rule?.skill) skills.add(rule.skill);
+    if (diagnosis.evidence && !evidenceText.includes(diagnosis.evidence)) evidenceText.push(diagnosis.evidence);
+  }
+
+  for (const key of ignored) {
+    const rule = KM41_DIAGNOSIS_RULES[key];
+    const focus = rule?.focus || KM40_PRINCIPLE_FOCUS[key];
+    if (!focus) continue;
+    km40AddSignal(scores, focus, severity * 0.85);
+    for (const theme of rule?.themes || KM41_FOCUS_DEFAULT_THEMES[focus] || []) themes.add(theme);
+    for (const tag of rule?.lessonTags || []) lessonTags.add(tag);
+    if (rule?.skill) skills.add(rule.skill);
+  }
+
+  if (mechanics.bestCapture && !mechanics.playedCapture) {
+    km40AddSignal(scores, 'loosePieces', severity * 1.6);
+    themes.add('hangingPiece');
+    themes.add('capturingDefender');
+    lessonTags.add('hanging pieces');
+    lessonTags.add('undefended pieces');
+    skills.add('loose-piece awareness');
+    evidenceText.push(`The stronger move ${mechanics.bestSan || move.bestMove} was a capture, but ${mechanics.playedSan} did not take the tactical target.`);
+  }
+
+  if (mechanics.bestCheck && !mechanics.playedCheck) {
+    km40AddSignal(scores, 'calculation', severity * 1.45);
+    themes.add('discoveredAttack');
+    themes.add('deflection');
+    lessonTags.add('forcing moves');
+    lessonTags.add('checks captures threats');
+    skills.add('forcing-move scanning');
+    evidenceText.push(`The engine preferred the forcing move ${mechanics.bestSan || move.bestMove}; the played move did not create the same check or forcing sequence.`);
+  }
+
+  if (mechanics.bestMate) {
+    km40AddSignal(scores, 'kingSafety', severity * 1.4);
+    themes.add('mate');
+    themes.add('mateIn2');
+    themes.add('exposedKing');
+    lessonTags.add('mating patterns');
+    lessonTags.add('king safety');
+    skills.add('mating-pattern recognition');
+  }
+
+  const spentMs = Number(move?.spentMs);
+  if (Number.isFinite(spentMs) && spentMs < 5000 && Number(loss) >= 90) {
+    km40AddSignal(scores, 'calculation', severity * 1.05);
+    lessonTags.add('candidate moves');
+    lessonTags.add('scanning');
+    skills.add('candidate comparison');
+    evidenceText.push(`The decision was made in ${Math.max(1, Math.round(spentMs / 1000))} seconds despite a large evaluation swing.`);
+  }
+
+  if (!Object.values(scores).some((value) => value > 0)) {
+    const fallback = session?.phase === 'endgame' ? 'endgames' : 'calculation';
+    km40AddSignal(scores, fallback, severity);
+    for (const theme of KM41_FOCUS_DEFAULT_THEMES[fallback] || []) themes.add(theme);
+    skills.add(fallback === 'endgames' ? 'endgame calculation' : 'candidate comparison');
+    lessonTags.add(fallback === 'endgames' ? 'endgame' : 'calculation');
+  }
+
+  const rankedFocuses = Object.entries(scores)
+    .filter(([, score]) => score > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const primaryFocus = rankedFocuses[0]?.[0] || (session?.phase === 'endgame' ? 'endgames' : 'calculation');
+  if (!themes.size) {
+    for (const theme of KM41_FOCUS_DEFAULT_THEMES[primaryFocus] || []) themes.add(theme);
+  }
+
+  const moveSan = mechanics.playedSan || move?.san || readableEngineMove(move?.uci) || 'move';
+  const moveLabel = `${km41MovePrefix(move?.fenBefore)} ${moveSan}`;
+  const bestText = mechanics.bestSan || readableEngineMove(move?.bestMove) || null;
+  const lossText = Number.isFinite(loss) ? `${(loss / 100).toFixed(loss >= 100 ? 1 : 2)} pawns` : 'a meaningful swing';
+  const firstSkill = [...skills][0] || KM40_FOCUS_TAXONOMY[primaryFocus]?.label?.toLowerCase() || 'calculation';
+  const explanation = evidenceText[0]
+    || `${moveLabel} lost about ${lossText}${bestText ? `; ${bestText} was the stronger continuation` : ''}.`;
+
+  return {
+    id: move?.id || `move-${order}`,
+    order,
+    moveLabel,
+    san: moveSan,
+    uci: move?.uci || null,
+    fenBefore: move?.fenBefore || null,
+    bestMove: move?.bestMove || null,
+    bestSan: bestText,
+    loss: Number.isFinite(loss) ? Math.round(loss) : null,
+    pawnLoss: Number.isFinite(loss) ? Math.round(loss / 10) / 10 : null,
+    quality: qualityForMoveRecord(move).key,
+    spentMs: Number.isFinite(spentMs) ? spentMs : null,
+    focus: primaryFocus,
+    focusLabel: KM40_FOCUS_TAXONOMY[primaryFocus]?.label || primaryFocus,
+    focusScores: Object.fromEntries(rankedFocuses),
+    themes: [...themes],
+    lessonTags: [...lessonTags],
+    skills: [...skills],
+    skill: firstSkill,
+    diagnoses: diagnoses.slice(0, 4).map((diagnosis) => ({
+      key: diagnosis.key,
+      title: diagnosis.title || CHESS_PRINCIPLE_BY_KEY[diagnosis.key]?.title || diagnosis.key,
+      confidence: diagnosis.confidence || null,
+      evidence: diagnosis.evidence || null,
+    })),
+    explanation,
+    details: [...new Set(evidenceText)].slice(0, 4),
+    relevanceScore: severity * 100
+      + rankedFocuses.reduce((sum, [, value]) => sum + value * 10, 0)
+      + (mechanics.bestMate ? 80 : mechanics.bestCheck ? 40 : 0)
+      + (mechanics.bestCapture && !mechanics.playedCapture ? 50 : 0),
+  };
+}
+
+function km41EvidenceForSession(session) {
+  const moves = Array.isArray(session?.userMoves) ? session.userMoves : [];
+  return moves
+    .map((move, order) => km41MoveEvidence(move, session, order))
+    .filter(Boolean)
+    .sort((a, b) => b.relevanceScore - a.relevanceScore || (b.loss || 0) - (a.loss || 0));
+}
+
+function km41FocusRanking(evidence, profile, legacyFocus) {
+  const scores = km40EmptySignals();
+  evidence.slice(0, 8).forEach((item, index) => {
+    const recencyWithinGame = Math.max(0.62, 1 - index * 0.07);
+    for (const [focus, score] of Object.entries(item.focusScores || {})) {
+      km40AddSignal(scores, focus, Number(score) * recencyWithinGame);
+    }
+  });
+
+  for (const item of profile || []) {
+    if (Number(item.score) <= 0) continue;
+    km40AddSignal(scores, item.key, Number(item.score) * 0.12);
+  }
+
+  if (!Object.values(scores).some((value) => value > 0) && legacyFocus?.key) {
+    km40AddSignal(scores, legacyFocus.key, 1);
+  }
+
+  return Object.entries(scores)
+    .map(([key, score]) => ({
+      ...KM40_FOCUS_TAXONOMY[key],
+      score: Math.round(score * 10) / 10,
+      evidenceCount: evidence.filter((item) => item.focus === key || Number(item.focusScores?.[key]) > 0).length,
+      pattern: profile?.find((item) => item.key === key)?.pattern || 'today',
+      occurrences: profile?.find((item) => item.key === key)?.occurrences || 0,
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+
+function km41PlanSlots(evidence, ranking) {
+  const useful = evidence.filter((item) => Number(item.loss) >= 25 || item.diagnoses.length).slice(0, 5);
+  const fallbackFocus = ranking.find((item) => item.score > 0)?.key || 'calculation';
+  const fallbackEvidence = useful[0] || null;
+  const slots = [];
+
+  if (useful.length) {
+    const weighted = [];
+    useful.forEach((item, index) => {
+      const copies = index === 0 ? 3 : index === 1 ? 2 : 1;
+      for (let copy = 0; copy < copies; copy += 1) weighted.push(item);
+    });
+    let cursor = 0;
+    while (slots.length < 5 && weighted.length) {
+      const item = weighted[cursor % weighted.length];
+      slots.push(item);
+      cursor += 1;
+    }
+  }
+
+  while (slots.length < 5) slots.push(fallbackEvidence);
+
+  return slots.map((item, index) => {
+    const focus = item?.focus || fallbackFocus;
+    const taxonomy = KM40_FOCUS_TAXONOMY[focus] || KM40_FOCUS_TAXONOMY.calculation;
+    const reason = item
+      ? `${item.moveLabel} triggered ${taxonomy.label.toLowerCase()} practice${item.bestSan ? ` after the engine preferred ${item.bestSan}` : ''}.`
+      : `Baseline ${taxonomy.label.toLowerCase()} practice near the selected level.`;
+    return {
+      slot: index + 1,
+      focus,
+      focusLabel: taxonomy.label,
+      themes: item?.themes?.length ? item.themes.slice(0, 8) : [...(KM41_FOCUS_DEFAULT_THEMES[focus] || [])],
+      lessonTags: item?.lessonTags?.slice(0, 8) || [],
+      sourceMoveId: item?.id || null,
+      sourceMove: item?.moveLabel || null,
+      playedSan: item?.san || null,
+      bestSan: item?.bestSan || null,
+      loss: item?.loss ?? null,
+      skill: item?.skill || taxonomy.short,
+      reason,
+    };
+  });
+}
+
+function km41PuzzleSetSummary(plan) {
+  const counts = new Map();
+  for (const slot of plan || []) counts.set(slot.focusLabel, (counts.get(slot.focusLabel) || 0) + 1);
+  const composition = [...counts.entries()].map(([label, count]) => `${count} ${label.toLowerCase()}`).join(', ');
+  const sourceMoves = [...new Set((plan || []).map((slot) => slot.sourceMove).filter(Boolean))].slice(0, 3);
+  if (!sourceMoves.length) return `${composition || 'Five calculation'} puzzles near the selected level.`;
+  return `${composition} puzzles, anchored to ${sourceMoves.join('; ')}.`;
+}
+
+function km41Recommendation(sessionId = null) {
+  const legacy = km41LegacyRecommendation(sessionId);
+  const session = km40FindSession(sessionId || legacy?.sourceSessionId || null);
+  const evidence = km41EvidenceForSession(session);
+  const profile = km40WeaknessProfile(10);
+  const ranking = km41FocusRanking(evidence, profile, legacy?.focus);
+  const focus = ranking.find((item) => item.score > 0) || legacy?.focus || KM40_FOCUS_TAXONOMY.calculation;
+  const puzzlePlan = km41PlanSlots(evidence, ranking);
+  const keyMove = evidence[0] || legacy?.keyMove || null;
+  const reasons = [];
+
+  for (const item of evidence.slice(0, 3)) {
+    const lossText = Number.isFinite(item.loss) ? `a ${(item.loss / 100).toFixed(item.loss >= 100 ? 1 : 2)}-pawn swing` : 'a meaningful swing';
+    reasons.push(`${item.moveLabel} produced ${lossText}. ${item.explanation}`);
+  }
+  if (!reasons.length) reasons.push(...(legacy?.reasons || []));
+  if (focus.occurrences >= 2) reasons.push(`${focus.label} also appeared in ${focus.occurrences} recent practices, so it receives a smaller repeat-pattern boost.`);
+
+  const confidence = evidence.length >= 3 ? 'high' : evidence.length >= 1 ? 'medium' : 'baseline';
+  const topMoves = evidence.slice(0, 3).map((item) => item.moveLabel);
+  const relevanceSummary = topMoves.length
+    ? `This plan is derived primarily from ${topMoves.join(', ')}, with recent-history patterns used only as a secondary tie-breaker.`
+    : 'No move-level error evidence was available, so K-Mate is using a baseline set near the selected level.';
+
+  return {
+    ...legacy,
+    version: KM41_RELEVANCE_VERSION,
+    generatedAt: new Date().toISOString(),
+    focus: {
+      ...focus,
+      description: KM40_FOCUS_TAXONOMY[focus.key]?.description || focus.description,
+    },
+    reasons,
+    keyMove,
+    recentMoves: evidence.slice(0, 6),
+    moveEvidence: evidence.slice(0, 8),
+    focusRanking: ranking.slice(0, 5),
+    puzzlePlan,
+    puzzleSetSummary: km41PuzzleSetSummary(puzzlePlan),
+    relevance: {
+      version: KM41_RELEVANCE_VERSION,
+      mode: evidence.length ? 'move-level' : 'baseline',
+      confidence,
+      title: evidence.length ? `Built from ${evidence.length} move-level signal${evidence.length === 1 ? '' : 's'}` : 'Baseline recommendation',
+      summary: relevanceSummary,
+      primaryMoveIds: evidence.slice(0, 3).map((item) => item.id),
+    },
+  };
+}
+
+const km41LegacyRecommendation = km40Recommendation;
+km40Recommendation = km41Recommendation;
+
+if (window.__KMATE_LEARNING_CORE__) {
+  window.__KMATE_LEARNING_CORE__.version = KM41_RELEVANCE_VERSION;
+  window.__KMATE_LEARNING_CORE__.recommend = km41Recommendation;
+  window.__KMATE_LEARNING_CORE__.relevanceVersion = KM41_RELEVANCE_VERSION;
+  window.__KMATE_LEARNING_CORE__.diagnosisRules = KM41_DIAGNOSIS_RULES;
+}
+
+if (window.__KMATE__) {
+  const km41BaseState = window.__KMATE__.state;
+  window.__KMATE__.learningVersion = KM41_RELEVANCE_VERSION;
+  window.__KMATE__.learningRecommendation = km41Recommendation;
+  window.__KMATE__.state = () => {
+    const base = typeof km41BaseState === 'function' ? km41BaseState() : {};
+    const recommendation = km41Recommendation();
+    return {
+      ...base,
+      learning: {
+        ...(base.learning || {}),
+        version: KM41_RELEVANCE_VERSION,
+        focus: recommendation.focus?.key || null,
+        label: recommendation.focus?.label || null,
+        puzzleRating: recommendation.puzzleRating,
+        puzzleBand: recommendation.puzzleBand,
+        evidenceCount: recommendation.moveEvidence?.length || 0,
+        relevanceMode: recommendation.relevance?.mode || 'baseline',
+        relevanceConfidence: recommendation.relevance?.confidence || 'baseline',
+      },
+    };
+  };
+}
