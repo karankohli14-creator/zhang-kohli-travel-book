@@ -44,7 +44,7 @@ jobs:
           node --check /tmp/kmate-app-v42.js
           cat kmate-trainer/learning-v40-part{1..5}.txt > /tmp/kmate-learning-v40.js
           node --check /tmp/kmate-learning-v40.js
-          cat kmate-trainer/personalization-v42-part{1..10}.txt > /tmp/kmate-personalization-v42.js
+          cat kmate-trainer/personalization-v42-part{1..11}.txt > /tmp/kmate-personalization-v42.js
           node --check /tmp/kmate-personalization-v42.js
           node --check kmate-trainer/tests/importers.spec.mjs
           node --check kmate-trainer/tests/chess-position-visibility.spec.mjs
@@ -80,7 +80,7 @@ jobs:
         run: |
           grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]" kmate-trainer/app-v7.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/learning-v40.js
-          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" kmate-trainer/personalization-v42.js
+          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]" kmate-trainer/personalization-v42.js
           grep -q "app-v7.js?v=42.0.0" kmate-trainer/index.html
           grep -q "personalization-v42.js?v=42.0.0" kmate-trainer/app-v7.js
           grep -q "KM42_PERSONALIZATION_VERSION = '42.0.0'" kmate-trainer/app-v7-part12.txt
@@ -99,6 +99,7 @@ jobs:
           grep -q "tapHandlerCount: 1" kmate-trainer/personalization-v42-part8.txt
           grep -q "pointerup-capture" kmate-trainer/personalization-v42-part9.txt
           grep -q "goalAnchor" kmate-trainer/personalization-v42-part10.txt
+          grep -q "km42RepairLearningBlueprintNow" kmate-trainer/personalization-v42-part11.txt
           grep -q "touch-action:none" kmate-trainer/personalization-v42.css
           grep -q "learningOpenLibrary" kmate-trainer/learning-library-v40.js
           grep -q "km41RecommendationEvidence" kmate-trainer/learning-relevance-v41.js
