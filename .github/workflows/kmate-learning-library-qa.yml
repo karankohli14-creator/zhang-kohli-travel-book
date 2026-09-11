@@ -15,7 +15,7 @@ on:
       - "kmate-trainer/app-v7-part1*.txt"
       - "kmate-trainer/learning/**"
       - "kmate-trainer/tests/learning-library-v40.spec.mjs"
-      - "kmate-trainer/tests/personalization-v42.spec.mjs"
+      - "kmate-trainer/tests/personalization-v42-release.spec.mjs"
       - ".github/workflows/kmate-learning-library-qa.yml"
   pull_request:
     paths:
@@ -30,7 +30,7 @@ on:
       - "kmate-trainer/app-v7-part1*.txt"
       - "kmate-trainer/learning/**"
       - "kmate-trainer/tests/learning-library-v40.spec.mjs"
-      - "kmate-trainer/tests/personalization-v42.spec.mjs"
+      - "kmate-trainer/tests/personalization-v42-release.spec.mjs"
       - ".github/workflows/kmate-learning-library-qa.yml"
   workflow_dispatch:
 
@@ -67,7 +67,7 @@ jobs:
         run: >-
           npx playwright test
           kmate-trainer/tests/learning-library-v40.spec.mjs
-          kmate-trainer/tests/personalization-v42.spec.mjs
+          kmate-trainer/tests/personalization-v42-release.spec.mjs
           --workers=1
           --reporter=line
       - name: Upload failure diagnostics
