@@ -5,6 +5,12 @@ const responses = await Promise.all(partUrls.map(async (url) => {
   if (!response.ok) throw new Error(`Unable to load ${url}: ${response.status}`);
   return response.text();
 }));
+// The assembled implementation runs from a blob URL. Resolve its content
+// assets against the real K-Mate page rather than the temporary blob origin.
+responses[0] = responses[0].replace(
+  "const KM42_BASE_URL = new URL('./', import.meta.url);",
+  "const KM42_BASE_URL = new URL('./', window.location.href);",
+);
 const moduleUrl = URL.createObjectURL(new Blob([responses.join('')], { type: 'text/javascript' }));
 try {
   await import(moduleUrl);
