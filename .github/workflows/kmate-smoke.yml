@@ -44,7 +44,7 @@ jobs:
           node --check /tmp/kmate-app-v42.js
           cat kmate-trainer/learning-v40-part{1..5}.txt > /tmp/kmate-learning-v40.js
           node --check /tmp/kmate-learning-v40.js
-          cat kmate-trainer/personalization-v42-part{1..5}.txt > /tmp/kmate-personalization-v42.js
+          cat kmate-trainer/personalization-v42-part{1..7}.txt > /tmp/kmate-personalization-v42.js
           node --check /tmp/kmate-personalization-v42.js
           node --check kmate-trainer/tests/importers.spec.mjs
           node --check kmate-trainer/tests/chess-position-visibility.spec.mjs
@@ -79,7 +79,7 @@ jobs:
         run: |
           grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]" kmate-trainer/app-v7.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/learning-v40.js
-          grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/personalization-v42.js
+          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7]" kmate-trainer/personalization-v42.js
           grep -q "app-v7.js?v=42.0.0" kmate-trainer/index.html
           grep -q "personalization-v42.js?v=42.0.0" kmate-trainer/app-v7.js
           grep -q "practice-restart-v39.js?v=39.0.0" kmate-trainer/app-v7.js
@@ -100,6 +100,8 @@ jobs:
           grep -q "pointerdown" kmate-trainer/personalization-v42-part3.txt
           grep -q "movableByTap" kmate-trainer/personalization-v42-part4.txt
           grep -q "dragEnabled" kmate-trainer/personalization-v42-part5.txt
+          grep -q "km42-authoritative-result" kmate-trainer/personalization-v42-part6.txt
+          grep -q "directSquareCapture" kmate-trainer/personalization-v42-part7.txt
           grep -q "touch-action:none" kmate-trainer/personalization-v42.css
           grep -q "learningOpenLibrary" kmate-trainer/learning-library-v40.js
           grep -q "km41RecommendationEvidence" kmate-trainer/learning-relevance-v41.js
