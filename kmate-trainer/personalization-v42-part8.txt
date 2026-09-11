@@ -1,0 +1,24 @@
+
+/* K-Mate v42 — one authoritative tap path, plus board-level pointer dragging. */
+// Part 6 briefly attached a second anonymous click listener to every rendered
+// square. Combined with the capture-phase safety handler, a single phone tap
+// could select and immediately deselect the same piece. Render from the clean
+// board implementation and let the capture handler in part 7 own tap–tap play.
+km42RenderPuzzleBoard = function km42RenderPuzzleBoardSingleTapPath() {
+  km42RenderPuzzleBoardBeforeDirectTaps();
+};
+
+// Repaint once when a puzzle was already open while this patch loaded.
+if (km42Puzzle.game && !document.querySelector('#km42PuzzleMode')?.hidden) {
+  km42RenderPuzzleBoard();
+}
+
+if (window.__KMATE_V42_AUTHORITY__) {
+  const previousState = window.__KMATE_V42_AUTHORITY__.state;
+  window.__KMATE_V42_AUTHORITY__.state = () => ({
+    ...(typeof previousState === 'function' ? previousState() : {}),
+    tapHandlerCount: 1,
+    tapOwner: 'document-capture',
+    dragOwner: 'board-pointer-events',
+  });
+}
