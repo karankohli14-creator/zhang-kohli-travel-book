@@ -49,21 +49,33 @@ async function km42RenderAll({ force = false } = {}) {
   const recommendation = km42Recommendation();
   if (!recommendation) return;
   const key = km42RenderKey(recommendation);
-  if (!force && key === km42LastRenderKey) {
-    km42RenderResultCustomization(recommendation);
-    return;
-  }
-  km42LastRenderKey = key;
+  const learningVisible = Boolean(km42$('#learningView') && !km42$('#learningView').hidden);
+
+  // Blueprint rendering is cheap and must never be skipped merely because the
+  // recommendation fingerprint is unchanged. Older learning layers can
+  // recreate the card while navigation is in progress, leaving a visible but
+  // temporarily empty shell unless v42 fills it again immediately.
   km42RenderLearningBlueprint(recommendation);
   km42RenderResultCustomization(recommendation);
-  if (km42$('#learningView') && !km42$('#learningView').hidden) await km42RenderLessonCard(recommendation);
+
+  if (!force && key === km42LastRenderKey) {
+    if (learningVisible) {
+      const card = km42$('#learningVideoCard');
+      const hasCustomRows = Boolean(card?.querySelector('.km42-lesson-row'));
+      if (!hasCustomRows) await km42RenderLessonCard(recommendation);
+    }
+    return;
+  }
+
+  km42LastRenderKey = key;
+  if (learningVisible) await km42RenderLessonCard(recommendation);
 }
 
-function km42ScheduleRender(force = false) {
+function km42ScheduleRender(force = false, delay = 45) {
   window.clearTimeout(km42RenderTimer);
   km42RenderTimer = window.setTimeout(() => {
     void km42RenderAll({ force });
-  }, 45);
+  }, Math.max(0, Number(delay) || 0));
 }
 
 function km42InterceptInteraction(event) {
@@ -105,8 +117,11 @@ function km42InterceptInteraction(event) {
   }
 
   if (target.closest('#wizardLearningButton,#learningNavButton,[data-view="learning"]')) {
-    window.setTimeout(() => km42ScheduleRender(true), 80);
-    window.setTimeout(() => km42ScheduleRender(true), 420);
+    // The v40 navigation handler runs later in the same event. Render on the
+    // next task, then repeat once after all legacy observers have settled.
+    window.setTimeout(() => void km42RenderAll({ force: true }), 0);
+    window.setTimeout(() => void km42RenderAll({ force: true }), 120);
+    window.setTimeout(() => void km42RenderAll({ force: true }), 420);
   }
 }
 
@@ -118,7 +133,7 @@ function km42BindSetupChanges() {
   wizard.addEventListener('change', () => km42ScheduleRender(true), true);
   wizard.addEventListener('click', (event) => {
     if (event.target.closest('[data-phase],[data-side],[data-time],[data-step],[data-preset],[data-wizard-next],[data-wizard-back]')) {
-      window.setTimeout(() => km42ScheduleRender(true), 20);
+      window.setTimeout(() => km42ScheduleRender(true, 0), 20);
     }
   }, true);
 }
@@ -129,7 +144,8 @@ function km42WrapPublicApis() {
     const oldOpen = learning.open;
     learning.open = (...args) => {
       const result = typeof oldOpen === 'function' ? oldOpen(...args) : true;
-      km42ScheduleRender(true);
+      void km42RenderAll({ force: true });
+      km42ScheduleRender(true, 120);
       return result;
     };
     learning.startWorkout = (options = {}) => km42StartWorkout(options || {});
@@ -177,7 +193,8 @@ function km42Initialize(attempt = 0) {
   km42WrapPublicApis();
   window.addEventListener('click', km42InterceptInteraction, true);
   km42ObserveApp();
-  km42ScheduleRender(true);
+  void km42RenderAll({ force: true });
+  km42ScheduleRender(true, 160);
   void Promise.allSettled([km42LoadVideos(), km42LoadIndex()]);
 
   window.__KMATE_V42__ = {
