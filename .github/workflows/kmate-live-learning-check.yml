@@ -1,4 +1,4 @@
-name: K-Mate live learning deployment check
+name: K-Mate live personalization deployment check
 
 on:
   push:
@@ -12,13 +12,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: kmate-live-learning-check
+  group: kmate-live-personalization-check
   cancel-in-progress: true
 
 jobs:
-  verify-live-learning:
+  verify-live-personalization:
     runs-on: ubuntu-latest
-    timeout-minutes: 14
+    timeout-minutes: 16
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -32,35 +32,37 @@ jobs:
         env:
           LIVE_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/
         run: |
-          for attempt in {1..72}; do
+          for attempt in {1..84}; do
             html="$(curl --fail --silent --show-error --location --max-time 20 "${LIVE_URL}?deploy=${GITHUB_SHA}" || true)"
-            if grep -Fq 'app-v7.js?v=41.0.0' <<<"$html"; then
-              echo "The v41 public loader is live."
+            if grep -Fq 'app-v7.js?v=42.0.0' <<<"$html"; then
+              echo "The v42 public loader is live."
               exit 0
             fi
-            echo "Waiting for GitHub Pages deployment (${attempt}/72)…"
+            echo "Waiting for GitHub Pages deployment (${attempt}/84)…"
             sleep 5
           done
-          echo "The public page did not expose the v41 loader in time."
+          echo "The public page did not expose the v42 loader in time."
           exit 1
 
-      - name: Verify public relevance and learning assets
+      - name: Verify public personalization assets
         env:
           LIVE_ROOT: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer
         run: |
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7.js?v=41.0.0" | grep -Fq "learning-relevance-v41.js?v=41.0.0"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning-relevance-v41.js?v=41.0.0" | grep -Fq "km41RecommendationEvidence"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning-relevance-v41-stability.js?v=41.0.0" | grep -Fq "km41RepairRankedLessons"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning-relevance-v41.css?v=41.0.0" | grep -Fq -- "--kmate-safe-top"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/puzzles/index.json?v=41.0.0" | grep -Fq '"total":11902'
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/videos-v40.json?v=41.0.0" | grep -Fq '"videos"'
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7.js?v=42.0.0" | grep -Fq "personalization-v42.js?v=42.0.0"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7-part12.txt?v=42.0.0" | grep -Fq "KM42_PERSONALIZATION_VERSION"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7-part13.txt?v=42.0.0" | grep -Fq "gameplayWeight"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/personalization-v42.js?v=42.0.0" | grep -Fq "personalization-v42-part"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/personalization-v42-part3.txt?v=42.0.0" | grep -Fq "pointerdown"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/personalization-v42.css?v=42.0.0" | grep -Fq "touch-action:none"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/puzzles/index.json?v=42.0.0" | grep -Fq '"total":11902'
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/videos-v40.json?v=42.0.0" | grep -Fq '"videos"'
 
       - name: Install Chromium browser check
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Exercise live move relevance, lesson choices, and phone-safe puzzles
+      - name: Exercise live custom principles, lessons, and puzzle movement
         env:
           LIVE_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/
         run: |
@@ -72,30 +74,41 @@ jobs:
             settings: {
               phase: 'middlegame', opening: 'all', positionRating: 1400,
               opponentRating: 1400, timeControl: '3+0', side: 'w', sound: false,
-              trainingGoal: 'all', blindCalibration: false, autoHints: false,
-              liveCoach: true, principleReview: false, coachVoice: false,
+              trainingGoal: 'attack', blindCalibration: false, autoHints: false,
+              liveCoach: true, principleReview: true, coachVoice: false,
             },
             legacy: { sessions: 0, wins: 0, draws: 0, losses: 0, best: 0 },
             sessions: [{
-              id: 'live-relevance-check',
-              startedAt: '2026-09-10T16:00:00.000Z',
-              endedAt: '2026-09-10T16:08:00.000Z',
-              positionId: 'live-relevance', seedPositionId: 'live-relevance',
-              title: 'Chess.com · Kmate_00 vs LiveCheck', opening: 'London System',
-              theme: 'Live move relevance', tags: ['calculation'], phase: 'middlegame',
-              positionRating: 1400, opponentRating: 1400, requestedOpponentRating: 1400,
-              timeControl: '3+0', userColor: 'w', outcome: 'loss', reason: 'resignation',
-              completed: true, timeUsedPct: 0.12, avgCpLoss: 260,
-              userMoves: [{
-                id: 'live-move-14', san: 'a3?', uci: 'a2a3', from: 'a2', to: 'a3',
-                fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 14',
-                spentMs: 3200, cpLoss: 260, bestMove: 'e2e4', quality: 'blunder',
-                principleDiagnoses: [{
-                  key: 'loose-pieces', title: 'Loose pieces', confidence: 'high',
-                  evidence: 'An undefended tactical target needed attention before committing to the move.',
-                }],
-                ignoredPrinciples: ['loose-pieces'],
-              }],
+              id: 'live-v42-check',
+              startedAt: '2026-09-11T03:00:00.000Z',
+              endedAt: '2026-09-11T03:09:00.000Z',
+              positionId: 'live-v42', seedPositionId: 'live-v42',
+              title: 'Chess.com · Kmate_00 vs LiveV42', opening: 'London System',
+              theme: 'Live customization check', tags: ['calculation', 'king safety'],
+              phase: 'middlegame', positionRating: 1400, opponentRating: 1400,
+              requestedOpponentRating: 1400, timeControl: '3+0', trainingGoal: 'attack',
+              userColor: 'w', outcome: 'loss', reason: 'resignation', completed: true,
+              timeUsedPct: 0.14, avgCpLoss: 220,
+              positionPrinciples: [
+                { key: 'king-safety', title: 'King safety before ambition', sessionPrompt: 'Track forcing lines around both kings.', why: 'You chose Attack the king.' },
+                { key: 'pawn-breaks', title: 'Prepare pawn breaks', sessionPrompt: 'Calculate which files each break opens.', why: 'The attacking goal requires prepared pawn breaks.' },
+              ],
+              userMoves: [
+                {
+                  id: 'live-v42-move-14', san: 'a3?', uci: 'a2a3', from: 'a2', to: 'a3',
+                  fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 14',
+                  spentMs: 2500, cpLoss: 260, bestMove: 'e2e4', quality: 'blunder',
+                  principleDiagnoses: [{ key: 'loose-pieces', title: 'Loose pieces', confidence: 'high', evidence: 'An undefended tactical target needed attention.' }],
+                  ignoredPrinciples: ['loose-pieces'],
+                },
+                {
+                  id: 'live-v42-move-21', san: 'h3?', uci: 'h2h3', from: 'h2', to: 'h3',
+                  fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 21',
+                  spentMs: 1900, cpLoss: 180, bestMove: 'e2e4', quality: 'mistake',
+                  principleDiagnoses: [{ key: 'forcing-scan', title: 'Forcing move scan', confidence: 'high', evidence: 'Checks, captures, and threats were not compared.' }],
+                  ignoredPrinciples: ['candidate-comparison'],
+                },
+              ],
             }],
           };
 
@@ -106,6 +119,7 @@ jobs:
           await page.addInitScript((store) => {
             localStorage.setItem('kmate-position-v7', JSON.stringify(store));
             localStorage.removeItem('kmate-learning-v40');
+            localStorage.removeItem('kmate-personalization-v42');
           }, seed);
 
           await page.goto(`${process.env.LIVE_URL}?deploy=${process.env.GITHUB_SHA}`, {
@@ -113,44 +127,48 @@ jobs:
             timeout: 90_000,
           });
           await page.waitForFunction(
-            () => Boolean(
-              window.__KMATE_LEARNING_LIBRARY__?.state?.().ready
-              && window.__KMATE_RELEVANCE__?.state?.().ready
-            ),
+            () => Boolean(window.__KMATE_V42__?.state?.().ready && window.__KMATE_PERSONALIZATION__),
             undefined,
             { timeout: 90_000 },
           );
 
-          const recommendation = await page.evaluate(() => window.__KMATE_RELEVANCE__.recommendation());
-          if (recommendation.relevance?.mode !== 'move-level') {
-            throw new Error(`Expected move-level relevance: ${JSON.stringify(recommendation.relevance)}`);
-          }
-          if (!recommendation.moveEvidence?.[0]?.moveLabel?.includes('14. a3')) {
-            throw new Error(`Expected move 14.a3 evidence: ${JSON.stringify(recommendation.moveEvidence)}`);
-          }
-          if (recommendation.puzzlePlan?.length !== 5) {
-            throw new Error(`Expected a five-slot puzzle plan: ${JSON.stringify(recommendation.puzzlePlan)}`);
-          }
+          const recommendation = await page.evaluate(() => window.__KMATE_V42__.recommendation());
+          if (recommendation.version !== '42.0.0') throw new Error(`Unexpected recommendation version: ${recommendation.version}`);
+          if (recommendation.customization?.mode !== 'gameplay-plus-intent') throw new Error(`Expected gameplay-plus-intent: ${JSON.stringify(recommendation.customization)}`);
+          if (recommendation.puzzlePlan?.length !== 5) throw new Error('The custom puzzle plan does not contain five slots.');
+          if (!recommendation.puzzlePlan.some((slot) => slot.sourceType === 'session-intent')) throw new Error('The chosen training goal was not preserved in the puzzle plan.');
+          if (!recommendation.optionEvidence?.some((item) => item.value === 'Attack the king')) throw new Error('The selected training goal is missing from option evidence.');
 
-          const wizard = page.locator('#wizardLearningButton');
-          await wizard.waitFor({ state: 'visible', timeout: 30_000 });
-          await wizard.click();
-          await page.locator('#km41RecommendationEvidence').waitFor({ state: 'visible', timeout: 30_000 });
-          const evidenceText = (await page.locator('#km41RecommendationEvidence').textContent()) || '';
-          if (!evidenceText.includes('14. a3')) throw new Error(`Move evidence missing: ${evidenceText}`);
-          const categories = await page.locator('[data-library-focus-card]').count();
-          if (categories !== 8) throw new Error(`Expected 8 open learning categories, found ${categories}.`);
-          const ranked = await page.locator('#learningVideoCard .km41-lesson-row').count();
-          if (ranked < 3) throw new Error(`Expected at least 3 move-ranked lessons, found ${ranked}.`);
+          const previews = await page.evaluate(async () => {
+            const attack = window.__KMATE_PERSONALIZATION__.preview();
+            const goal = document.querySelector('#goalSelect');
+            goal.value = 'convert';
+            goal.dispatchEvent(new Event('change', { bubbles: true }));
+            document.querySelector('[data-phase="endgame"]')?.click();
+            document.querySelector('[data-time="10+0"]')?.click();
+            document.querySelector('[data-side="b"]')?.click();
+            await new Promise((resolve) => setTimeout(resolve, 140));
+            const convert = window.__KMATE_PERSONALIZATION__.preview();
+            return {
+              attack: attack.principles.map((item) => item.key),
+              convert: convert.principles.map((item) => item.key),
+            };
+          });
+          if (JSON.stringify(previews.attack) === JSON.stringify(previews.convert)) throw new Error(`Principles did not change: ${JSON.stringify(previews)}`);
+          if (!previews.convert.includes('conversion') || !previews.convert.includes('king-activity')) throw new Error(`Endgame conversion principles are incomplete: ${JSON.stringify(previews.convert)}`);
+
+          await page.locator('#wizardLearningButton').click();
+          await page.locator('#km42LearningBlueprint').waitFor({ state: 'visible', timeout: 30_000 });
+          const blueprint = (await page.locator('#km42LearningBlueprint').textContent()) || '';
+          if (!blueprint.includes('Attack the king') || !blueprint.includes('Gameplay first')) throw new Error(`Custom blueprint missing: ${blueprint}`);
 
           await page.locator('#learningWatchLesson').click();
-          await page.locator('#km41LessonChoices').waitFor({ state: 'visible', timeout: 30_000 });
-          if (await page.locator('#km41LessonPlayer').isVisible()) {
-            throw new Error('A video opened before the player reviewed the ranked lesson list.');
-          }
-          const lessonText = (await page.locator('#km41LessonChoicesList').textContent()) || '';
-          if (!lessonText.includes('14. a3')) throw new Error(`Lesson reasons are not tied to the move: ${lessonText}`);
-          await page.locator('#km41LessonChoicesClose').click();
+          await page.locator('#km42LessonDialog').waitFor({ state: 'visible', timeout: 30_000 });
+          const lessonTitles = await page.locator('#km42LessonList .km42-lesson-row b').allTextContents();
+          if (lessonTitles.length !== 5 || new Set(lessonTitles).size !== 5) throw new Error(`Expected five diverse lessons: ${JSON.stringify(lessonTitles)}`);
+          const lessonText = (await page.locator('#km42LessonList').textContent()) || '';
+          if (!lessonText.includes('14. a3') || !lessonText.includes('21. h3')) throw new Error(`Lessons are not tied to separate moves: ${lessonText}`);
+          await page.locator('#km42LessonClose').click();
 
           await page.setViewportSize({ width: 390, height: 844 });
           await page.evaluate(() => {
@@ -158,37 +176,49 @@ jobs:
             document.documentElement.style.setProperty('--kmate-safe-bottom', '34px');
           });
           await page.locator('#learningStartPuzzles').click();
-          await page.locator('#km41PuzzleMode').waitFor({ state: 'visible', timeout: 45_000 });
-          await page.locator('#km41PuzzleBoard .sq').first().waitFor({ state: 'visible', timeout: 45_000 });
-          const squares = await page.locator('#km41PuzzleBoard .sq').count();
-          const playerBars = await page.locator('#km41PuzzleMode .playerbar').count();
-          if (squares !== 64 || playerBars !== 2) {
-            throw new Error(`Unexpected game-style puzzle UI: ${squares} squares, ${playerBars} player bars.`);
+          await page.locator('#km42PuzzleMode').waitFor({ state: 'visible', timeout: 60_000 });
+          await page.locator('#km42PuzzleBoard .sq').first().waitFor({ state: 'visible', timeout: 60_000 });
+          const initial = await page.evaluate(() => window.__KMATE_V42__.state().puzzle);
+          if (!initial.expectedMove) throw new Error(`The live puzzle has no expected move: ${JSON.stringify(initial)}`);
+          const fromSquare = initial.expectedMove.slice(0, 2);
+          const toSquare = initial.expectedMove.slice(2, 4);
+          await page.locator(`[data-km42-square="${fromSquare}"]`).click();
+          const selected = await page.locator(`[data-km42-square="${fromSquare}"]`).getAttribute('class');
+          const targetClass = await page.locator(`[data-km42-square="${toSquare}"]`).getAttribute('class');
+          if (!selected?.includes('selected') || !(targetClass?.includes('legal') || targetClass?.includes('capture'))) {
+            throw new Error(`Tap selection did not expose legal movement: ${selected} / ${targetClass}`);
           }
+          await page.locator(`[data-km42-square="${fromSquare}"]`).click();
+
+          const from = await page.locator(`[data-km42-square="${fromSquare}"]`).boundingBox();
+          const to = await page.locator(`[data-km42-square="${toSquare}"]`).boundingBox();
+          if (!from || !to) throw new Error('The expected drag squares are not visible.');
+          await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+          await page.mouse.down();
+          await page.mouse.move((from.x + to.x) / 2 + from.width / 2, (from.y + to.y) / 2 + from.height / 2, { steps: 4 });
+          await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
+          await page.mouse.up();
+          await page.waitForFunction(
+            (fen) => window.__KMATE_V42__.state().puzzle.fen !== fen,
+            initial.fen,
+            { timeout: 15_000 },
+          );
+
           const layout = await page.evaluate(() => {
-            const mode = document.querySelector('#km41PuzzleMode').getBoundingClientRect();
-            const board = document.querySelector('#km41PuzzleBoard').getBoundingClientRect();
-            const instructionSize = Number.parseFloat(getComputedStyle(document.querySelector('#km41PuzzleInstruction')).fontSize);
-            return { mode, board, instructionSize, viewportHeight: innerHeight };
+            const mode = document.querySelector('#km42PuzzleMode').getBoundingClientRect();
+            const board = document.querySelector('#km42PuzzleBoard').getBoundingClientRect();
+            return { mode, board, viewportHeight: innerHeight };
           });
-          if (layout.mode.top < 46 || layout.mode.bottom > layout.viewportHeight - 33) {
-            throw new Error(`Puzzle mode crossed the phone safe area: ${JSON.stringify(layout.mode)}`);
-          }
-          if (layout.board.width < 350 || Math.abs(layout.board.width - layout.board.height) > 2) {
-            throw new Error(`Puzzle board did not receive phone-priority space: ${JSON.stringify(layout.board)}`);
-          }
-          if (layout.instructionSize > 10) {
-            throw new Error(`Phone instruction text is too large: ${layout.instructionSize}px`);
-          }
+          if (layout.mode.top < 46 || layout.mode.bottom > layout.viewportHeight - 33) throw new Error(`Puzzle screen crossed the safe area: ${JSON.stringify(layout.mode)}`);
+          if (layout.board.width < 350 || Math.abs(layout.board.width - layout.board.height) > 2) throw new Error(`Puzzle board lost phone-priority space: ${JSON.stringify(layout.board)}`);
+          if (await page.locator('#km42PuzzleBoard .vector-piece').count() < 2) throw new Error('The puzzle board is not using the normal K-Mate piece renderer.');
           if (pageErrors.length) throw new Error(`Live page errors: ${pageErrors.join('\n')}`);
 
           console.log(JSON.stringify({
             status: 'pass',
-            evidence: recommendation.moveEvidence[0].moveLabel,
-            categories,
-            rankedLessons: ranked,
-            squares,
-            playerBars,
+            principleSets: previews,
+            lessons: lessonTitles,
+            expectedMove: initial.expectedMove,
             boardWidth: layout.board.width,
             safeTop: layout.mode.top,
             safeBottom: layout.viewportHeight - layout.mode.bottom,
