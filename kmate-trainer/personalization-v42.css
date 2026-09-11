@@ -1,0 +1,161 @@
+/* K-Mate v42 — visible personalization and touch-first puzzle practice */
+
+.km42-blueprint-card{
+  margin:8px 0 2px;
+  padding:14px;
+  border:1px solid #80d8a449;
+  border-radius:17px;
+  background:radial-gradient(circle at 95% 0,#80d8a41a,transparent 15rem),linear-gradient(145deg,#17251b,#101912);
+}
+.km42-blueprint-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.km42-blueprint-head small,.km42-blueprint-head b{display:block}
+.km42-blueprint-head small{color:var(--accent);font-size:8px;font-weight:900;letter-spacing:.11em;text-transform:uppercase}
+.km42-blueprint-head b{margin-top:3px;font-size:16px}
+.km42-blueprint-head>span{padding:4px 7px;border-radius:99px;background:#80d8a412;color:#c8f7da;font-size:8px;font-weight:900;text-transform:uppercase;white-space:nowrap}
+.km42-blueprint-card>p{margin:7px 0 10px;color:var(--muted);font-size:10px}
+.km42-blueprint-list{display:grid;gap:7px}
+.km42-blueprint-principle{padding:9px 10px;border:1px solid #ffffff10;border-radius:12px;background:#ffffff04}
+.km42-blueprint-principle b,.km42-blueprint-principle span,.km42-blueprint-principle small{display:block}
+.km42-blueprint-principle b{font-size:11px}
+.km42-blueprint-principle span{margin-top:3px;color:#dce5de;font-size:9px;line-height:1.38}
+.km42-blueprint-principle small{margin-top:5px;padding-top:5px;border-top:1px solid #ffffff0d;color:var(--muted);font-size:8px;line-height:1.4}
+.km42-coaching-blueprint{margin-top:0;margin-bottom:10px}
+
+.km42-principle-card{align-items:flex-start!important}
+.km42-principle-card .km42-principle-action{margin-bottom:6px!important;color:#edf4ee!important;font-weight:650}
+.km42-principle-why{display:block;padding:7px 9px;border-left:3px solid #80d8a4;border-radius:8px;background:#80d8a409;color:var(--muted);font-size:10px;line-height:1.42}
+.km42-principle-why strong{color:#c8f7da}
+
+.km42-learning-blueprint{padding:clamp(18px,3vw,27px);border-color:#f4cc7045;background:radial-gradient(circle at 0 0,#f4cc7014,transparent 25rem),linear-gradient(145deg,#1d251a,#111811)}
+.km42-learning-blueprint-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.km42-learning-blueprint-head h2{margin:5px 0 7px;font-size:clamp(24px,3.4vw,35px);letter-spacing:-.035em}
+.km42-learning-blueprint-head p{max-width:780px;margin:0;color:#d7dfd8}
+.km42-weight-badge{flex:0 0 auto;padding:6px 9px;border:1px solid #f4cc704d;border-radius:99px;background:#f4cc700c;color:#ffe29a;font-size:9px;font-weight:900;text-transform:uppercase;white-space:nowrap}
+.km42-option-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}
+.km42-option-grid article{padding:11px;border:1px solid #ffffff11;border-radius:13px;background:#ffffff04}
+.km42-option-grid small,.km42-option-grid b,.km42-option-grid span{display:block}
+.km42-option-grid small{color:var(--accent);font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+.km42-option-grid b{margin-top:3px;font-size:12px}
+.km42-option-grid span{margin-top:4px;color:var(--muted);font-size:9px;line-height:1.4}
+.km42-principles-recap{margin-top:12px;padding:10px 12px;border:1px solid #ffffff10;border-radius:13px;background:#ffffff03}
+.km42-principles-recap summary{cursor:pointer;font-size:10px;font-weight:900;color:#dfe7e1}
+.km42-principles-recap>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:9px}
+.km42-principles-recap article{padding:9px;border-radius:10px;background:#050a0666}
+.km42-principles-recap b,.km42-principles-recap span,.km42-principles-recap small{display:block}
+.km42-principles-recap b{font-size:10px}.km42-principles-recap span{margin-top:3px;color:#dce5de;font-size:9px}.km42-principles-recap small{margin-top:4px;color:var(--muted);font-size:8px}
+.km42-context-line{margin-top:11px;color:#ffe29a;font-size:9px;font-weight:850}
+
+.km42-ranked-lessons{display:grid;gap:9px;margin-top:14px}
+.km42-lesson-row .km41-lesson-why{border-left-color:#80d8a4;background:#80d8a408}
+.km42-result-context{display:grid;gap:5px;margin-top:10px;padding:10px;border:1px solid #ffffff12;border-radius:12px;background:#050a0666}
+.km42-result-context div{display:grid;grid-template-columns:78px minmax(0,1fr);gap:7px}
+.km42-result-context strong{color:var(--accent);font-size:8px;text-transform:uppercase;letter-spacing:.07em}
+.km42-result-context span{color:var(--muted);font-size:9px;line-height:1.35}
+
+#km42LessonDialog,#km42VideoDialog{
+  position:fixed;
+  z-index:13050;
+  top:var(--kmate-safe-top,max(12px,env(safe-area-inset-top,0px)));
+  right:var(--kmate-safe-right,max(0px,env(safe-area-inset-right,0px)));
+  bottom:var(--kmate-safe-bottom,max(8px,env(safe-area-inset-bottom,0px)));
+  left:var(--kmate-safe-left,max(0px,env(safe-area-inset-left,0px)));
+  width:auto;max-width:none;height:auto;max-height:none;margin:0;padding:0;overflow:hidden;border-radius:18px;
+}
+.km42-lesson-shell{height:100%;min-height:0;overflow:auto;padding:18px;background:radial-gradient(circle at 0 0,#80d8a416,transparent 28rem),#0b120d}
+.km42-dialog-head{position:sticky;top:-18px;z-index:5;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:-2px 0 14px;padding:10px 0;background:#0b120def;backdrop-filter:blur(16px)}
+.km42-dialog-head h2{margin:4px 0 6px;font-size:clamp(24px,4vw,38px);letter-spacing:-.035em}
+.km42-dialog-head p{max-width:760px;margin:0;color:var(--muted)}
+.km42-dialog-actions{display:flex;gap:7px;flex:0 0 auto}
+.km42-lesson-list{display:grid;gap:10px;max-width:1050px;margin:auto}
+.km42-lesson-list .km42-lesson-row{padding:16px}
+.km42-video-frame{position:relative;width:100%;max-width:1050px;aspect-ratio:16/9;margin:auto;overflow:hidden;border:1px solid var(--line);border-radius:17px;background:#050805}
+.km42-video-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.km42-video-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:1050px;margin:12px auto 0;color:var(--muted);font-size:10px}
+.km42-video-footer a{color:var(--accent);font-weight:850}
+
+body.km42-puzzle-open{overflow:hidden!important;overscroll-behavior:none}
+#km42PuzzleMode{
+  position:fixed;
+  z-index:13000;
+  top:var(--kmate-safe-top,max(12px,env(safe-area-inset-top,0px)));
+  right:var(--kmate-safe-right,max(0px,env(safe-area-inset-right,0px)));
+  bottom:var(--kmate-safe-bottom,max(8px,env(safe-area-inset-bottom,0px)));
+  left:var(--kmate-safe-left,max(0px,env(safe-area-inset-left,0px)));
+  width:auto;height:auto;min-height:0;overflow:hidden;background:radial-gradient(circle at 15% -10%,#253b29 0,transparent 28rem),var(--bg);color:var(--text);
+}
+#km42PuzzleMode[hidden]{display:none!important}
+.km42-puzzle-shell{display:flex;height:100%;min-height:0;flex-direction:column;padding:5px 9px 8px}
+.km42-puzzle-topbar{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:9px;flex:0 0 auto;min-height:54px;padding:2px 0 7px}
+.km42-puzzle-heading{min-width:0;text-align:center}
+.km42-puzzle-heading small,.km42-puzzle-heading b{display:block}
+.km42-puzzle-heading small{color:var(--accent);font-size:8px;font-weight:900;letter-spacing:.11em;text-transform:uppercase}
+.km42-puzzle-heading b{overflow:hidden;margin-top:2px;font-size:18px;text-overflow:ellipsis;white-space:nowrap}
+.km42-puzzle-main{display:grid;grid-template-columns:minmax(0,760px) minmax(285px,360px);gap:16px;align-items:start;justify-content:center;min-height:0;flex:1;overflow:hidden}
+.km42-board-column{width:min(760px,calc(100dvh - var(--kmate-safe-top,12px) - var(--kmate-safe-bottom,8px) - 185px),calc(100vw - 400px));min-width:0;max-width:100%;margin:auto}
+.km42-playerbar{min-height:55px;padding:6px 10px}.km42-playerbar .avatar{width:36px;height:36px;font-size:24px}.km42-playerbar .clock{min-width:74px;padding:5px 8px;font-size:20px}
+.km42-playerbar .identity small{font-size:9px}.km42-playerbar .turnpill{font-size:9px;padding:5px 7px}
+.km42-boardwrap{padding:5px}.km42-puzzle-board{border-radius:8px;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:contain}
+.km42-puzzle-board .sq{cursor:grab;touch-action:none}
+.km42-puzzle-board .sq:active{cursor:grabbing}
+.km42-puzzle-board .sq.km42-drag-over{box-shadow:inset 0 0 0 6px #80d8a4e8,inset 0 0 0 999px #80d8a430}
+.km42-puzzle-board .sq.km42-hint-source{box-shadow:inset 0 0 0 6px #f4cc70e8}
+.km42-puzzle-board .sq.km42-hint-target:before{content:"";position:absolute;z-index:4;inset:13%;border:6px solid #f4cc70e8;border-radius:50%}
+.km42-puzzle-status{min-height:39px;margin-top:5px;padding:7px 9px;border-radius:11px;font-size:10px;line-height:1.35}
+.km42-puzzle-panel{min-height:0;max-height:100%;overflow:auto;padding:17px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#18241b,#0f1711)}
+.km42-panel-progress{display:flex;align-items:center;justify-content:space-between;gap:8px}.km42-panel-progress b{font-size:11px}.km42-panel-progress span{color:var(--muted);font-size:9px}
+.km42-progress-track{height:6px;margin:8px 0 14px;overflow:hidden;border-radius:99px;background:#ffffff0b}.km42-progress-track span{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+.km42-puzzle-panel h2{margin:5px 0;font-size:21px;line-height:1.15}
+.km42-puzzle-help{margin:0;color:var(--muted);font-size:10px}
+.km42-why{margin-top:13px;padding:10px 11px;border:1px solid #f4cc7035;border-radius:13px;background:#f4cc7008}
+.km42-why summary{cursor:pointer;color:#ffe29a;font-size:9px;font-weight:900}
+.km42-why div{margin-top:8px}.km42-why b,.km42-why span{display:block}.km42-why b{font-size:12px}.km42-why span{margin-top:4px;color:#d2dcd5;font-size:9px;line-height:1.4}
+.km42-puzzle-meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}.km42-puzzle-meta span{padding:4px 6px;border-radius:99px;background:#ffffff08;color:var(--muted);font-size:8px}
+.km42-puzzle-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}.km42-puzzle-actions .btn{min-height:40px;padding:0 8px;font-size:10px}.km42-puzzle-actions .primary{grid-column:1/-1}
+.km42-puzzle-source{display:inline-flex;margin-top:10px;color:var(--accent);font-size:9px;font-weight:850}
+.km42-drag-ghost{position:fixed;left:0;top:0;z-index:14000;width:clamp(48px,13vw,82px);height:clamp(48px,13vw,82px);pointer-events:none;filter:drop-shadow(0 12px 14px #000a);will-change:transform}
+.km42-drag-ghost .piece{width:100%;height:100%;font-size:70px;opacity:.94}
+body.km42-dragging-piece{cursor:grabbing!important}
+.km42-workout-summary{display:grid;place-items:center;grid-column:1/-1;min-height:100%;padding:24px;text-align:center}
+.km42-workout-summary h2{margin:7px 0;font-size:clamp(32px,6vw,58px)}.km42-workout-summary p{max-width:680px;margin:0;color:var(--muted)}
+.km42-summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:min(560px,100%);margin:18px auto}
+.km42-summary-grid article{padding:14px;border:1px solid #ffffff12;border-radius:14px;background:#ffffff05}.km42-summary-grid b,.km42-summary-grid span{display:block}.km42-summary-grid b{font-size:28px}.km42-summary-grid span{color:var(--muted);font-size:8px;text-transform:uppercase}
+.km42-summary-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+
+@media(max-width:900px){
+  .km42-option-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .km42-learning-blueprint-head{flex-direction:column}.km42-weight-badge{align-self:flex-start}
+  #km42PuzzleMode{border-radius:0}
+  .km42-puzzle-shell{padding:2px 4px 4px}
+  .km42-puzzle-topbar{grid-template-columns:35px minmax(0,1fr) 35px;min-height:39px;gap:5px;padding:1px 1px 3px}
+  .km42-puzzle-topbar .roundbtn{width:34px;height:34px;border-radius:10px;font-size:16px}
+  .km42-puzzle-heading small{font-size:7px}.km42-puzzle-heading b{font-size:13px}
+  .km42-puzzle-main{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;overflow:auto;overscroll-behavior:contain}
+  .km42-board-column{width:min(calc(100vw - var(--kmate-safe-left,0px) - var(--kmate-safe-right,0px) - 8px),calc(100dvh - var(--kmate-safe-top,12px) - var(--kmate-safe-bottom,8px) - 150px));max-width:none;flex:0 0 auto;margin:0 auto}
+  .km42-playerbar{min-height:36px;padding:2px 6px}.km42-playerbar .avatar{width:27px;height:27px;border-radius:9px;font-size:19px}.km42-playerbar .identity{gap:6px}.km42-playerbar .identity b{font-size:10px}.km42-playerbar .identity small{display:none}.km42-playerbar .clock-wrap{gap:4px}.km42-playerbar .turnpill{display:none}.km42-playerbar .clock{min-width:49px;padding:3px 5px;border-radius:8px;font-size:14px}
+  .km42-boardwrap{padding:2px}.km42-puzzle-board{border-radius:5px}.km42-puzzle-board .piece{font-size:clamp(31px,11.6vw,58px)}
+  .km42-puzzle-status{min-height:27px;margin-top:3px;padding:4px 7px;border-radius:8px;font-size:8.5px;line-height:1.2}.km42-puzzle-status .statusdot{width:7px;height:7px}
+  .km42-puzzle-panel{width:100%;flex:0 0 auto;overflow:visible;padding:5px 6px;border-radius:11px}
+  .km42-panel-progress{display:none}.km42-progress-track{height:3px;margin:0 0 4px}
+  .km42-puzzle-panel h2{overflow:hidden;margin:0;font-size:9px;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}
+  .km42-puzzle-help{font-size:8px;line-height:1.2}
+  .km42-why{margin-top:4px;padding:4px 6px;border-radius:8px}.km42-why summary{font-size:8px}.km42-why div{margin-top:4px}.km42-why b{font-size:9px}.km42-why span{font-size:8px;line-height:1.3}
+  .km42-puzzle-meta,.km42-puzzle-source{display:none}
+  .km42-puzzle-actions{grid-template-columns:repeat(4,1fr);gap:4px;margin-top:4px}.km42-puzzle-actions .btn{min-height:30px;padding:0 3px;border-radius:8px;font-size:8px}.km42-puzzle-actions .primary{grid-column:auto}
+}
+
+@media(max-width:560px){
+  .km42-blueprint-card{padding:11px}.km42-blueprint-principle{padding:7px 8px}.km42-blueprint-principle span{font-size:8px}
+  .km42-option-grid{grid-template-columns:1fr}.km42-principles-recap>div{grid-template-columns:1fr}
+  .km42-lesson-row{grid-template-columns:1fr!important}.km42-lesson-row .km41-lesson-actions{justify-content:flex-start!important}
+  #km42LessonDialog,#km42VideoDialog{border-radius:0}
+  .km42-lesson-shell{padding:10px}.km42-dialog-head{top:-10px;margin:0 0 9px;padding:7px 0}.km42-dialog-head h2{font-size:23px}.km42-dialog-head p{font-size:10px}
+  .km42-dialog-actions .btn{display:none}.km42-video-footer{align-items:flex-start;flex-direction:column}
+  .km42-result-context div{grid-template-columns:1fr}.km42-summary-grid{grid-template-columns:repeat(3,1fr)}
+}
+
+@media(orientation:landscape) and (max-height:620px) and (max-width:980px){
+  .km42-puzzle-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(245px,310px);gap:7px;overflow:hidden}
+  .km42-board-column{width:min(calc(100dvh - var(--kmate-safe-top,12px) - var(--kmate-safe-bottom,8px) - 48px),calc(100vw - var(--kmate-safe-left,0px) - var(--kmate-safe-right,0px) - 325px));margin:auto}
+  .km42-playerbar{display:none}.km42-puzzle-status{margin-top:2px}
+  .km42-puzzle-panel{height:100%;overflow:auto;padding:9px}.km42-panel-progress{display:flex}.km42-progress-track{height:5px;margin:6px 0 8px}.km42-puzzle-panel h2{font-size:15px;white-space:normal}.km42-puzzle-help,.km42-why,.km42-puzzle-meta,.km42-puzzle-source{display:initial}.km42-why{display:block}.km42-puzzle-actions{grid-template-columns:1fr 1fr}.km42-puzzle-actions .primary{grid-column:1/-1}
+}
