@@ -1,0 +1,417 @@
+
+function km42SquareButton(target) {
+  return target instanceof Element ? target.closest('[data-km42-square]') : null;
+}
+
+function km42ClearSelection() {
+  km42Puzzle.selected = null;
+  km42Puzzle.legalMoves = [];
+  km42RenderPuzzleBoard();
+}
+
+function km42SelectSquare(square) {
+  const piece = km42Puzzle.game?.get(square);
+  if (!piece || piece.color !== km42Puzzle.game.turn()) return false;
+  const moves = km42LegalMoves(square);
+  if (!moves.length) {
+    km42SetPuzzleStatus(`${square} has no legal move in this position.`, 'bad');
+    return false;
+  }
+  km42Puzzle.selected = square;
+  km42Puzzle.legalMoves = moves;
+  km42Puzzle.hintSquares = [];
+  km42SetPuzzleStatus(`Selected ${square}. Tap or drag to a highlighted destination.`, '');
+  km42RenderPuzzleBoard();
+  return true;
+}
+
+function km42UciForMove(move, expected) {
+  const promotion = move?.promotion || (expected?.startsWith(`${move?.from}${move?.to}`) ? expected[4] : '') || '';
+  return `${move.from}${move.to}${promotion}`;
+}
+
+function km42AttemptPuzzleMove(from, to) {
+  if (km42Puzzle.locked || !km42Puzzle.game) return false;
+  const candidates = km42LegalMoves(from).filter((move) => move.to === to);
+  if (!candidates.length) {
+    km42SetPuzzleStatus(`${from} → ${to} is not legal. Choose a highlighted square.`, 'bad');
+    km42SelectSquare(from);
+    return false;
+  }
+  const expected = km42ExpectedMove();
+  const candidate = candidates.find((move) => km42UciForMove(move, expected) === expected) || candidates[0];
+  const attempted = km42UciForMove(candidate, expected);
+  km42Puzzle.selected = null;
+  km42Puzzle.legalMoves = [];
+  if (attempted !== expected) {
+    km42Puzzle.wrongAttempts += 1;
+    km42Puzzle.totalWrong += 1;
+    km42Puzzle.hintSquares = km42Puzzle.wrongAttempts >= 2 ? [expected.slice(0, 2)] : [];
+    km42SetPuzzleStatus(
+      km42Puzzle.wrongAttempts >= 2
+        ? 'Not the puzzle move. The correct piece is highlighted—scan its forcing moves.'
+        : 'Legal, but not best. Re-check checks, captures, threats, and the opponent’s reply.',
+      'bad',
+    );
+    km42RenderPuzzleBoard();
+    return false;
+  }
+  km42ApplySolutionMove(expected, true);
+  return true;
+}
+
+function km42HandleSquareTap(square) {
+  if (performance.now() < km42Puzzle.suppressClickUntil || km42Puzzle.locked || !km42Puzzle.game) return;
+  const piece = km42Puzzle.game.get(square);
+  if (!km42Puzzle.selected) {
+    if (!piece || piece.color !== km42Puzzle.game.turn()) {
+      km42SetPuzzleStatus(`${km42Puzzle.game.turn() === 'w' ? 'White' : 'Black'} moves. Tap one of that side’s pieces.`, 'bad');
+      return;
+    }
+    km42SelectSquare(square);
+    return;
+  }
+  if (square === km42Puzzle.selected) {
+    km42ClearSelection();
+    km42SetPuzzleStatus('Selection cleared. Choose a piece.', '');
+    return;
+  }
+  if (piece?.color === km42Puzzle.game.turn()) {
+    km42SelectSquare(square);
+    return;
+  }
+  km42AttemptPuzzleMove(km42Puzzle.selected, square);
+}
+
+function km42CreateDragGhost(square, x, y) {
+  const source = km42$(`[data-km42-square="${square}"] .piece`);
+  if (!source) return null;
+  const ghost = document.createElement('div');
+  ghost.className = 'km42-drag-ghost';
+  ghost.append(source.cloneNode(true));
+  document.body.append(ghost);
+  km42MoveDragGhost(x, y);
+  return ghost;
+}
+
+function km42MoveDragGhost(x, y) {
+  if (!km42Puzzle.dragGhost) return;
+  km42Puzzle.dragGhost.style.transform = `translate3d(${Math.round(x)}px,${Math.round(y)}px,0) translate(-50%,-55%)`;
+}
+
+function km42DragTargetAt(x, y) {
+  const element = document.elementFromPoint(x, y);
+  return km42SquareButton(element)?.dataset.km42Square || null;
+}
+
+function km42HighlightDragTarget(square) {
+  km42$$('#km42PuzzleBoard .km42-drag-over').forEach((cell) => cell.classList.remove('km42-drag-over'));
+  if (!square) return;
+  const legal = km42Puzzle.legalMoves.some((move) => move.to === square);
+  if (legal) km42$(`[data-km42-square="${square}"]`)?.classList.add('km42-drag-over');
+}
+
+function km42CleanupPointer() {
+  km42Puzzle.dragGhost?.remove();
+  km42Puzzle.dragGhost = null;
+  km42Puzzle.pointer = null;
+  document.body.classList.remove('km42-dragging-piece');
+  km42$$('#km42PuzzleBoard .km42-drag-over').forEach((cell) => cell.classList.remove('km42-drag-over'));
+}
+
+function km42PointerDown(event) {
+  if (km42Puzzle.locked || !km42Puzzle.game) return;
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  const button = km42SquareButton(event.target);
+  const square = button?.dataset.km42Square;
+  const piece = square ? km42Puzzle.game.get(square) : null;
+  if (!square || piece?.color !== km42Puzzle.game.turn()) return;
+  km42Puzzle.pointer = {
+    id: event.pointerId,
+    from: square,
+    startX: event.clientX,
+    startY: event.clientY,
+    dragging: false,
+  };
+  try { km42$('#km42PuzzleBoard')?.setPointerCapture?.(event.pointerId); } catch {}
+}
+
+function km42PointerMove(event) {
+  const pointer = km42Puzzle.pointer;
+  if (!pointer || pointer.id !== event.pointerId) return;
+  const distance = Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY);
+  if (!pointer.dragging && distance < 7) return;
+  event.preventDefault();
+  if (!pointer.dragging) {
+    pointer.dragging = true;
+    km42Puzzle.selected = pointer.from;
+    km42Puzzle.legalMoves = km42LegalMoves(pointer.from);
+    km42Puzzle.hintSquares = [];
+    km42RenderPuzzleBoard();
+    km42Puzzle.dragGhost = km42CreateDragGhost(pointer.from, event.clientX, event.clientY);
+    document.body.classList.add('km42-dragging-piece');
+    km42SetPuzzleStatus(`Dragging ${pointer.from}. Release on a highlighted destination.`, '');
+  }
+  km42MoveDragGhost(event.clientX, event.clientY);
+  km42HighlightDragTarget(km42DragTargetAt(event.clientX, event.clientY));
+}
+
+function km42PointerUp(event) {
+  const pointer = km42Puzzle.pointer;
+  if (!pointer || pointer.id !== event.pointerId) return;
+  const dragging = pointer.dragging;
+  const from = pointer.from;
+  const target = dragging ? km42DragTargetAt(event.clientX, event.clientY) : null;
+  try { km42$('#km42PuzzleBoard')?.releasePointerCapture?.(event.pointerId); } catch {}
+  km42CleanupPointer();
+  if (!dragging) return;
+  event.preventDefault();
+  km42Puzzle.suppressClickUntil = performance.now() + 650;
+  if (target && km42Puzzle.legalMoves.some((move) => move.to === target)) {
+    km42AttemptPuzzleMove(from, target);
+  } else {
+    km42Puzzle.selected = null;
+    km42Puzzle.legalMoves = [];
+    km42RenderPuzzleBoard();
+    km42SetPuzzleStatus('The piece was released outside a legal destination. Try again.', 'bad');
+  }
+}
+
+function km42PointerCancel(event) {
+  if (km42Puzzle.pointer?.id !== event.pointerId) return;
+  km42CleanupPointer();
+  km42ClearSelection();
+}
+
+function km42BindPuzzlePointerControls(mode) {
+  const board = km42$('#km42PuzzleBoard', mode);
+  if (!board || board.dataset.km42Bound) return;
+  board.dataset.km42Bound = KM42_UI_VERSION;
+  board.addEventListener('click', (event) => {
+    const button = km42SquareButton(event.target);
+    if (!button) return;
+    km42HandleSquareTap(button.dataset.km42Square);
+  });
+  board.addEventListener('pointerdown', km42PointerDown);
+  board.addEventListener('pointermove', km42PointerMove, { passive: false });
+  board.addEventListener('pointerup', km42PointerUp);
+  board.addEventListener('pointercancel', km42PointerCancel);
+  board.addEventListener('lostpointercapture', () => {
+    if (km42Puzzle.pointer?.dragging) km42CleanupPointer();
+  });
+}
+
+function km42ApplySolutionMove(uci, playerMove) {
+  if (!km42Puzzle.game) return false;
+  try {
+    const move = km42Puzzle.game.move({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+      promotion: uci[4] || 'q',
+    });
+    if (!move) return false;
+  } catch {
+    km42SetPuzzleStatus('This stored line could not be replayed. Skip to the next puzzle.', 'bad');
+    return false;
+  }
+  km42Puzzle.solutionIndex += 1;
+  km42Puzzle.selected = null;
+  km42Puzzle.legalMoves = [];
+  km42Puzzle.hintSquares = [];
+  km42RenderPuzzleBoard();
+  const puzzle = km42CurrentPuzzle();
+  if (km42Puzzle.solutionIndex >= puzzle.solutionUci.length) {
+    km42FinishPuzzle(true);
+    return true;
+  }
+  if (playerMove) {
+    km42Puzzle.locked = true;
+    km42UpdateTurnBars();
+    km42SetPuzzleStatus('Correct. K-Mate is playing the forced reply…', 'thinking');
+    window.setTimeout(() => {
+      const reply = puzzle.solutionUci[km42Puzzle.solutionIndex];
+      km42ApplySolutionMove(reply, false);
+      if (km42Puzzle.solutionIndex < puzzle.solutionUci.length) {
+        km42Puzzle.locked = false;
+        km42UpdateTurnBars();
+        km42SetPuzzleStatus('Your move. Continue the best line.', '');
+      }
+    }, 330);
+  }
+  return true;
+}
+
+function km42RecordPuzzle(puzzle, solved) {
+  const progress = km42ReadProgress();
+  const prior = progress.puzzles[puzzle.id] || { attempts: 0, solves: 0, wrong: 0 };
+  progress.puzzles[puzzle.id] = {
+    ...prior,
+    attempts: Number(prior.attempts || 0) + 1,
+    solves: Number(prior.solves || 0) + (solved ? 1 : 0),
+    wrong: Number(prior.wrong || 0) + km42Puzzle.wrongAttempts,
+    solved: Boolean(prior.solved || solved),
+    focus: puzzle.km42Slot?.focus || puzzle.focus,
+    rating: puzzle.rating,
+    sourceMove: puzzle.km42Slot?.sourceMove || null,
+    sourceType: puzzle.km42Slot?.sourceType || km42Puzzle.source,
+    matchedThemes: puzzle.km42MatchedThemes || [],
+    relevanceScore: puzzle.km42RelevanceScore || null,
+    customizationFingerprint: km42Puzzle.recommendation?.customizationFingerprint || null,
+    lastAt: new Date().toISOString(),
+  };
+  progress.seen.push(puzzle.id);
+  km42SaveProgress(progress);
+}
+
+function km42FinishPuzzle(solved) {
+  const puzzle = km42CurrentPuzzle();
+  if (!puzzle) return;
+  km42CleanupPointer();
+  km42Puzzle.locked = true;
+  if (solved) km42Puzzle.solved += 1;
+  else km42Puzzle.skipped += 1;
+  km42RecordPuzzle(puzzle, solved);
+  km42SetPuzzleStatus(
+    solved
+      ? `Solved${km42Puzzle.wrongAttempts ? ` after ${km42Puzzle.wrongAttempts} correction${km42Puzzle.wrongAttempts === 1 ? '' : 's'}` : ' cleanly'}.`
+      : 'Puzzle skipped. It can return later for spaced review.',
+    solved ? 'good' : 'bad',
+  );
+  km42$('#km42PuzzleNext').hidden = false;
+  km42$('#km42PuzzleHint').disabled = true;
+  km42$('#km42PuzzleReset').disabled = true;
+  km42$('#km42PuzzleSkip').disabled = true;
+  km42$('#km42PuzzleProgressBar').style.width = `${((km42Puzzle.index + 1) / km42Puzzle.puzzles.length) * 100}%`;
+  km42UpdateTurnBars();
+}
+
+function km42RevealPuzzleMove() {
+  const expected = km42ExpectedMove();
+  if (!expected || km42Puzzle.locked) return;
+  km42Puzzle.hintSquares = [expected.slice(0, 2), expected.slice(2, 4)];
+  km42Puzzle.wrongAttempts += 1;
+  km42Puzzle.totalWrong += 1;
+  km42SetPuzzleStatus(`Hint: ${expected.slice(0, 2)} → ${expected.slice(2, 4)}${expected[4] ? `, promote to ${expected[4].toUpperCase()}` : ''}.`, 'bad');
+  km42RenderPuzzleBoard();
+}
+
+function km42SkipPuzzle() {
+  if (km42Puzzle.locked) return;
+  km42FinishPuzzle(false);
+}
+
+function km42NextPuzzle() {
+  km42Puzzle.index += 1;
+  if (km42Puzzle.index >= km42Puzzle.puzzles.length) km42FinishWorkout();
+  else km42LoadPuzzleAtIndex();
+}
+
+function km42FinishWorkout() {
+  const main = km42$('.km42-puzzle-main');
+  if (!main) return;
+  const total = km42Puzzle.puzzles.length || 5;
+  const accuracy = Math.round((km42Puzzle.solved / total) * 100);
+  const progress = km42ReadProgress();
+  progress.workouts.push({
+    at: new Date().toISOString(),
+    version: 42,
+    sourceSessionId: km42Puzzle.recommendation?.sourceSessionId || null,
+    customizationFingerprint: km42Puzzle.recommendation?.customizationFingerprint || null,
+    focus: km42Puzzle.recommendation?.focus?.key || null,
+    rating: km42Puzzle.recommendation?.puzzleRating || null,
+    solved: km42Puzzle.solved,
+    total,
+    wrong: km42Puzzle.totalWrong,
+    source: km42Puzzle.source,
+    sourceMoves: [...new Set(km42Puzzle.puzzles.map((puzzle) => puzzle.km42Slot?.sourceMove).filter(Boolean))],
+    intentSlots: km42Puzzle.puzzles.filter((puzzle) => puzzle.km42Slot?.sourceType === 'session-intent').length,
+  });
+  km42SaveProgress(progress);
+  main.innerHTML = `
+    <section class="km42-workout-summary">
+      <div><div class="eyebrow">Custom workout complete</div><h2>${km42Escape(km42Puzzle.recommendation?.focus?.label || 'Training')} reinforced</h2><p>${km42Escape(km42Puzzle.recommendation?.customization?.summary || km42Puzzle.recommendation?.puzzleSetSummary || '')}</p>
+      <div class="km42-summary-grid"><article><b>${km42Puzzle.solved}</b><span>Solved</span></article><article><b>${accuracy}%</b><span>Completion</span></article><article><b>${km42Puzzle.totalWrong}</b><span>Corrections</span></article></div>
+      <div class="km42-summary-actions"><button class="btn primary" id="km42WorkoutAgain" type="button">Another custom set</button><button class="btn" id="km42WorkoutLessons" type="button">Relevant lessons</button><button class="btn" id="km42WorkoutDone" type="button">Done</button></div></div>
+    </section>`;
+  km42$('#km42PuzzleFlip').hidden = true;
+  km42$('#km42WorkoutAgain')?.addEventListener('click', () => km42StartWorkout({ source: km42Puzzle.source }));
+  km42$('#km42WorkoutLessons')?.addEventListener('click', () => {
+    km42ClosePuzzleMode({ restore: false });
+    void km42OpenLessonList();
+  });
+  km42$('#km42WorkoutDone')?.addEventListener('click', () => km42ClosePuzzleMode());
+  km42ScheduleRender(true);
+}
+
+function km42RestoreContext() {
+  if (km42Puzzle.returnContext !== 'result') return;
+  const dialog = km42$('#resultDialog');
+  if (!dialog) return;
+  try {
+    if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+    else dialog.setAttribute('open', '');
+  } catch {}
+}
+
+function km42ClosePuzzleMode({ restore = true } = {}) {
+  km42CleanupPointer();
+  const mode = km42$('#km42PuzzleMode');
+  if (mode) mode.hidden = true;
+  document.body.classList.remove('km42-puzzle-open');
+  km42$('#km42PuzzleFlip')?.removeAttribute('hidden');
+  if (restore) km42RestoreContext();
+  km42ScheduleRender(true);
+}
+
+async function km42StartWorkout({ focusOverride = null, source = 'tailored' } = {}) {
+  const base = km42Recommendation();
+  const recommendation = focusOverride ? km42ManualRecommendation(base, focusOverride) : base;
+  if (!recommendation) return false;
+  const resultDialog = km42$('#resultDialog');
+  km42Puzzle.returnContext = resultDialog?.open ? 'result' : 'learning';
+  if (resultDialog?.open) resultDialog.close();
+  const oldV40 = km42$('#learningPuzzleDialog');
+  if (oldV40?.open) oldV40.close();
+  const oldV41 = km42$('#km41PuzzleMode');
+  if (oldV41) oldV41.hidden = true;
+
+  const mode = km42EnsurePuzzleMode();
+  mode.hidden = false;
+  document.body.classList.add('km42-puzzle-open');
+  km42$('#km42PuzzleFlip').hidden = false;
+  km42$('#km42PuzzleKicker').textContent = focusOverride ? 'Open library practice' : 'Custom from your game and setup';
+  km42$('#km42PuzzleTitle').textContent = 'Building your five-puzzle set…';
+  km42SetPuzzleStatus('Selecting legal positions that match the exact moves, goal, phase, opening, level, and clock…', 'thinking');
+
+  try {
+    const puzzles = await km42LoadCustomPuzzles(recommendation);
+    Object.assign(km42Puzzle, {
+      puzzles,
+      index: 0,
+      game: null,
+      selected: null,
+      legalMoves: [],
+      solutionIndex: 0,
+      wrongAttempts: 0,
+      totalWrong: 0,
+      solved: 0,
+      skipped: 0,
+      recommendation,
+      hintSquares: [],
+      locked: false,
+      orientation: 'w',
+      startedAt: new Date().toISOString(),
+      source: focusOverride ? 'open-library' : source,
+      pointer: null,
+      dragGhost: null,
+      suppressClickUntil: 0,
+    });
+    km42LoadPuzzleAtIndex();
+  } catch (error) {
+    console.error('K-Mate v42 custom puzzle set failed to load.', error);
+    const main = km42$('.km42-puzzle-main');
+    if (main) main.innerHTML = `<section class="km42-workout-summary"><div><div class="eyebrow">Puzzle set unavailable</div><h2>The custom positions could not load</h2><p>${km42Escape(error?.message || 'Reload K-Mate and try again.')}</p><button class="btn" id="km42WorkoutDone" type="button">Go back</button></div></section>`;
+    km42$('#km42WorkoutDone')?.addEventListener('click', () => km42ClosePuzzleMode());
+  }
+  return true;
+}
