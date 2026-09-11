@@ -1,4 +1,4 @@
-name: K-Mate learning library and relevance QA
+name: K-Mate learning library and personalization QA
 
 on:
   push:
@@ -9,11 +9,13 @@ on:
       - "kmate-trainer/learning-library-v40.js"
       - "kmate-trainer/learning-relevance-v41*.js"
       - "kmate-trainer/learning-relevance-v41.css"
-      - "kmate-trainer/app-v7-part10.txt"
-      - "kmate-trainer/app-v7-part11.txt"
+      - "kmate-trainer/personalization-v42*.js"
+      - "kmate-trainer/personalization-v42-part*.txt"
+      - "kmate-trainer/personalization-v42.css"
+      - "kmate-trainer/app-v7-part1*.txt"
       - "kmate-trainer/learning/**"
       - "kmate-trainer/tests/learning-library-v40.spec.mjs"
-      - "kmate-trainer/tests/learning-relevance-v41.spec.mjs"
+      - "kmate-trainer/tests/personalization-v42.spec.mjs"
       - ".github/workflows/kmate-learning-library-qa.yml"
   pull_request:
     paths:
@@ -22,11 +24,13 @@ on:
       - "kmate-trainer/learning-library-v40.js"
       - "kmate-trainer/learning-relevance-v41*.js"
       - "kmate-trainer/learning-relevance-v41.css"
-      - "kmate-trainer/app-v7-part10.txt"
-      - "kmate-trainer/app-v7-part11.txt"
+      - "kmate-trainer/personalization-v42*.js"
+      - "kmate-trainer/personalization-v42-part*.txt"
+      - "kmate-trainer/personalization-v42.css"
+      - "kmate-trainer/app-v7-part1*.txt"
       - "kmate-trainer/learning/**"
       - "kmate-trainer/tests/learning-library-v40.spec.mjs"
-      - "kmate-trainer/tests/learning-relevance-v41.spec.mjs"
+      - "kmate-trainer/tests/personalization-v42.spec.mjs"
       - ".github/workflows/kmate-learning-library-qa.yml"
   workflow_dispatch:
 
@@ -36,7 +40,7 @@ permissions:
 jobs:
   focused-learning-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 16
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -57,20 +61,20 @@ jobs:
           done
           cat /tmp/kmate-learning-http.log
           exit 1
-      - name: Test open categories, move relevance, lessons, and phone puzzles
+      - name: Test open categories, custom principles, diverse lessons, and movable puzzles
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
         run: >-
           npx playwright test
           kmate-trainer/tests/learning-library-v40.spec.mjs
-          kmate-trainer/tests/learning-relevance-v41.spec.mjs
+          kmate-trainer/tests/personalization-v42.spec.mjs
           --workers=1
           --reporter=line
       - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: kmate-learning-relevance-failure
+          name: kmate-personalization-v42-failure
           path: |
             test-results
             /tmp/kmate-learning-http.log
