@@ -1,0 +1,257 @@
+
+/* K-Mate v42 — combine actual move evidence with the player's chosen training intent. */
+const km42MoveFirstRecommendation = km41Recommendation;
+
+function km42SessionIntent(session) {
+  if (session?.trainingIntent) return session.trainingIntent;
+  const goalKey = session?.trainingGoal || 'all';
+  const goal = TRAINING_GOALS[goalKey] || TRAINING_GOALS.all;
+  const goalProfile = KM42_GOAL_PROFILES[goalKey] || KM42_GOAL_PROFILES.all;
+  const phase = session?.phase || 'middlegame';
+  const phaseProfile = KM42_PHASE_PROFILES[phase] || KM42_PHASE_PROFILES.middlegame;
+  const positionRating = Number(session?.positionRating || 1600);
+  const opponentRating = Number(session?.opponentRating || positionRating);
+  return {
+    version: KM42_PERSONALIZATION_VERSION,
+    fingerprint: session?.customizationFingerprint || [
+      session?.id || 'stored-session',
+      phase,
+      session?.opening || 'Various',
+      goalKey,
+      positionRating,
+      opponentRating,
+      session?.timeControl || '3+0',
+      session?.userColor || 'w',
+    ].join('|'),
+    phase,
+    phaseLabel: PHASE_LABELS[phase] || phase,
+    opening: session?.opening || 'Various',
+    goalKey,
+    goalLabel: goal.label,
+    goalDescription: goal.description,
+    goalFocus: goalProfile.focus,
+    goalThemes: [...goalProfile.themes],
+    goalLessonTags: [...goalProfile.lessonTags],
+    phaseFocus: phaseProfile.focus,
+    phaseThemes: [...phaseProfile.themes],
+    positionRating,
+    opponentRating,
+    ratingGap: opponentRating - positionRating,
+    timeControl: session?.timeControl || '3+0',
+    timeLabel: TIME_CONTROLS[session?.timeControl]?.label || session?.timeControl || '3+0',
+    userColor: session?.userColor || 'w',
+    requestedColor: session?.userColor || 'w',
+    tags: [...(session?.tags || [])],
+    openingProfile: null,
+  };
+}
+
+function km42IntentSlot(intent, slotNumber, sourceMove = null) {
+  const goalProfile = KM42_GOAL_PROFILES[intent.goalKey] || KM42_GOAL_PROFILES.all;
+  const phaseProfile = KM42_PHASE_PROFILES[intent.phase] || KM42_PHASE_PROFILES.middlegame;
+  const focus = goalProfile.focus || phaseProfile.focus || 'calculation';
+  const taxonomy = KM40_FOCUS_TAXONOMY[focus] || KM40_FOCUS_TAXONOMY.calculation;
+  const themes = goalProfile.themes.length ? goalProfile.themes : phaseProfile.themes;
+  const lessonTags = goalProfile.lessonTags.length ? goalProfile.lessonTags : [intent.phaseLabel, intent.opening];
+  const sourceLabel = intent.goalKey === 'all'
+    ? `${intent.phaseLabel} setup`
+    : `chosen goal: ${intent.goalLabel}`;
+  return {
+    slot: slotNumber,
+    focus,
+    focusLabel: taxonomy.label,
+    themes: [...themes],
+    lessonTags: [...lessonTags],
+    sourceMoveId: null,
+    sourceMove,
+    playedSan: null,
+    bestSan: null,
+    loss: null,
+    skill: intent.goalKey === 'all' ? taxonomy.short : intent.goalDescription,
+    sourceType: 'session-intent',
+    optionKey: intent.goalKey,
+    reason: intent.goalKey === 'all'
+      ? `You chose a ${intent.phaseLabel.toLowerCase()} position from ${intent.opening} at ${intent.timeLabel}; this slot reinforces the decision patterns expected from that setup.`
+      : `You explicitly chose “${intent.goalLabel}.” This slot preserves that intent even when the game’s largest mistake came from another theme.`,
+    sourceLabel,
+  };
+}
+
+function km42MoveSlot(evidence, slotNumber) {
+  if (!evidence) return null;
+  const base = km41BalancedSlot(evidence, slotNumber - 1);
+  return {
+    ...base,
+    slot: slotNumber,
+    sourceType: 'move-evidence',
+    optionKey: null,
+  };
+}
+
+function km42CustomPuzzlePlan(recommendation, intent) {
+  const evidence = (recommendation?.moveEvidence || [])
+    .filter((item) => Number(item.loss) >= 25 || item.diagnoses?.length)
+    .slice(0, 3);
+  const plan = [];
+  const addMove = (index) => {
+    const slot = km42MoveSlot(evidence[index], plan.length + 1);
+    if (slot) plan.push(slot);
+  };
+  const addIntent = () => plan.push(km42IntentSlot(intent, plan.length + 1));
+
+  if (evidence.length >= 3) {
+    addMove(0);
+    addMove(0);
+    addMove(1);
+    addMove(2);
+    addIntent();
+  } else if (evidence.length === 2) {
+    addMove(0);
+    addMove(0);
+    addMove(1);
+    addMove(1);
+    addIntent();
+  } else if (evidence.length === 1) {
+    addMove(0);
+    addMove(0);
+    addMove(0);
+    addIntent();
+    addIntent();
+  } else {
+    for (let index = 0; index < 5; index += 1) addIntent();
+  }
+
+  return plan.slice(0, 5).map((slot, index) => ({ ...slot, slot: index + 1 }));
+}
+
+function km42OptionEvidence(intent, session) {
+  const evidence = [
+    {
+      key: 'goal',
+      label: 'Training goal',
+      value: intent.goalLabel,
+      effect: intent.goalKey === 'all'
+        ? 'No single theme was forced; actual move evidence receives maximum weight.'
+        : `Reserves part of the learning plan for ${intent.goalDescription.toLowerCase()}`,
+    },
+    {
+      key: 'phase',
+      label: 'Position phase',
+      value: intent.phaseLabel,
+      effect: `${intent.phaseLabel} motifs are used when ranking puzzles and principles.`,
+    },
+    {
+      key: 'opening',
+      label: 'Opening family',
+      value: intent.opening,
+      effect: 'Opening-tagged puzzles and matching strategic lessons receive a relevance boost.',
+    },
+    {
+      key: 'clock',
+      label: 'Time control',
+      value: intent.timeLabel,
+      effect: Number(session?.timeUsedPct) < 0.3
+        ? 'Fast decisions with evaluation loss increase calculation and blunder-check training.'
+        : 'The selected clock adjusts the recommended decision routine.',
+    },
+    {
+      key: 'opponent',
+      label: 'Challenge',
+      value: `${intent.positionRating} position · ${intent.opponentRating} opponent`,
+      effect: intent.ratingGap >= 300
+        ? 'Adds prophylaxis and threat-recognition weight.'
+        : intent.ratingGap <= -300
+          ? 'Adds clean-conversion weight.'
+          : 'Keeps the learning level close to the selected challenge.',
+    },
+    {
+      key: 'side',
+      label: 'Color',
+      value: intent.userColor === 'b' ? 'Black' : 'White',
+      effect: intent.userColor === 'b'
+        ? 'Emphasizes neutralizing the initiative before counterplay.'
+        : 'Emphasizes preserving initiative and active coordination.',
+    },
+  ];
+  return evidence;
+}
+
+function km42CustomizedRecommendation(sessionId = null) {
+  const base = km42MoveFirstRecommendation(sessionId);
+  if (!base) return base;
+  const session = km40FindSession(sessionId || base.sourceSessionId || null);
+  const intent = km42SessionIntent(session);
+  const puzzlePlan = km42CustomPuzzlePlan(base, intent);
+  const moveSlots = puzzlePlan.filter((slot) => slot.sourceType === 'move-evidence').length;
+  const intentSlots = puzzlePlan.length - moveSlots;
+  const representedMoves = [...new Set(puzzlePlan.map((slot) => slot.sourceMove).filter(Boolean))];
+  const principles = (session?.positionPrinciples || []).map((principle) => ({
+    key: principle.key,
+    title: principle.title,
+    why: principle.why || null,
+    sessionPrompt: principle.sessionPrompt || principle.rule || null,
+    relevanceScore: principle.relevanceScore || null,
+  }));
+  const optionEvidence = km42OptionEvidence(intent, session);
+  const goalProfile = KM42_GOAL_PROFILES[intent.goalKey] || KM42_GOAL_PROFILES.all;
+  const primaryFocus = base.moveEvidence?.length
+    ? base.focus
+    : (KM40_FOCUS_TAXONOMY[goalProfile.focus || intent.phaseFocus] || base.focus);
+
+  const moveSummary = representedMoves.length
+    ? `${moveSlots} of 5 puzzles come directly from ${representedMoves.join(', ')}.`
+    : 'No reviewed move had enough evidence yet, so the setup choices drive this first set.';
+  const intentSummary = intent.goalKey === 'all'
+    ? `${intentSlots} slot${intentSlots === 1 ? '' : 's'} preserve the ${intent.phaseLabel.toLowerCase()}, ${intent.opening}, and ${intent.timeLabel} setup.`
+    : `${intentSlots} slot${intentSlots === 1 ? '' : 's'} preserve your explicit “${intent.goalLabel}” goal.`;
+  const summary = `${moveSummary} ${intentSummary}`;
+
+  const reasons = [
+    ...(base.reasons || []).slice(0, 3),
+    `Before play you chose ${intent.goalLabel}, ${intent.phaseLabel}, ${intent.opening}, ${intent.timeLabel}, and ${intent.userColor === 'b' ? 'Black' : 'White'}. Those choices are now part of the recommendation rather than display-only settings.`,
+  ];
+
+  return {
+    ...base,
+    version: KM42_PERSONALIZATION_VERSION,
+    focus: primaryFocus,
+    reasons,
+    trainingIntent: intent,
+    optionEvidence,
+    pregamePrinciples: principles,
+    puzzlePlan,
+    puzzleSetSummary: summary,
+    customizationFingerprint: intent.fingerprint,
+    customization: {
+      version: KM42_PERSONALIZATION_VERSION,
+      mode: base.moveEvidence?.length ? 'gameplay-plus-intent' : 'intent-first',
+      gameplayWeight: base.moveEvidence?.length ? 0.78 : 0,
+      setupWeight: base.moveEvidence?.length ? 0.22 : 1,
+      moveSlots,
+      intentSlots,
+      representedMoves,
+      goal: intent.goalKey,
+      principleKeys: principles.map((principle) => principle.key),
+      summary,
+    },
+    relevance: {
+      ...(base.relevance || {}),
+      version: KM42_PERSONALIZATION_VERSION,
+      mode: base.moveEvidence?.length ? 'gameplay-plus-intent' : 'intent-first',
+      summary,
+      representedMoves,
+    },
+  };
+}
+
+km41Recommendation = km42CustomizedRecommendation;
+km40Recommendation = km42CustomizedRecommendation;
+if (window.__KMATE_LEARNING_CORE__) {
+  window.__KMATE_LEARNING_CORE__.version = KM42_PERSONALIZATION_VERSION;
+  window.__KMATE_LEARNING_CORE__.recommend = km42CustomizedRecommendation;
+  window.__KMATE_LEARNING_CORE__.personalizationVersion = KM42_PERSONALIZATION_VERSION;
+}
+if (window.__KMATE__) {
+  window.__KMATE__.learningVersion = KM42_PERSONALIZATION_VERSION;
+  window.__KMATE__.learningRecommendation = km42CustomizedRecommendation;
+}
