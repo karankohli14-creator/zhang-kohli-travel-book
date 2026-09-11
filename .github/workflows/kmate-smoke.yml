@@ -40,7 +40,7 @@ jobs:
           node --check kmate-trainer/learning-relevance-v41.js
           node --check kmate-trainer/learning-relevance-v41-stability.js
           node --check kmate-trainer/personalization-v42.js
-          cat kmate-trainer/app-v7-part{1..13}.txt > /tmp/kmate-app-v42.js
+          cat kmate-trainer/app-v7-part{1..14}.txt > /tmp/kmate-app-v42.js
           node --check /tmp/kmate-app-v42.js
           cat kmate-trainer/learning-v40-part{1..5}.txt > /tmp/kmate-learning-v40.js
           node --check /tmp/kmate-learning-v40.js
@@ -77,7 +77,7 @@ jobs:
       - name: Check feature wiring
         shell: bash
         run: |
-          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]" kmate-trainer/app-v7.js
+          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]" kmate-trainer/app-v7.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/learning-v40.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/personalization-v42.js
           grep -q "app-v7.js?v=42.0.0" kmate-trainer/index.html
@@ -93,6 +93,7 @@ jobs:
           grep -q "trainingIntent" kmate-trainer/app-v7-part12.txt
           grep -q "customizationFingerprint" kmate-trainer/app-v7-part13.txt
           grep -q "gameplayWeight" kmate-trainer/app-v7-part13.txt
+          grep -q "km42IntentSnapshotCurrentControls" kmate-trainer/app-v7-part14.txt
           grep -q "km42SetupBlueprint" kmate-trainer/personalization-v42-part1.txt
           grep -q "km42DiversifiedLessons" kmate-trainer/personalization-v42-part1.txt
           grep -q "km42PuzzleMode" kmate-trainer/personalization-v42-part2.txt
