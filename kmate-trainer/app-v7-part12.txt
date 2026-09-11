@@ -1,0 +1,462 @@
+
+/* K-Mate v42 — session-specific principles and training intent. */
+const KM42_PERSONALIZATION_VERSION = '42.0.0';
+
+const KM42_GOAL_PROFILES = Object.freeze({
+  all: Object.freeze({
+    focus: null,
+    principles: [],
+    themes: [],
+    lessonTags: [],
+  }),
+  attack: Object.freeze({
+    focus: 'kingSafety',
+    principles: ['forcing-scan', 'king-safety', 'pawn-breaks', 'candidate-comparison'],
+    themes: ['kingsideAttack', 'exposedKing', 'mate', 'sacrifice', 'deflection'],
+    lessonTags: ['king attack', 'mating patterns', 'forcing moves', 'pawn breaks'],
+  }),
+  defend: Object.freeze({
+    focus: 'defense',
+    principles: ['opponent-threat', 'king-safety', 'candidate-comparison', 'loose-pieces'],
+    themes: ['defensiveMove', 'equality', 'interference', 'quietMove'],
+    lessonTags: ['opponent threat', 'prophylaxis', 'active defense', 'king safety'],
+  }),
+  convert: Object.freeze({
+    focus: 'endgames',
+    principles: ['conversion', 'endgame-transition', 'passed-pawns', 'candidate-comparison'],
+    themes: ['advantage', 'endgame', 'rookEndgame', 'pawnEndgame', 'promotion'],
+    lessonTags: ['conversion', 'endgame transition', 'rook endgame', 'pawn endgame'],
+  }),
+  structure: Object.freeze({
+    focus: 'pawnPlay',
+    principles: ['pawn-structure', 'pawn-breaks', 'central-control', 'piece-activity'],
+    themes: ['advancedPawn', 'quietMove', 'pawnEndgame', 'promotion'],
+    lessonTags: ['pawn structure', 'pawn breaks', 'isolated pawn', 'hanging pawns'],
+  }),
+  activity: Object.freeze({
+    focus: 'positionalPlay',
+    principles: ['piece-activity', 'central-control', 'rook-activity', 'candidate-comparison'],
+    themes: ['quietMove', 'advantage', 'equality'],
+    lessonTags: ['piece activity', 'coordination', 'central control', 'planning'],
+  }),
+  tactics: Object.freeze({
+    focus: 'calculation',
+    principles: ['forcing-scan', 'loose-pieces', 'candidate-comparison', 'opponent-threat'],
+    themes: ['fork', 'pin', 'skewer', 'discoveredAttack', 'deflection', 'intermezzo'],
+    lessonTags: ['checks captures threats', 'candidate moves', 'calculation', 'visualization'],
+  }),
+});
+
+const KM42_PHASE_PROFILES = Object.freeze({
+  middlegame: Object.freeze({
+    principles: ['piece-activity', 'king-safety', 'central-control', 'pawn-breaks', 'opponent-threat'],
+    focus: 'positionalPlay',
+    themes: ['middlegame', 'quietMove', 'kingsideAttack'],
+  }),
+  'late-middlegame': Object.freeze({
+    principles: ['candidate-comparison', 'endgame-transition', 'pawn-structure', 'rook-activity', 'conversion'],
+    focus: 'positionalPlay',
+    themes: ['advantage', 'quietMove', 'endgame'],
+  }),
+  endgame: Object.freeze({
+    principles: ['king-activity', 'passed-pawns', 'rook-activity', 'opposition', 'conversion'],
+    focus: 'endgames',
+    themes: ['endgame', 'rookEndgame', 'pawnEndgame', 'zugzwang', 'promotion'],
+  }),
+});
+
+const KM42_OPENING_PROFILES = Object.freeze([
+  Object.freeze({ match: ['sicilian', "king's indian", 'kings indian', 'benoni', 'pirc'], principles: ['king-safety', 'pawn-breaks', 'forcing-scan'], focus: 'kingSafety', themes: ['kingsideAttack', 'sacrifice'] }),
+  Object.freeze({ match: ['caro-kann', 'caro kann', 'french'], principles: ['pawn-structure', 'pawn-breaks', 'piece-activity'], focus: 'pawnPlay', themes: ['advancedPawn', 'quietMove'] }),
+  Object.freeze({ match: ['london', "queen's gambit", 'queens gambit', 'slav', 'catalan'], principles: ['central-control', 'piece-activity', 'pawn-structure'], focus: 'positionalPlay', themes: ['quietMove', 'advantage'] }),
+  Object.freeze({ match: ['italian', 'ruy lopez', 'spanish', 'scotch'], principles: ['central-control', 'king-safety', 'piece-activity', 'forcing-scan'], focus: 'positionalPlay', themes: ['middlegame', 'kingsideAttack'] }),
+  Object.freeze({ match: ['endgame', 'rook ending', 'pawn ending'], principles: ['king-activity', 'rook-activity', 'passed-pawns', 'opposition'], focus: 'endgames', themes: ['endgame', 'rookEndgame', 'pawnEndgame'] }),
+]);
+
+function km42Hash(value) {
+  let hash = 2166136261;
+  for (const char of String(value || '')) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function km42OpeningLabel(position = null) {
+  const positionOpening = String(position?.opening || '').trim();
+  if (positionOpening && positionOpening !== 'Various' && positionOpening !== 'Imported game') return positionOpening;
+  const selected = $('#openingSelect')?.selectedOptions?.[0]?.textContent?.trim();
+  if (selected && settings.opening !== 'all') return selected;
+  return positionOpening || (settings.opening === 'all' ? 'mixed openings' : String(settings.opening || 'mixed openings'));
+}
+
+function km42BoardSnapshot(g) {
+  const snapshot = {
+    queens: 0,
+    rooks: 0,
+    bishops: 0,
+    knights: 0,
+    pawns: 0,
+    pieces: 0,
+    whiteKing: null,
+    blackKing: null,
+    turn: g?.turn?.() || null,
+    inCheck: Boolean(g?.isCheck?.()),
+  };
+  try {
+    g?.board?.().forEach((row) => row.forEach((piece) => {
+      if (!piece) return;
+      snapshot.pieces += 1;
+      if (piece.type === 'q') snapshot.queens += 1;
+      if (piece.type === 'r') snapshot.rooks += 1;
+      if (piece.type === 'b') snapshot.bishops += 1;
+      if (piece.type === 'n') snapshot.knights += 1;
+      if (piece.type === 'p') snapshot.pawns += 1;
+      if (piece.type === 'k') {
+        if (piece.color === 'w') snapshot.whiteKing = piece.square || null;
+        else snapshot.blackKing = piece.square || null;
+      }
+    }));
+  } catch {}
+  return snapshot;
+}
+
+function km42IntentSnapshot(position = null, g = null, resolvedColor = null) {
+  const goalKey = settings.trainingGoal || 'all';
+  const goal = TRAINING_GOALS[goalKey] || TRAINING_GOALS.all;
+  const goalProfile = KM42_GOAL_PROFILES[goalKey] || KM42_GOAL_PROFILES.all;
+  const phase = position?.phase || settings.phase || 'middlegame';
+  const phaseProfile = KM42_PHASE_PROFILES[phase] || KM42_PHASE_PROFILES.middlegame;
+  const opening = km42OpeningLabel(position);
+  const time = timeControl();
+  const positionRating = Number(position?.rating || settings.positionRating || 1600);
+  const opponentRating = Number(activeOpponentRating || settings.opponentRating || positionRating);
+  const color = resolvedColor || (position?.custom ? g?.turn?.() : settings.side) || 'random';
+  const board = km42BoardSnapshot(g);
+  const openingNormalized = opening.toLowerCase();
+  const openingProfile = KM42_OPENING_PROFILES.find((profile) => profile.match.some((term) => openingNormalized.includes(term))) || null;
+  const tags = [...new Set([...(position?.tags || []), ...(goal?.tags || [])])];
+  const fingerprint = [
+    position?.id || 'preview',
+    phase,
+    opening,
+    goalKey,
+    positionRating,
+    opponentRating,
+    time.label,
+    color,
+    board.turn || '-',
+  ].join('|');
+  return {
+    version: KM42_PERSONALIZATION_VERSION,
+    fingerprint,
+    positionId: position?.id || null,
+    phase,
+    phaseLabel: PHASE_LABELS[phase] || phase,
+    opening,
+    goalKey,
+    goalLabel: goal.label,
+    goalDescription: goal.description,
+    goalFocus: goalProfile.focus,
+    goalThemes: [...goalProfile.themes],
+    goalLessonTags: [...goalProfile.lessonTags],
+    phaseFocus: phaseProfile.focus,
+    phaseThemes: [...phaseProfile.themes],
+    positionRating,
+    opponentRating,
+    ratingGap: opponentRating - positionRating,
+    timeControl: settings.timeControl,
+    timeLabel: time.label,
+    baseSeconds: Number(time.base) || 0,
+    increment: Number(time.increment) || 0,
+    requestedColor: settings.side || 'random',
+    userColor: color,
+    board,
+    tags,
+    openingProfile,
+  };
+}
+
+function km42RecentPrinciplePenalty() {
+  const penalties = new Map();
+  const recent = (store.sessions || []).filter((session) => Array.isArray(session.positionPrinciples)).slice(0, 5);
+  recent.forEach((session, sessionIndex) => {
+    const weight = [34, 23, 15, 9, 5][sessionIndex] || 0;
+    for (const principle of session.positionPrinciples || []) {
+      penalties.set(principle.key, (penalties.get(principle.key) || 0) + weight);
+    }
+  });
+  return penalties;
+}
+
+function km42PromptForPrinciple(key, context) {
+  const colorText = context.userColor === 'w' ? 'as White' : context.userColor === 'b' ? 'as Black' : 'from the assigned side';
+  const timeText = context.timeLabel === 'Untimed' ? 'in this untimed study' : `in this ${context.timeLabel} session`;
+  const prompts = {
+    'opponent-threat': `Before every move ${colorText}, name the opponent’s strongest check, capture, threat, and pawn break ${timeText}.`,
+    'forcing-scan': `Run a checks–captures–threats scan for both sides before committing, especially when the position becomes forcing.`,
+    'loose-pieces': `After each exchange or pawn move, recount every undefended piece and overloaded defender.`,
+    'candidate-comparison': `Compare one forcing move, one improving move, and the opponent’s best reply before choosing.`,
+    'king-safety': `Track open files, diagonals, and forcing checks around both kings before pursuing the session goal.`,
+    'piece-activity': `Identify the least active piece and look for a route that improves it with tempo.`,
+    'pawn-breaks': `Calculate what files, diagonals, and weak squares each pawn break creates before playing it.`,
+    'pawn-structure': `Treat every pawn move as permanent: name the square, file, or endgame weakness it leaves behind.`,
+    conversion: `When the evaluation is favorable, trade counterplay—not pieces automatically—and verify the resulting ending.`,
+    'endgame-transition': `Before exchanging, compare king activity, pawn majorities, and rook activity in the resulting ending.`,
+    'rook-activity': `Prefer active files, checking distance, and cutting off the king over passive pawn defense.`,
+    'passed-pawns': `Count the pawn race and identify the best blockade before collecting material elsewhere.`,
+    'king-activity': `Once queens are absent, search for the king’s best entry square before moving another piece.`,
+    opposition: `In king-and-pawn endings, calculate direct, distant, and side opposition before stepping with the king.`,
+    'central-control': `Use central squares to connect your pieces and restrict the opponent’s counterplay.`,
+  };
+  return prompts[key] || CHESS_PRINCIPLE_BY_KEY[key]?.rule || '';
+}
+
+function km42AddPrincipleSignal(records, key, score, reason, source) {
+  const record = records.get(key);
+  if (!record || !Number.isFinite(Number(score))) return;
+  record.score += Number(score);
+  if (reason && !record.reasons.some((item) => item.reason === reason)) record.reasons.push({ reason, source });
+  if (source) record.sources.add(source);
+}
+
+function km42PrinciplesForPosition(position, g, limit = 5) {
+  const context = km42IntentSnapshot(position, g);
+  const records = new Map(CHESS_PRINCIPLES.map((principle, order) => [principle.key, {
+    principle,
+    score: 0,
+    order,
+    reasons: [],
+    sources: new Set(),
+  }]));
+  const goalProfile = KM42_GOAL_PROFILES[context.goalKey] || KM42_GOAL_PROFILES.all;
+  const phaseProfile = KM42_PHASE_PROFILES[context.phase] || KM42_PHASE_PROFILES.middlegame;
+
+  goalProfile.principles.forEach((key, index) => km42AddPrincipleSignal(
+    records,
+    key,
+    [150, 126, 104, 70][index] || 45,
+    `You chose “${context.goalLabel},” so this principle directly supports the purpose of the session.`,
+    'training goal',
+  ));
+
+  phaseProfile.principles.forEach((key, index) => km42AddPrincipleSignal(
+    records,
+    key,
+    [112, 96, 82, 68, 54][index] || 40,
+    `${context.phaseLabel} positions make this decision pattern especially important.`,
+    'phase',
+  ));
+
+  if (context.openingProfile) {
+    context.openingProfile.principles.forEach((key, index) => km42AddPrincipleSignal(
+      records,
+      key,
+      [92, 78, 64, 52][index] || 35,
+      `${context.opening} commonly turns on this type of decision.`,
+      'opening',
+    ));
+  }
+
+  const positionTags = new Set(position?.tags || []);
+  for (const principle of CHESS_PRINCIPLES) {
+    const matched = (principle.tags || []).filter((tag) => positionTags.has(tag));
+    if (matched.length) km42AddPrincipleSignal(
+      records,
+      principle.key,
+      112 + Math.max(0, matched.length - 1) * 24,
+      `The selected position is tagged ${matched.join(' and ')}.`,
+      'position',
+    );
+  }
+
+  if (context.baseSeconds > 0 && context.baseSeconds <= 180 && context.increment === 0) {
+    km42AddPrincipleSignal(records, 'loose-pieces', 68, `${context.timeLabel} rewards a reliable blunder-check routine.`, 'clock');
+    km42AddPrincipleSignal(records, 'forcing-scan', 58, `${context.timeLabel} requires a short, repeatable forcing-move scan.`, 'clock');
+  } else if (context.baseSeconds >= 600 || context.baseSeconds === 0) {
+    km42AddPrincipleSignal(records, 'candidate-comparison', 72, `${context.timeLabel} gives enough time to compare multiple serious candidates.`, 'clock');
+    km42AddPrincipleSignal(records, 'pawn-structure', 42, `${context.timeLabel} supports deeper evaluation of permanent structural choices.`, 'clock');
+  } else {
+    km42AddPrincipleSignal(records, 'candidate-comparison', 46, `${context.timeLabel} supports one forcing and one positional candidate before deciding.`, 'clock');
+  }
+
+  if (context.ratingGap >= 300) {
+    km42AddPrincipleSignal(records, 'opponent-threat', 78, `The opponent is set ${context.ratingGap} points above the position level, so neutralizing counterplay comes first.`, 'opponent');
+    km42AddPrincipleSignal(records, 'king-safety', 52, 'A stronger opponent is more likely to punish loosened king cover immediately.', 'opponent');
+  } else if (context.ratingGap <= -300) {
+    km42AddPrincipleSignal(records, 'conversion', 70, `The opponent is set ${Math.abs(context.ratingGap)} points below the position level, so clean conversion matters more than forcing complications.`, 'opponent');
+    km42AddPrincipleSignal(records, 'candidate-comparison', 42, 'Compare the simplest safe continuation with the most forcing move.', 'opponent');
+  }
+
+  if (context.requestedColor === 'w') {
+    km42AddPrincipleSignal(records, 'central-control', 38, 'You chose White, so the plan should preserve the initiative and central influence.', 'color');
+    km42AddPrincipleSignal(records, 'piece-activity', 32, 'White-side practice emphasizes using the first move actively.', 'color');
+  } else if (context.requestedColor === 'b') {
+    km42AddPrincipleSignal(records, 'opponent-threat', 40, 'You chose Black, so first identify and neutralize White’s initiative.', 'color');
+    km42AddPrincipleSignal(records, 'pawn-structure', 28, 'Black-side practice rewards structural patience before counterplay.', 'color');
+  }
+
+  if (context.positionRating <= 1400) {
+    km42AddPrincipleSignal(records, 'loose-pieces', 44, `At position level ${context.positionRating}, eliminating one-move tactical oversights has the highest practical return.`, 'level');
+  } else if (context.positionRating >= 1800) {
+    km42AddPrincipleSignal(records, 'candidate-comparison', 46, `At position level ${context.positionRating}, the difference often lies between two plausible candidates.`, 'level');
+    km42AddPrincipleSignal(records, 'opponent-threat', 30, 'Higher-level positions require more accurate prophylaxis.', 'level');
+  }
+
+  if (context.board.inCheck) {
+    km42AddPrincipleSignal(records, 'forcing-scan', 190, 'The position begins in check, so forcing legality and king safety override every long-term plan.', 'board');
+    km42AddPrincipleSignal(records, 'king-safety', 175, 'The king is already under direct pressure.', 'board');
+  }
+  if (context.board.queens >= 1) km42AddPrincipleSignal(records, 'king-safety', 42, 'Queens remain on the board, so exposed lines around the king carry tactical weight.', 'board');
+  if (context.board.queens === 0) km42AddPrincipleSignal(records, 'king-activity', 66, 'With queens gone, the king can become an active piece.', 'board');
+  if (context.board.rooks >= 2) km42AddPrincipleSignal(records, 'rook-activity', 38, 'Rooks remain, so open files and checking distance can decide the position.', 'board');
+  if (context.board.pawns <= 8) km42AddPrincipleSignal(records, 'passed-pawns', 36, 'The reduced pawn count makes pawn races and passed pawns more concrete.', 'board');
+
+  // Keep one universal safety net available without allowing the same three generic
+  // principles to dominate every session.
+  km42AddPrincipleSignal(records, 'opponent-threat', 14, 'Every position benefits from checking the opponent’s immediate idea.', 'universal');
+  km42AddPrincipleSignal(records, 'forcing-scan', 12, 'A short forcing-move scan is a universal tactical safety net.', 'universal');
+  km42AddPrincipleSignal(records, 'candidate-comparison', 10, 'Comparing alternatives prevents first-move bias.', 'universal');
+
+  const recentPenalty = km42RecentPrinciplePenalty();
+  for (const record of records.values()) {
+    const primaryGoal = goalProfile.principles[0] === record.principle.key;
+    const penalty = recentPenalty.get(record.principle.key) || 0;
+    record.score -= primaryGoal ? Math.min(18, penalty * 0.35) : penalty;
+    record.score += (km42Hash(`${context.fingerprint}:${record.principle.key}`) % 1700) / 170;
+  }
+
+  const ranked = [...records.values()].sort((first, second) => second.score - first.score || first.order - second.order);
+  const selected = [];
+  const addRecord = (record) => {
+    if (!record || selected.some((item) => item.principle.key === record.principle.key)) return;
+    selected.push(record);
+  };
+
+  if (goalProfile.principles.length) addRecord(ranked.find((record) => record.principle.key === goalProfile.principles[0]));
+  addRecord(ranked.find((record) => phaseProfile.principles.includes(record.principle.key)));
+  if (context.openingProfile) addRecord(ranked.find((record) => context.openingProfile.principles.includes(record.principle.key)));
+  if (positionTags.size) addRecord(ranked.find((record) => record.reasons.some((reason) => reason.source === 'position')));
+  for (const record of ranked) {
+    if (selected.length >= Math.max(3, Math.min(7, Number(limit) || 5))) break;
+    addRecord(record);
+  }
+
+  return selected.slice(0, Math.max(3, Math.min(7, Number(limit) || 5))).map((record) => {
+    const reasons = record.reasons
+      .sort((first, second) => {
+        const priority = { 'training goal': 0, position: 1, phase: 2, opening: 3, clock: 4, opponent: 5, color: 6, level: 7, board: 8, universal: 9 };
+        return (priority[first.source] ?? 99) - (priority[second.source] ?? 99);
+      })
+      .slice(0, 3);
+    return {
+      ...record.principle,
+      personalizationVersion: KM42_PERSONALIZATION_VERSION,
+      relevanceScore: Math.round(record.score),
+      why: reasons.map((item) => item.reason).join(' '),
+      sources: [...record.sources],
+      sessionPrompt: km42PromptForPrinciple(record.principle.key, context),
+      intentFingerprint: context.fingerprint,
+    };
+  });
+}
+
+const km42LegacyRelevantPrinciplesForPosition = relevantPrinciplesForPosition;
+relevantPrinciplesForPosition = function relevantPrinciplesForPositionV42(position, g, limit = 5) {
+  try {
+    return km42PrinciplesForPosition(position, g, limit);
+  } catch (error) {
+    console.warn('K-Mate v42 principle personalization fell back to the legacy selector.', error);
+    return km42LegacyRelevantPrinciplesForPosition(position, g, limit);
+  }
+};
+
+const km42LegacyRenderPrinciplesDialog = renderPrinciplesDialog;
+renderPrinciplesDialog = function renderPrinciplesDialogV42() {
+  const list = $('#principlesList');
+  const title = $('#principlesPositionTitle');
+  const subtitle = $('#principlesPositionSubtitle');
+  if (!list || !title || !subtitle) {
+    km42LegacyRenderPrinciplesDialog();
+    return;
+  }
+  const context = km42IntentSnapshot(current, game, userColor);
+  title.textContent = `${context.goalLabel}: your principles for this position`;
+  subtitle.textContent = `${context.phaseLabel} · ${context.opening} · ${context.timeLabel} · ${userColor === 'w' ? 'White' : 'Black'} · customized v42`;
+  list.innerHTML = currentPositionPrinciples.map((principle, index) => `
+    <article class="principle-card km42-principle-card" data-principle="${escapeHtml(principle.key)}">
+      <span>${index + 1}</span>
+      <div>
+        <b>${escapeHtml(principle.title)}</b>
+        <p class="km42-principle-action">${escapeHtml(principle.sessionPrompt || principle.rule)}</p>
+        <small class="km42-principle-why"><strong>Why this one:</strong> ${escapeHtml(principle.why || principle.rule)}</small>
+      </div>
+    </article>`).join('');
+};
+
+const km42BaseStartPosition = startPosition;
+startPosition = function startPositionV42(options = {}) {
+  const result = km42BaseStartPosition(options);
+  if (currentSession) {
+    const intent = km42IntentSnapshot(current, game, userColor);
+    currentSession.trainingIntent = {
+      ...intent,
+      openingProfile: intent.openingProfile ? {
+        focus: intent.openingProfile.focus,
+        principles: [...intent.openingProfile.principles],
+        themes: [...intent.openingProfile.themes],
+      } : null,
+    };
+    currentSession.customizationFingerprint = intent.fingerprint;
+    currentSession.positionPrinciples = currentPositionPrinciples.map((principle) => ({ ...principle }));
+    currentSession.optionEvidence = [
+      `Training goal: ${intent.goalLabel}`,
+      `Phase: ${intent.phaseLabel}`,
+      `Opening: ${intent.opening}`,
+      `Clock: ${intent.timeLabel}`,
+      `Side: ${userColor === 'w' ? 'White' : 'Black'}`,
+      `Position/opponent: ${intent.positionRating}/${intent.opponentRating}`,
+    ];
+  }
+  if (principleReviewPending) renderPrinciplesDialog();
+  return result;
+};
+
+function km42PreviewPrinciples(limit = 5) {
+  const principles = relevantPrinciplesForPosition(null, null, limit);
+  const context = km42IntentSnapshot(null, null, settings.side);
+  return { context, principles };
+}
+
+if (window.__KMATE__) {
+  window.__KMATE__.start = startPosition;
+  window.__KMATE__.renderPieceGraphic = (element, type, color) => renderPieceGraphic(element, type, color);
+  const km42PreviousState = window.__KMATE__.state;
+  window.__KMATE__.state = () => {
+    const base = typeof km42PreviousState === 'function' ? km42PreviousState() : {};
+    const preview = km42PreviewPrinciples(5);
+    return {
+      ...base,
+      personalization: {
+        version: KM42_PERSONALIZATION_VERSION,
+        fingerprint: currentSession?.customizationFingerprint || preview.context.fingerprint,
+        goal: currentSession?.trainingIntent?.goalKey || preview.context.goalKey,
+        goalLabel: currentSession?.trainingIntent?.goalLabel || preview.context.goalLabel,
+        phase: currentSession?.trainingIntent?.phase || preview.context.phase,
+        opening: currentSession?.trainingIntent?.opening || preview.context.opening,
+        timeControl: currentSession?.trainingIntent?.timeControl || preview.context.timeControl,
+        userColor: currentSession?.trainingIntent?.userColor || preview.context.userColor,
+        principleKeys: (currentSession?.positionPrinciples || preview.principles).map((principle) => principle.key),
+      },
+    };
+  };
+}
+
+window.__KMATE_PERSONALIZATION__ = {
+  version: KM42_PERSONALIZATION_VERSION,
+  goalProfiles: KM42_GOAL_PROFILES,
+  phaseProfiles: KM42_PHASE_PROFILES,
+  preview: km42PreviewPrinciples,
+  currentIntent: () => currentSession?.trainingIntent || km42IntentSnapshot(current, game, userColor),
+  currentPrinciples: () => currentPositionPrinciples.map((principle) => ({ ...principle })),
+};

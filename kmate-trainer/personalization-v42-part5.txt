@@ -1,0 +1,45 @@
+
+/* K-Mate v42 — final interaction and compact-phone safeguards. */
+const km42BaseLoadPuzzleAtIndex = km42LoadPuzzleAtIndex;
+km42LoadPuzzleAtIndex = function km42LoadPuzzleAtIndexCompact(options = {}) {
+  const result = km42BaseLoadPuzzleAtIndex(options);
+  const details = km42$('.km42-why');
+  if (details) details.open = window.matchMedia('(min-width: 901px)').matches;
+  return result;
+};
+
+function km42RefreshCompactPuzzleDetails() {
+  const details = km42$('.km42-why');
+  if (!details || km42$('#km42PuzzleMode')?.hidden) return;
+  if (window.matchMedia('(max-width: 900px)').matches) details.open = false;
+}
+
+window.addEventListener('resize', km42RefreshCompactPuzzleDetails, { passive: true });
+window.visualViewport?.addEventListener?.('resize', km42RefreshCompactPuzzleDetails, { passive: true });
+document.addEventListener('contextmenu', (event) => {
+  if (event.target instanceof Element && event.target.closest('#km42PuzzleBoard')) event.preventDefault();
+});
+
+const km42AttachDiagnostics = () => {
+  if (!window.__KMATE_V42__) {
+    window.setTimeout(km42AttachDiagnostics, 60);
+    return;
+  }
+  const baseState = window.__KMATE_V42__.state;
+  window.__KMATE_V42__.state = () => ({
+    ...(typeof baseState === 'function' ? baseState() : {}),
+    puzzle: {
+      open: !km42$('#km42PuzzleMode')?.hidden,
+      fen: km42Puzzle.game?.fen?.() || null,
+      expectedMove: km42ExpectedMove() || null,
+      selected: km42Puzzle.selected,
+      legalTargets: (km42Puzzle.legalMoves || []).map((move) => move.to),
+      locked: km42Puzzle.locked,
+      tapEnabled: true,
+      dragEnabled: true,
+      pointerActive: Boolean(km42Puzzle.pointer),
+    },
+  });
+  window.__KMATE_V42__.playPuzzleMove = (from, to) => km42AttemptPuzzleMove(from, to);
+};
+km42AttachDiagnostics();

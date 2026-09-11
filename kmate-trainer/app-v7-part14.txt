@@ -1,0 +1,34 @@
+
+/* K-Mate v42 — preview intent must follow the current challenge controls. */
+const km42IntentSnapshotWithActiveOpponent = km42IntentSnapshot;
+km42IntentSnapshot = function km42IntentSnapshotCurrentControls(position = null, g = null, resolvedColor = null) {
+  const snapshot = km42IntentSnapshotWithActiveOpponent(position, g, resolvedColor);
+  if (position || g) return snapshot;
+  const opponentRating = Number(settings.opponentRating || snapshot.positionRating || 1600);
+  const positionRating = Number(settings.positionRating || snapshot.positionRating || 1600);
+  const userColorPreview = resolvedColor || settings.side || snapshot.userColor || 'random';
+  return {
+    ...snapshot,
+    positionRating,
+    opponentRating,
+    ratingGap: opponentRating - positionRating,
+    requestedColor: settings.side || 'random',
+    userColor: userColorPreview,
+    fingerprint: [
+      'preview',
+      snapshot.phase,
+      snapshot.opening,
+      snapshot.goalKey,
+      positionRating,
+      opponentRating,
+      snapshot.timeLabel,
+      userColorPreview,
+      '-',
+    ].join('|'),
+  };
+};
+
+if (window.__KMATE_PERSONALIZATION__) {
+  window.__KMATE_PERSONALIZATION__.preview = (limit = 5) => km42PreviewPrinciples(limit);
+  window.__KMATE_PERSONALIZATION__.currentIntent = () => currentSession?.trainingIntent || km42IntentSnapshot(current, game, userColor);
+}

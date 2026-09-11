@@ -1,0 +1,39 @@
+
+/* K-Mate v42 — deterministic tap–tap movement for mouse, touch, and stylus. */
+// Pointer release is more reliable than waiting for a synthetic click in
+// embedded mobile browsers. Non-drag releases select/move immediately; the
+// following synthetic click is suppressed. True drags continue to the board
+// pointer handler. Important: apply the tap before setting the suppression
+// window, otherwise km42HandleSquareTap correctly treats the tap itself as a
+// duplicate and ignores it.
+document.addEventListener('pointerup', (event) => {
+  const mode = document.querySelector('#km42PuzzleMode');
+  if (!mode || mode.hidden || km42Puzzle.locked) return;
+  const pointer = km42Puzzle.pointer;
+  if (pointer?.dragging) return;
+
+  let square = pointer?.from || null;
+  if (!square && event.target instanceof Element) {
+    square = event.target.closest('#km42PuzzleBoard [data-km42-square]')?.dataset.km42Square || null;
+  }
+  if (!square) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (pointer) km42CleanupPointer();
+
+  // The real pointer release must reach the move handler. Suppress only the
+  // click event that mobile browsers synthesize afterwards.
+  km42Puzzle.suppressClickUntil = 0;
+  km42HandleSquareTap(square);
+  km42Puzzle.suppressClickUntil = performance.now() + 800;
+}, true);
+
+if (window.__KMATE_V42_AUTHORITY__) {
+  const previousState = window.__KMATE_V42_AUTHORITY__.state;
+  window.__KMATE_V42_AUTHORITY__.state = () => ({
+    ...(typeof previousState === 'function' ? previousState() : {}),
+    tapEvent: 'pointerup-capture',
+    suppressesOnlySyntheticClick: true,
+  });
+}

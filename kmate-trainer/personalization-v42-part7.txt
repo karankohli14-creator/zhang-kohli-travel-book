@@ -1,0 +1,39 @@
+
+/* K-Mate v42 — final authoritative interaction layer. */
+if (!document.querySelector('#km42AuthorityStyles')) {
+  const style = document.createElement('style');
+  style.id = 'km42AuthorityStyles';
+  style.textContent = `
+    #learningResultCard.km42-superseded-result{display:none!important}
+    #km42ResultCard[hidden]{display:none!important}
+    #km42ResultCard{display:block}
+  `;
+  document.head.append(style);
+}
+
+// Handle square taps in the capture phase. This bypasses any legacy learning
+// observer or modal listener that might otherwise consume a phone tap before
+// it reaches the v42 board. Pointer dragging continues to use the dedicated
+// pointer handlers in part 3.
+document.addEventListener('click', (event) => {
+  if (!(event.target instanceof Element)) return;
+  const square = event.target.closest('#km42PuzzleBoard [data-km42-square]');
+  const mode = document.querySelector('#km42PuzzleMode');
+  if (!square || !mode || mode.hidden) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (performance.now() < km42Puzzle.suppressClickUntil) return;
+  km42HandleSquareTap(square.dataset.km42Square);
+}, true);
+
+window.__KMATE_V42_AUTHORITY__ = {
+  version: KM42_UI_VERSION,
+  repair: km42AuthorityRepair,
+  state: () => ({
+    ready: true,
+    resultCard: Boolean(document.querySelector('#km42ResultCard')),
+    legacyResultHidden: Boolean(document.querySelector('#learningResultCard.km42-superseded-result')),
+    blueprintPopulated: Boolean(document.querySelector('#km42LearningBlueprint')?.textContent.trim()),
+    directSquareCapture: true,
+  }),
+};

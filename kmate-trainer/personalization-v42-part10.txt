@@ -1,0 +1,81 @@
+
+/* K-Mate v42 — keep customization visible and preserve one setup-derived lesson. */
+// goalAnchor: at least one ranked lesson explicitly follows the player’s chosen goal.
+function km42RepairSetupBlueprint() {
+  const preview = km42Preview();
+  if (!preview) return;
+  const fingerprint = preview.context?.fingerprint || 'preview';
+  const setup = km42EnsureSetupPreview();
+  const coaching = km42EnsureCoachingPreview();
+  const needsRepair = !setup?.textContent?.trim()
+    || !coaching?.textContent?.trim()
+    || setup.dataset.km42Fingerprint !== fingerprint
+    || coaching.dataset.km42Fingerprint !== fingerprint;
+  if (!needsRepair) return;
+  km42RenderSetupPreview();
+  const renderedSetup = km42$('#km42SetupBlueprint');
+  const renderedCoaching = km42$('#km42CoachingBlueprint');
+  if (renderedSetup) renderedSetup.dataset.km42Fingerprint = fingerprint;
+  if (renderedCoaching) renderedCoaching.dataset.km42Fingerprint = fingerprint;
+}
+
+const km42DiversifiedLessonsBeforeGoalAnchor = km42DiversifiedLessons;
+km42DiversifiedLessons = function km42DiversifiedLessonsWithGoalAnchor(catalog, recommendation, limit = 5) {
+  const ranked = km42DiversifiedLessonsBeforeGoalAnchor(catalog, recommendation, limit);
+  const intent = recommendation?.trainingIntent || {};
+  if (!ranked.length || !intent.goalKey || intent.goalKey === 'all') return ranked;
+
+  let anchorIndex = -1;
+  let bestIntentScore = 0;
+  ranked.forEach((entry, index) => {
+    const score = Number(entry.intent?.score || 0);
+    if (score > bestIntentScore) {
+      bestIntentScore = score;
+      anchorIndex = index;
+    }
+  });
+
+  if (anchorIndex < 0 || bestIntentScore < 25) {
+    const existingIds = new Set(ranked.map((entry) => entry.video.id));
+    const candidate = km42ScoreVideos(catalog, recommendation)
+      .filter((entry) => !existingIds.has(entry.video.id))
+      .sort((a, b) => Number(b.intent?.score || 0) - Number(a.intent?.score || 0) || b.score - a.score)[0];
+    if (candidate && Number(candidate.intent?.score || 0) >= 25) {
+      ranked[Math.min(ranked.length - 1, Math.max(0, limit - 1))] = {
+        ...candidate,
+        rank: Math.min(ranked.length, limit),
+      };
+      anchorIndex = Math.min(ranked.length - 1, Math.max(0, limit - 1));
+      bestIntentScore = Number(candidate.intent?.score || 0);
+    }
+  }
+
+  if (anchorIndex >= 0 && bestIntentScore >= 25) {
+    const entry = ranked[anchorIndex];
+    const matched = entry.intent?.matched?.length
+      ? entry.intent.matched.join(', ')
+      : intent.goalLabel;
+    ranked[anchorIndex] = {
+      ...entry,
+      setupAnchor: true,
+      matchLabel: `From your “${intent.goalLabel}” choice`,
+      why: `You explicitly chose “${intent.goalLabel}” before play. This lesson reinforces ${matched || intent.goalDescription || 'that training goal'} so the learning plan follows both your actual mistakes and the skill you intended to practice.`,
+    };
+  }
+
+  return ranked.slice(0, limit).map((entry, index) => ({ ...entry, rank: index + 1 }));
+};
+
+// Keep the setup blueprint alive even while the welcome page or another
+// wizard page is active; it becomes visible immediately when the player
+// reaches the position/coaching step.
+window.setInterval(km42RepairSetupBlueprint, 500);
+document.addEventListener('input', () => window.setTimeout(km42RepairSetupBlueprint, 20), true);
+document.addEventListener('change', () => window.setTimeout(km42RepairSetupBlueprint, 20), true);
+document.addEventListener('click', (event) => {
+  if (!(event.target instanceof Element)) return;
+  if (event.target.closest('[data-phase],[data-side],[data-time],[data-step],[data-preset],[data-wizard-next],[data-wizard-back]')) {
+    window.setTimeout(km42RepairSetupBlueprint, 30);
+  }
+}, true);
+km42RepairSetupBlueprint();

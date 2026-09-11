@@ -1,0 +1,404 @@
+
+const km42Puzzle = {
+  puzzles: [],
+  index: 0,
+  game: null,
+  selected: null,
+  legalMoves: [],
+  solutionIndex: 0,
+  wrongAttempts: 0,
+  totalWrong: 0,
+  solved: 0,
+  skipped: 0,
+  recommendation: null,
+  hintSquares: [],
+  locked: false,
+  orientation: 'w',
+  startedAt: null,
+  returnContext: 'learning',
+  source: 'tailored',
+  pointer: null,
+  dragGhost: null,
+  suppressClickUntil: 0,
+};
+
+function km42BandSequence(index, bandKey) {
+  const bands = index?.bands || [];
+  const position = Math.max(0, bands.findIndex((band) => band.key === bandKey));
+  return [bands[position], bands[position - 1], bands[position + 1], bands[position - 2], bands[position + 2]].filter(Boolean);
+}
+
+async function km42LoadShard(file) {
+  if (!file) return [];
+  if (!km42ShardCache.has(file)) {
+    const url = new URL(`./learning/puzzles/${file}?v=${KM42_UI_VERSION}`, KM42_BASE_URL).href;
+    km42ShardCache.set(file, km42FetchJson(url, 'A puzzle category').then((payload) => payload.puzzles || []));
+  }
+  return km42ShardCache.get(file);
+}
+
+function km42FocusTaxonomy(focusKey) {
+  return window.__KMATE_LEARNING_CORE__?.taxonomy?.[focusKey] || {
+    key: focusKey,
+    label: String(focusKey || 'Calculation').replace(/([a-z])([A-Z])/g, '$1 $2'),
+    short: 'Focused chess practice',
+    puzzleThemes: [],
+  };
+}
+
+function km42ManualRecommendation(base, focusKey) {
+  if (!base || !focusKey) return base;
+  const taxonomy = km42FocusTaxonomy(focusKey);
+  const plan = Array.from({ length: 5 }, (_, index) => ({
+    slot: index + 1,
+    focus: focusKey,
+    focusLabel: taxonomy.label,
+    themes: [...(taxonomy.puzzleThemes || [])],
+    lessonTags: [],
+    sourceMove: null,
+    sourceMoveId: null,
+    sourceType: 'open-library',
+    skill: taxonomy.short || taxonomy.description || taxonomy.label,
+    reason: `You selected ${String(taxonomy.label).toLowerCase()} from the open puzzle library.`,
+  }));
+  return {
+    ...base,
+    focus: taxonomy,
+    puzzlePlan: plan,
+    puzzleSetSummary: `Five ${String(taxonomy.label).toLowerCase()} puzzles selected directly from the open library near rating ${base.puzzleRating || 1400}.`,
+    relevance: {
+      ...(base.relevance || {}),
+      mode: 'open-library',
+      summary: `This set follows your manual ${String(taxonomy.label).toLowerCase()} selection rather than the latest-game prescription.`,
+    },
+    customization: {
+      ...(base.customization || {}),
+      mode: 'open-library',
+      gameplayWeight: 0,
+      setupWeight: 1,
+      summary: `Manual ${String(taxonomy.label).toLowerCase()} training near rating ${base.puzzleRating || 1400}.`,
+    },
+  };
+}
+
+function km42OpeningScore(puzzle, recommendation) {
+  const opening = km42Normalize(recommendation?.trainingIntent?.opening || recommendation?.opening);
+  if (!opening) return 0;
+  const tags = km42Normalize((puzzle.openingTags || []).join(' '));
+  if (!tags) return 0;
+  const significant = opening.split(' ').filter((word) => word.length >= 4);
+  const overlap = significant.filter((word) => tags.includes(word)).length;
+  return overlap >= 2 ? 150 : overlap === 1 ? 68 : 0;
+}
+
+function km42PuzzleCandidateScore(puzzle, slot, recommendation, seen, used) {
+  if (!puzzle?.id || used.has(puzzle.id)) return -Infinity;
+  const puzzleThemes = new Set(puzzle.themes || []);
+  const exactThemes = (slot.themes || []).filter((theme) => puzzleThemes.has(theme));
+  let score = puzzle.focus === slot.focus ? 155 : 0;
+  score += exactThemes.length * 230;
+  if ((slot.themes || []).length && !exactThemes.length) score -= 95;
+  if (seen.has(puzzle.id)) score -= 210;
+  else score += 75;
+  const ratingDistance = Math.abs(Number(puzzle.rating || 1400) - Number(recommendation.puzzleRating || 1400));
+  score += Math.max(0, 105 - ratingDistance * 0.3);
+  score += Math.min(34, Number(puzzle.popularity || 0) / 3.5);
+  score += Math.min(20, Math.log10(Math.max(1, Number(puzzle.plays || 1))) * 4);
+  if (slot.focus === 'openings' || recommendation.trainingIntent?.opening) score += km42OpeningScore(puzzle, recommendation);
+  if (recommendation.phase === 'endgame' && puzzleThemes.has('endgame')) score += 95;
+  if (recommendation.phase !== 'endgame' && puzzleThemes.has('middlegame')) score += 42;
+  if (slot.sourceType === 'session-intent' && exactThemes.length) score += 60;
+  score += (km42Hash(`${recommendation.customizationFingerprint}:${slot.slot}:${puzzle.id}`) % 1000) / 10000;
+  return { score, exactThemes };
+}
+
+async function km42CandidatesForFocus(index, focus, bandKey) {
+  const shards = [];
+  for (const band of km42BandSequence(index, bandKey)) {
+    const shard = (index.shards || []).find((item) => item.focus === focus && item.band === band.key && Number(item.count) > 0);
+    if (shard) shards.push(shard);
+    if (shards.length >= 3) break;
+  }
+  const payloads = await Promise.all(shards.map((shard) => km42LoadShard(shard.file)));
+  return payloads.flat();
+}
+
+async function km42LoadCustomPuzzles(recommendation) {
+  const index = await km42LoadIndex();
+  const progress = km42ReadProgress();
+  const seen = new Set(progress.seen || []);
+  const used = new Set();
+  const chosen = [];
+  const plan = (recommendation.puzzlePlan || []).slice(0, 5);
+  const focusCache = new Map();
+
+  for (const slot of plan) {
+    if (!focusCache.has(slot.focus)) {
+      focusCache.set(slot.focus, await km42CandidatesForFocus(index, slot.focus, recommendation.puzzleBand));
+    }
+    let candidates = focusCache.get(slot.focus) || [];
+    if (!candidates.length && slot.focus !== 'calculation') {
+      if (!focusCache.has('calculation')) focusCache.set('calculation', await km42CandidatesForFocus(index, 'calculation', recommendation.puzzleBand));
+      candidates = focusCache.get('calculation') || [];
+    }
+    const ranked = candidates.map((puzzle) => {
+      const relevance = km42PuzzleCandidateScore(puzzle, slot, recommendation, seen, used);
+      return { puzzle, score: relevance.score, exactThemes: relevance.exactThemes };
+    }).filter((entry) => Number.isFinite(entry.score)).sort((a, b) => b.score - a.score);
+    const selected = ranked[0];
+    if (!selected) continue;
+    used.add(selected.puzzle.id);
+    chosen.push({
+      ...selected.puzzle,
+      km42Slot: slot,
+      km42MatchedThemes: selected.exactThemes,
+      km42RelevanceScore: Math.round(selected.score),
+    });
+  }
+
+  if (chosen.length < 5) {
+    const fallbackFocus = recommendation.focus?.key || 'calculation';
+    const fallback = await km42CandidatesForFocus(index, fallbackFocus, recommendation.puzzleBand);
+    const fallbackSlot = plan[0] || {
+      slot: 1,
+      focus: fallbackFocus,
+      focusLabel: km42FocusTaxonomy(fallbackFocus).label,
+      themes: km42FocusTaxonomy(fallbackFocus).puzzleThemes || [],
+      reason: 'Fallback practice near the selected level.',
+      sourceType: 'fallback',
+    };
+    const ranked = fallback.map((puzzle) => {
+      const relevance = km42PuzzleCandidateScore(puzzle, fallbackSlot, recommendation, seen, used);
+      return { puzzle, ...relevance };
+    }).filter((entry) => Number.isFinite(entry.score)).sort((a, b) => b.score - a.score);
+    for (const entry of ranked) {
+      if (used.has(entry.puzzle.id)) continue;
+      used.add(entry.puzzle.id);
+      chosen.push({
+        ...entry.puzzle,
+        km42Slot: fallbackSlot,
+        km42MatchedThemes: entry.exactThemes,
+        km42RelevanceScore: Math.round(entry.score),
+      });
+      if (chosen.length >= 5) break;
+    }
+  }
+
+  if (chosen.length < 5) throw new Error('K-Mate could not assemble five legal puzzles from the relevant category files.');
+  return chosen.slice(0, 5);
+}
+
+function km42OrderedSquares(orientation) {
+  const files = orientation === 'b' ? [...KM42_FILES].reverse() : [...KM42_FILES];
+  const ranks = orientation === 'b' ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
+  return ranks.flatMap((rank) => files.map((file) => `${file}${rank}`));
+}
+
+function km42EnsurePuzzleMode() {
+  let mode = km42$('#km42PuzzleMode');
+  if (mode) return mode;
+  mode = document.createElement('section');
+  mode.id = 'km42PuzzleMode';
+  mode.hidden = true;
+  mode.setAttribute('role', 'dialog');
+  mode.setAttribute('aria-modal', 'true');
+  mode.setAttribute('aria-label', 'K-Mate custom puzzle practice');
+  mode.innerHTML = `
+    <div class="km42-puzzle-shell">
+      <header class="km42-puzzle-topbar">
+        <button class="roundbtn" id="km42PuzzleClose" type="button" aria-label="Close puzzle practice">←</button>
+        <div class="km42-puzzle-heading"><small id="km42PuzzleKicker">Custom reinforcement</small><b id="km42PuzzleTitle">Puzzle 1 of 5</b></div>
+        <button class="roundbtn" id="km42PuzzleFlip" type="button" aria-label="Flip puzzle board" title="Flip board">⇅</button>
+      </header>
+      <main class="km42-puzzle-main">
+        <section class="boardcol km42-board-column">
+          <div class="playerbar top km42-playerbar" id="km42PuzzleOpponentBar">
+            <div class="identity"><span class="avatar black-avatar">♟</span><span><b>K-Mate reply</b><small>Forced puzzle continuation</small></span></div>
+            <div class="clock-wrap"><span class="turnpill" id="km42PuzzleOpponentTurn">Waiting</span><span class="clock">∞</span></div>
+          </div>
+          <div class="boardwrap km42-boardwrap"><div class="board km42-puzzle-board" id="km42PuzzleBoard" aria-label="Custom puzzle chessboard"></div></div>
+          <div class="playerbar bottom active km42-playerbar" id="km42PuzzlePlayerBar">
+            <div class="identity"><span class="avatar white-avatar" id="km42PuzzlePlayerAvatar">♙</span><span><b>You</b><small id="km42PuzzleSkill">Custom practice</small></span></div>
+            <div class="clock-wrap"><span class="turnpill live" id="km42PuzzlePlayerTurn">Your move</span><span class="clock active" id="km42PuzzleCounter">1/5</span></div>
+          </div>
+          <div class="status km42-puzzle-status" id="km42PuzzleStatus"><span class="statusdot"></span><span id="km42PuzzleStatusText">Loading puzzle…</span></div>
+        </section>
+        <aside class="km42-puzzle-panel">
+          <div class="km42-panel-progress"><b id="km42PuzzleProgressText">Puzzle 1 of 5</b><span id="km42PuzzleFocus">Calculation</span></div>
+          <div class="km42-progress-track"><span id="km42PuzzleProgressBar"></span></div>
+          <h2 id="km42PuzzleInstruction">White to move</h2>
+          <p class="km42-puzzle-help">Tap a piece and then a destination, or drag the piece directly.</p>
+          <details class="km42-why" open>
+            <summary>Why K-Mate chose this puzzle</summary>
+            <div><b id="km42PuzzleWhyTitle">Custom match</b><span id="km42PuzzleWhyText"></span></div>
+          </details>
+          <div class="km42-puzzle-meta" id="km42PuzzleMeta"></div>
+          <div class="km42-puzzle-actions">
+            <button class="btn" id="km42PuzzleHint" type="button">Hint</button>
+            <button class="btn" id="km42PuzzleReset" type="button">Reset</button>
+            <button class="btn" id="km42PuzzleSkip" type="button">Skip</button>
+            <button class="btn primary" id="km42PuzzleNext" type="button" hidden>Next puzzle</button>
+          </div>
+          <a id="km42PuzzleSource" class="km42-puzzle-source" target="_blank" rel="noopener noreferrer">Source game on Lichess</a>
+        </aside>
+      </main>
+    </div>`;
+  document.body.append(mode);
+  km42$('#km42PuzzleClose', mode)?.addEventListener('click', () => km42ClosePuzzleMode());
+  km42$('#km42PuzzleFlip', mode)?.addEventListener('click', () => {
+    km42Puzzle.orientation = km42Puzzle.orientation === 'w' ? 'b' : 'w';
+    km42RenderPuzzleBoard();
+  });
+  km42$('#km42PuzzleHint', mode)?.addEventListener('click', km42RevealPuzzleMove);
+  km42$('#km42PuzzleReset', mode)?.addEventListener('click', () => km42LoadPuzzleAtIndex({ preserveAttempt: true }));
+  km42$('#km42PuzzleSkip', mode)?.addEventListener('click', km42SkipPuzzle);
+  km42$('#km42PuzzleNext', mode)?.addEventListener('click', km42NextPuzzle);
+  km42BindPuzzlePointerControls(mode);
+  return mode;
+}
+
+function km42CurrentPuzzle() {
+  return km42Puzzle.puzzles[km42Puzzle.index] || null;
+}
+
+function km42ExpectedMove() {
+  return km42CurrentPuzzle()?.solutionUci?.[km42Puzzle.solutionIndex] || '';
+}
+
+function km42LegalMoves(square) {
+  try {
+    return km42Puzzle.game?.moves({ square, verbose: true }) || [];
+  } catch {
+    return [];
+  }
+}
+
+function km42SetPuzzleStatus(text, state = '') {
+  const status = km42$('#km42PuzzleStatus');
+  const label = km42$('#km42PuzzleStatusText');
+  if (label) label.textContent = text;
+  if (status) status.className = `status km42-puzzle-status ${state}`.trim();
+}
+
+function km42RenderPiece(element, piece) {
+  element.className = `piece ${piece.color === 'w' ? 'white' : 'black'}`;
+  const renderer = window.__KMATE__?.renderPieceGraphic;
+  if (typeof renderer === 'function') renderer(element, piece.type, piece.color);
+  else element.textContent = KM42_UNICODE[piece.color][piece.type];
+}
+
+function km42RenderPuzzleBoard() {
+  const board = km42$('#km42PuzzleBoard');
+  if (!board || !km42Puzzle.game) return;
+  const orientation = km42Puzzle.orientation || km42Puzzle.game.turn();
+  const history = km42Puzzle.game.history({ verbose: true });
+  const last = history.at(-1) || null;
+  const legal = km42Puzzle.selected ? km42LegalMoves(km42Puzzle.selected) : [];
+  km42Puzzle.legalMoves = legal;
+  const legalTargets = new Map(legal.map((move) => [move.to, move]));
+  board.innerHTML = '';
+
+  for (const [index, square] of km42OrderedSquares(orientation).entries()) {
+    const piece = km42Puzzle.game.get(square);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.km42Square = square;
+    button.className = `sq ${((KM42_FILES.indexOf(square[0]) + Number(square[1])) % 2) ? 'light' : 'dark'}`;
+    if (square === km42Puzzle.selected) button.classList.add('selected');
+    if (last && (last.from === square || last.to === square)) button.classList.add('last');
+    const target = legalTargets.get(square);
+    if (target) button.classList.add(target.captured ? 'capture' : 'legal');
+    if (km42Puzzle.hintSquares[0] === square) button.classList.add('km42-hint-source');
+    if (km42Puzzle.hintSquares[1] === square) button.classList.add('km42-hint-target');
+    if (piece) {
+      const glyph = document.createElement('span');
+      km42RenderPiece(glyph, piece);
+      glyph.setAttribute('aria-hidden', 'true');
+      button.append(glyph);
+    }
+    if (index % 8 === 0) {
+      const rank = document.createElement('span');
+      rank.className = 'coord rank';
+      rank.textContent = square[1];
+      button.append(rank);
+    }
+    if (index >= 56) {
+      const file = document.createElement('span');
+      file.className = 'coord file';
+      file.textContent = square[0];
+      button.append(file);
+    }
+    button.setAttribute('aria-label', `${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ' empty'}`);
+    board.append(button);
+  }
+}
+
+function km42UpdateTurnBars() {
+  const playerBar = km42$('#km42PuzzlePlayerBar');
+  const opponentBar = km42$('#km42PuzzleOpponentBar');
+  const playerTurn = km42$('#km42PuzzlePlayerTurn');
+  const opponentTurn = km42$('#km42PuzzleOpponentTurn');
+  const thinking = km42Puzzle.locked;
+  playerBar?.classList.toggle('active', !thinking);
+  opponentBar?.classList.toggle('active', thinking);
+  if (playerTurn) {
+    playerTurn.textContent = thinking ? 'Waiting' : 'Your move';
+    playerTurn.classList.toggle('live', !thinking);
+  }
+  if (opponentTurn) {
+    opponentTurn.textContent = thinking ? 'Replying' : 'Waiting';
+    opponentTurn.classList.toggle('live', thinking);
+  }
+}
+
+function km42LoadPuzzleAtIndex({ preserveAttempt = false } = {}) {
+  const puzzle = km42CurrentPuzzle();
+  const Chess = window.__KM_BOOT__?.Chess;
+  if (!puzzle || !Chess) return;
+  try {
+    km42Puzzle.game = new Chess(puzzle.practiceFen);
+  } catch (error) {
+    console.warn('K-Mate v42 skipped an invalid puzzle.', puzzle.id, error);
+    km42Puzzle.index += 1;
+    if (km42Puzzle.index >= km42Puzzle.puzzles.length) km42FinishWorkout();
+    else km42LoadPuzzleAtIndex();
+    return;
+  }
+  km42CleanupPointer();
+  km42Puzzle.selected = null;
+  km42Puzzle.legalMoves = [];
+  km42Puzzle.solutionIndex = 0;
+  if (!preserveAttempt) km42Puzzle.wrongAttempts = 0;
+  km42Puzzle.hintSquares = [];
+  km42Puzzle.locked = false;
+  km42Puzzle.orientation = km42Puzzle.game.turn();
+  const total = km42Puzzle.puzzles.length;
+  const slot = puzzle.km42Slot || {};
+  const side = km42Puzzle.game.turn() === 'w' ? 'White' : 'Black';
+  const matchedThemes = puzzle.km42MatchedThemes?.length ? puzzle.km42MatchedThemes : (puzzle.themes || []).slice(0, 3);
+  const progress = `${km42Puzzle.index + 1}/${total}`;
+
+  km42$('#km42PuzzleTitle').textContent = `Puzzle ${km42Puzzle.index + 1} of ${total}`;
+  km42$('#km42PuzzleCounter').textContent = progress;
+  km42$('#km42PuzzleProgressText').textContent = `Puzzle ${km42Puzzle.index + 1} of ${total}`;
+  km42$('#km42PuzzleFocus').textContent = slot.focusLabel || km42Puzzle.recommendation?.focus?.label || 'Calculation';
+  km42$('#km42PuzzleSkill').textContent = slot.skill || 'Custom practice';
+  km42$('#km42PuzzlePlayerAvatar').textContent = km42Puzzle.game.turn() === 'w' ? '♙' : '♟';
+  km42$('#km42PuzzleInstruction').textContent = `${side} to move · find the best continuation`;
+  km42$('#km42PuzzleWhyTitle').textContent = slot.sourceMove ? `Reinforces ${slot.sourceMove}` : (slot.sourceLabel || `${slot.focusLabel || 'Selected'} practice`);
+  const why = `${slot.reason || km42Puzzle.recommendation?.customization?.summary || ''}${matchedThemes.length ? ` The position matches ${matchedThemes.map(km42ThemeLabel).join(', ')}.` : ''}`.trim();
+  km42$('#km42PuzzleWhyText').textContent = why;
+  km42$('#km42PuzzleMeta').innerHTML = [
+    `Rating ${puzzle.rating}`,
+    ...matchedThemes.map(km42ThemeLabel),
+  ].map((item) => `<span>${km42Escape(item)}</span>`).join('');
+  km42$('#km42PuzzleSource').href = puzzle.sourceGame || 'https://lichess.org/training';
+  km42$('#km42PuzzleProgressBar').style.width = `${(km42Puzzle.index / total) * 100}%`;
+  km42$('#km42PuzzleNext').hidden = true;
+  km42$('#km42PuzzleHint').disabled = false;
+  km42$('#km42PuzzleReset').disabled = false;
+  km42$('#km42PuzzleSkip').disabled = false;
+  km42SetPuzzleStatus('Your move. Tap–tap or drag a piece.', '');
+  km42UpdateTurnBars();
+  km42RenderPuzzleBoard();
+}

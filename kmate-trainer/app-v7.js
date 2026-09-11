@@ -34,7 +34,7 @@ const narrowLayoutFix = document.createElement('style');
 narrowLayoutFix.textContent = `.card,.table-card,.recent-card,.tables-grid,.table-scroll,.recent-row>span{min-width:0}.table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}@media(max-width:700px){.table-card{overflow:hidden}.recent-row{max-width:100%;overflow:hidden}.recent-row>span:nth-child(2){overflow-wrap:anywhere}}`;
 document.head.append(narrowLayoutFix);
 
-const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((number) => `./app-v7-part${number}.txt?v=41.0.0`);
+const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((number) => `./app-v7-part${number}.txt?v=42.0.0`);
 const responses = await Promise.all(partUrls.map(async (url) => {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Unable to load ${url}: ${response.status}`);
@@ -95,9 +95,15 @@ try {
         console.warn('Optional v41 learning-view stability layer could not load.', error);
       }
     } catch (error) {
-      // v41 adds move-level explanations, ranked lessons, and a game-style
-      // mobile puzzle view. The v40 learning system remains usable if it fails.
+      // v41 adds move-level explanations and remains the fallback layer.
       console.warn('Optional move-relevance learning layer could not load.', error);
+    }
+    try {
+      await import('./personalization-v42.js?v=42.0.0');
+    } catch (error) {
+      // v42 makes the selected setup part of every principle, puzzle, and
+      // lesson recommendation and adds reliable tap/drag puzzle controls.
+      console.warn('Optional v42 personalization and puzzle controls could not load.', error);
     }
   } catch (error) {
     // Learning content is optional; core play remains usable if a catalog or
