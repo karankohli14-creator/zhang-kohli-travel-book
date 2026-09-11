@@ -1,0 +1,128 @@
+
+/* K-Mate v42 — make the newest customized UI authoritative over legacy observers. */
+let km42AuthorityTimer = null;
+let km42AuthorityBusy = false;
+
+const km42RenderPuzzleBoardBeforeDirectTaps = km42RenderPuzzleBoard;
+km42RenderPuzzleBoard = function km42RenderPuzzleBoardWithDirectTaps() {
+  km42RenderPuzzleBoardBeforeDirectTaps();
+  for (const button of km42$$('#km42PuzzleBoard [data-km42-square]')) {
+    if (button.dataset.km42DirectTap === KM42_UI_VERSION) continue;
+    button.dataset.km42DirectTap = KM42_UI_VERSION;
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (performance.now() < km42Puzzle.suppressClickUntil) return;
+      km42HandleSquareTap(button.dataset.km42Square);
+    });
+  }
+};
+
+function km42EnsureResultCard() {
+  const legacy = km42$('#learningResultCard');
+  const dialog = km42$('#resultDialog');
+  if (!dialog) return null;
+  if (legacy) {
+    legacy.hidden = true;
+    legacy.setAttribute('aria-hidden', 'true');
+  }
+  let card = km42$('#km42ResultCard', dialog);
+  if (card) return card;
+  card = document.createElement('section');
+  card.id = 'km42ResultCard';
+  card.className = 'learning-result-card km42-authoritative-result';
+  card.innerHTML = `
+    <div class="learning-result-head"><div><small>Custom to this game and your setup</small><b id="km42ResultTitle">Your custom training prescription</b></div><span class="learning-content-label cc0">CC0 puzzles</span></div>
+    <p id="km42ResultSummary"></p>
+    <div class="km42-result-context" id="km42ResultEvidence"></div>
+    <div class="learning-result-actions">
+      <button class="learning-mini-button primary-lite" id="km42ResultPuzzles" type="button">Start 5 custom puzzles</button>
+      <button class="learning-mini-button" id="km42ResultLessons" type="button">Review custom lesson list</button>
+      <button class="learning-mini-button" id="km42ResultRetry" type="button">Retry position</button>
+      <button class="learning-mini-button" id="km42ResultLearning" type="button">Open full learning plan</button>
+    </div>`;
+  if (legacy?.parentElement) legacy.parentElement.insertBefore(card, legacy);
+  else dialog.querySelector('.result-actions')?.before(card);
+  km42$('#km42ResultPuzzles', card)?.addEventListener('click', () => km42StartWorkout({ source: 'tailored' }));
+  km42$('#km42ResultLessons', card)?.addEventListener('click', () => void km42OpenLessonList());
+  km42$('#km42ResultRetry', card)?.addEventListener('click', () => {
+    if (window.__KMATE_RESTART__?.open) window.__KMATE_RESTART__.open('result');
+    else if (typeof window.__KMATE__?.restart === 'function') window.__KMATE__.restart();
+  });
+  km42$('#km42ResultLearning', card)?.addEventListener('click', () => {
+    if (dialog.open && typeof dialog.close === 'function') dialog.close();
+    window.__KMATE_LEARNING__?.open?.();
+    km42ScheduleAuthorityRepair(0);
+  });
+  return card;
+}
+
+function km42RenderAuthoritativeResult(recommendation) {
+  const card = km42EnsureResultCard();
+  if (!card || !recommendation) return;
+  card.hidden = false;
+  card.removeAttribute('aria-hidden');
+  const firstMove = recommendation.moveEvidence?.[0]?.moveLabel;
+  const intent = recommendation.trainingIntent || {};
+  km42$('#km42ResultTitle', card).textContent = `${recommendation.focus?.label || 'Targeted review'} from ${firstMove || intent.goalLabel || 'this session'}`;
+  km42$('#km42ResultSummary', card).textContent = recommendation.customization?.summary || recommendation.puzzleSetSummary || '';
+  const moves = (recommendation.moveEvidence || []).slice(0, 3);
+  const options = (recommendation.optionEvidence || []).slice(0, 5);
+  km42$('#km42ResultEvidence', card).innerHTML = `
+    <div><strong>Moves used</strong><span>${moves.length ? moves.map((item) => `${km42Escape(item.moveLabel)} (${km42Escape(item.focusLabel)})`).join(' · ') : 'No reviewed move-level error yet'}</span></div>
+    <div><strong>Choices used</strong><span>${options.map((item) => `${km42Escape(item.label)}: ${km42Escape(item.value)}`).join(' · ')}</span></div>`;
+  const retry = km42$('#km42ResultRetry', card);
+  if (retry) retry.disabled = !recommendation.exactRetryAvailable;
+}
+
+async function km42AuthorityRepair() {
+  if (km42AuthorityBusy) return;
+  km42AuthorityBusy = true;
+  try {
+    km42RenderSetupPreview();
+    const recommendation = km42Recommendation();
+    if (!recommendation) return;
+    km42RenderAuthoritativeResult(recommendation);
+    const learning = km42$('#learningView');
+    if (learning && !learning.hidden) {
+      km42RenderLearningBlueprint(recommendation);
+      const blueprint = km42$('#km42LearningBlueprint');
+      if (blueprint && !blueprint.textContent.trim()) km42RenderLearningBlueprint(recommendation);
+      await km42RenderLessonCard(recommendation);
+    }
+  } catch (error) {
+    console.warn('K-Mate v42 could not refresh the authoritative customized UI.', error);
+  } finally {
+    km42AuthorityBusy = false;
+  }
+}
+
+function km42ScheduleAuthorityRepair(delay = 35) {
+  window.clearTimeout(km42AuthorityTimer);
+  km42AuthorityTimer = window.setTimeout(() => void km42AuthorityRepair(), delay);
+}
+
+const km42AuthorityObserver = new MutationObserver(() => km42ScheduleAuthorityRepair());
+km42AuthorityObserver.observe(document.body, {
+  childList: true,
+  subtree: true,
+  attributes: true,
+  attributeFilter: ['hidden', 'open'],
+});
+
+document.addEventListener('click', (event) => {
+  if (!(event.target instanceof Element)) return;
+  if (event.target.closest('#wizardLearningButton,#learningNavButton,[data-view="learning"]')) {
+    km42ScheduleAuthorityRepair(0);
+    window.setTimeout(() => km42ScheduleAuthorityRepair(0), 140);
+    window.setTimeout(() => km42ScheduleAuthorityRepair(0), 520);
+  }
+}, true);
+
+window.setInterval(() => {
+  const learningVisible = Boolean(km42$('#learningView') && !km42$('#learningView').hidden);
+  const resultVisible = Boolean(km42$('#resultDialog')?.open);
+  if (learningVisible || resultVisible) km42ScheduleAuthorityRepair(0);
+}, 900);
+
+km42ScheduleAuthorityRepair(0);
