@@ -1,5 +1,6 @@
 
 /* K-Mate v42 — keep customization visible and preserve one setup-derived lesson. */
+// goalAnchor: at least one ranked lesson explicitly follows the player’s chosen goal.
 function km42RepairSetupBlueprint() {
   const preview = km42Preview();
   if (!preview) return;
