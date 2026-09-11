@@ -56,7 +56,7 @@ jobs:
           cat /tmp/kmate-http.log
           exit 1
 
-      - name: Run importer, restart, and v42 personalization tests
+      - name: Run importer, restart, and v42 release tests
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
           KMATE_REAL_IMAGE_FIXTURE: /tmp/kmate-fixtures/chesscom-italian-white.png
@@ -65,7 +65,7 @@ jobs:
           kmate-trainer/tests/importers.spec.mjs
           kmate-trainer/tests/chess-position-visibility.spec.mjs
           kmate-trainer/tests/restart-practice.spec.mjs
-          kmate-trainer/tests/personalization-v42.spec.mjs
+          kmate-trainer/tests/personalization-v42-release.spec.mjs
           --reporter=line,html
 
       - name: Upload browser traces and screenshots on failure
