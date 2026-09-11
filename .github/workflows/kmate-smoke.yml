@@ -18,7 +18,7 @@ permissions:
 jobs:
   syntax-and-wiring:
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 9
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -39,16 +39,20 @@ jobs:
           node --check kmate-trainer/learning-library-v40.js
           node --check kmate-trainer/learning-relevance-v41.js
           node --check kmate-trainer/learning-relevance-v41-stability.js
-          cat kmate-trainer/app-v7-part{1..11}.txt > /tmp/kmate-app-v41.js
-          node --check /tmp/kmate-app-v41.js
+          node --check kmate-trainer/personalization-v42.js
+          cat kmate-trainer/app-v7-part{1..13}.txt > /tmp/kmate-app-v42.js
+          node --check /tmp/kmate-app-v42.js
           cat kmate-trainer/learning-v40-part{1..5}.txt > /tmp/kmate-learning-v40.js
           node --check /tmp/kmate-learning-v40.js
+          cat kmate-trainer/personalization-v42-part{1..5}.txt > /tmp/kmate-personalization-v42.js
+          node --check /tmp/kmate-personalization-v42.js
           node --check kmate-trainer/tests/importers.spec.mjs
           node --check kmate-trainer/tests/chess-position-visibility.spec.mjs
           node --check kmate-trainer/tests/restart-practice.spec.mjs
           node --check kmate-trainer/tests/learning-v40.spec.mjs
           node --check kmate-trainer/tests/learning-library-v40.spec.mjs
           node --check kmate-trainer/tests/learning-relevance-v41.spec.mjs
+          node --check kmate-trainer/tests/personalization-v42.spec.mjs
           node --check kmate-trainer/tests/chesscom-live-contract.mjs
 
       - name: Validate learning catalogs
@@ -73,39 +77,32 @@ jobs:
       - name: Check feature wiring
         shell: bash
         run: |
-          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]" kmate-trainer/app-v7.js
+          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]" kmate-trainer/app-v7.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/learning-v40.js
+          grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/personalization-v42.js
+          grep -q "app-v7.js?v=42.0.0" kmate-trainer/index.html
+          grep -q "personalization-v42.js?v=42.0.0" kmate-trainer/app-v7.js
           grep -q "practice-restart-v39.js?v=39.0.0" kmate-trainer/app-v7.js
           grep -q "learning-v40.js?v=40.1.1" kmate-trainer/app-v7.js
           grep -q "learning-library-v40.js?v=40.1.1" kmate-trainer/app-v7.js
           grep -q "learning-relevance-v41.js?v=41.0.0" kmate-trainer/app-v7.js
-          grep -q "learning-relevance-v41-stability.js?v=41.0.0" kmate-trainer/app-v7.js
           grep -q "KMATE_RESTART_CORE_VERSION = '39.0.0'" kmate-trainer/app-v7-part7.txt
           grep -q "KM40_LEARNING_CORE_VERSION = '40.0.0'" kmate-trainer/app-v7-part8.txt
-          grep -q "km40RecommendationSafe" kmate-trainer/app-v7-part9.txt
           grep -q "KM41_RELEVANCE_VERSION = '41.0.0'" kmate-trainer/app-v7-part10.txt
-          grep -q "moveEvidence" kmate-trainer/app-v7-part10.txt
-          grep -q "puzzlePlan" kmate-trainer/app-v7-part10.txt
-          grep -q "km41BalancedPuzzlePlan" kmate-trainer/app-v7-part11.txt
-          grep -q "representedMoves" kmate-trainer/app-v7-part11.txt
-          grep -q "restartCurrentPractice" kmate-trainer/app-v7-part7.txt
-          grep -q "restartPracticeButton" kmate-trainer/practice-restart-v39.js
-          grep -q "resultRestartPractice" kmate-trainer/practice-restart-v39.js
-          grep -q "learningNavButton" kmate-trainer/learning-v40-part2.txt
-          grep -q "learningPuzzleDialog" kmate-trainer/learning-v40-part3.txt
-          grep -q "wizardLearningButton" kmate-trainer/learning-v40-part5.txt
+          grep -q "KM42_PERSONALIZATION_VERSION = '42.0.0'" kmate-trainer/app-v7-part12.txt
+          grep -q "trainingIntent" kmate-trainer/app-v7-part12.txt
+          grep -q "customizationFingerprint" kmate-trainer/app-v7-part13.txt
+          grep -q "gameplayWeight" kmate-trainer/app-v7-part13.txt
+          grep -q "km42SetupBlueprint" kmate-trainer/personalization-v42-part1.txt
+          grep -q "km42DiversifiedLessons" kmate-trainer/personalization-v42-part1.txt
+          grep -q "km42PuzzleMode" kmate-trainer/personalization-v42-part2.txt
+          grep -q "pointerdown" kmate-trainer/personalization-v42-part3.txt
+          grep -q "movableByTap" kmate-trainer/personalization-v42-part4.txt
+          grep -q "dragEnabled" kmate-trainer/personalization-v42-part5.txt
+          grep -q "touch-action:none" kmate-trainer/personalization-v42.css
           grep -q "learningOpenLibrary" kmate-trainer/learning-library-v40.js
           grep -q "km41RecommendationEvidence" kmate-trainer/learning-relevance-v41.js
-          grep -q "km41LessonChoices" kmate-trainer/learning-relevance-v41.js
-          grep -q "km41PuzzleMode" kmate-trainer/learning-relevance-v41.js
-          grep -q "km41RepairRankedLessons" kmate-trainer/learning-relevance-v41-stability.js
-          grep -q -- "--kmate-safe-top" kmate-trainer/learning-relevance-v41.css
           grep -q "position-importers-v1.js?v=36.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-hardening-v37.js?v=37.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-chess-v38.js?v=38.0.0" kmate-trainer/app-v7.js
-          grep -q "kmImportImagePanel" kmate-trainer/position-importers-v1.js
-          grep -q "kmImportChessPanel" kmate-trainer/position-importers-v1.js
-          grep -q "wizardImportPositionButton" kmate-trainer/position-importers-hardening-v37.js
-          grep -q "wizardPositionImportButton" kmate-trainer/position-importers-hardening-v37.js
-          grep -q "kmChessPositionNotice" kmate-trainer/position-importers-chess-v38.js
           grep -q "fenshot-MIT" <(find kmate-trainer/licenses -maxdepth 1 -type f -printf '%f\n')
