@@ -1,0 +1,610 @@
+const KM42_UI_VERSION = '42.0.0';
+const KM42_BASE_URL = new URL('./', import.meta.url);
+const KM42_VIDEO_URL = new URL(`./learning/videos-v40.json?v=${KM42_UI_VERSION}`, KM42_BASE_URL).href;
+const KM42_PUZZLE_INDEX_URL = new URL(`./learning/puzzles/index.json?v=${KM42_UI_VERSION}`, KM42_BASE_URL).href;
+const KM42_PROGRESS_KEY = 'kmate-learning-v40';
+const KM42_META_KEY = 'kmate-personalization-v42';
+const KM42_FILES = 'abcdefgh';
+const KM42_UNICODE = Object.freeze({
+  w: Object.freeze({ k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' }),
+  b: Object.freeze({ k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' }),
+});
+
+const KM42_THEME_LABELS = Object.freeze({
+  hangingPiece: 'hanging pieces',
+  capturingDefender: 'remove the defender',
+  trappedPiece: 'trapped pieces',
+  fork: 'forks',
+  pin: 'pins',
+  skewer: 'skewers',
+  discoveredAttack: 'discovered attacks',
+  deflection: 'deflection',
+  attraction: 'attraction',
+  intermezzo: 'in-between moves',
+  interference: 'interference',
+  sacrifice: 'sacrifices',
+  doubleCheck: 'double check',
+  mate: 'mating attacks',
+  mateIn1: 'mate in one',
+  mateIn2: 'mate in two',
+  mateIn3: 'mate in three',
+  backRankMate: 'back-rank mates',
+  smotheredMate: 'smothered mates',
+  exposedKing: 'exposed kings',
+  kingsideAttack: 'kingside attacks',
+  queensideAttack: 'queenside attacks',
+  defensiveMove: 'defensive resources',
+  equality: 'saving equality',
+  quietMove: 'quiet best moves',
+  advantage: 'positional advantages',
+  endgame: 'endgames',
+  rookEndgame: 'rook endings',
+  pawnEndgame: 'pawn endings',
+  queenEndgame: 'queen endings',
+  zugzwang: 'zugzwang',
+  promotion: 'promotion',
+  advancedPawn: 'advanced pawns',
+  underPromotion: 'underpromotion',
+  middlegame: 'middlegame',
+});
+
+let km42VideoPromise = null;
+let km42IndexPromise = null;
+let km42Observer = null;
+let km42RenderTimer = null;
+let km42LastRenderKey = '';
+let km42RankedLessons = [];
+let km42ToastTimer = null;
+const km42ShardCache = new Map();
+
+function km42$(selector, root = document) {
+  return root.querySelector(selector);
+}
+
+function km42$$(selector, root = document) {
+  return [...root.querySelectorAll(selector)];
+}
+
+function km42Escape(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function km42Normalize(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function km42Tokens(value) {
+  return new Set(km42Normalize(value).split(/\s+/).filter((token) => token.length > 2));
+}
+
+function km42Hash(value) {
+  let hash = 2166136261;
+  for (const char of String(value || '')) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function km42ThemeLabel(theme) {
+  return KM42_THEME_LABELS[theme] || String(theme || '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+}
+
+function km42ShowToast(message) {
+  const toast = km42$('#toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add('show');
+  window.clearTimeout(km42ToastTimer);
+  km42ToastTimer = window.setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+function km42ReadProgress() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(KM42_PROGRESS_KEY) || '{}');
+    return {
+      version: 42,
+      seen: Array.isArray(parsed.seen) ? parsed.seen : [],
+      puzzles: parsed.puzzles && typeof parsed.puzzles === 'object' ? parsed.puzzles : {},
+      videos: parsed.videos && typeof parsed.videos === 'object' ? parsed.videos : {},
+      workouts: Array.isArray(parsed.workouts) ? parsed.workouts : [],
+    };
+  } catch {
+    return { version: 42, seen: [], puzzles: {}, videos: {}, workouts: [] };
+  }
+}
+
+function km42SaveProgress(progress) {
+  try {
+    progress.version = 42;
+    progress.seen = [...new Set(progress.seen || [])].slice(-2600);
+    progress.workouts = (progress.workouts || []).slice(-160);
+    localStorage.setItem(KM42_PROGRESS_KEY, JSON.stringify(progress));
+  } catch {}
+}
+
+function km42ReadMeta() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(KM42_META_KEY) || '{}');
+    return {
+      version: 42,
+      lessonExposures: Array.isArray(parsed.lessonExposures) ? parsed.lessonExposures : [],
+      lastPrincipleFingerprint: parsed.lastPrincipleFingerprint || null,
+    };
+  } catch {
+    return { version: 42, lessonExposures: [], lastPrincipleFingerprint: null };
+  }
+}
+
+function km42SaveMeta(meta) {
+  try {
+    meta.version = 42;
+    meta.lessonExposures = (meta.lessonExposures || []).slice(-24);
+    localStorage.setItem(KM42_META_KEY, JSON.stringify(meta));
+  } catch {}
+}
+
+async function km42FetchJson(url, label) {
+  const response = await fetch(url, { cache: 'force-cache' });
+  if (!response.ok) throw new Error(`${label} could not load (${response.status}).`);
+  return response.json();
+}
+
+function km42LoadVideos() {
+  if (!km42VideoPromise) km42VideoPromise = km42FetchJson(KM42_VIDEO_URL, 'The lesson catalog');
+  return km42VideoPromise;
+}
+
+function km42LoadIndex() {
+  if (!km42IndexPromise) km42IndexPromise = km42FetchJson(KM42_PUZZLE_INDEX_URL, 'The puzzle library');
+  return km42IndexPromise;
+}
+
+function km42Recommendation() {
+  try {
+    return window.__KMATE_LEARNING_CORE__?.recommend?.()
+      || window.__KMATE_LEARNING__?.recommendation?.()
+      || window.__KMATE_RELEVANCE__?.recommendation?.()
+      || null;
+  } catch (error) {
+    console.warn('K-Mate v42 could not read the personalized recommendation.', error);
+    return null;
+  }
+}
+
+function km42Preview() {
+  try {
+    return window.__KMATE_PERSONALIZATION__?.preview?.(5) || null;
+  } catch (error) {
+    console.warn('K-Mate v42 could not preview the current setup.', error);
+    return null;
+  }
+}
+
+function km42InstallCss() {
+  if (km42$('#km42PersonalizationStyles')) return;
+  const link = document.createElement('link');
+  link.id = 'km42PersonalizationStyles';
+  link.rel = 'stylesheet';
+  link.href = new URL(`./personalization-v42.css?v=${KM42_UI_VERSION}`, KM42_BASE_URL).href;
+  document.head.append(link);
+}
+
+function km42EnsureSetupPreview() {
+  const positionSlot = km42$('#setupWizard [data-wizard-slot="position"]');
+  if (!positionSlot) return null;
+  let card = km42$('#km42SetupBlueprint', positionSlot);
+  if (card) return card;
+  card = document.createElement('section');
+  card.id = 'km42SetupBlueprint';
+  card.className = 'km42-blueprint-card';
+  const goalField = km42$('#goalField');
+  if (goalField?.parentElement === positionSlot) goalField.insertAdjacentElement('afterend', card);
+  else positionSlot.append(card);
+  return card;
+}
+
+function km42EnsureCoachingPreview() {
+  const coachingSlot = km42$('#setupWizard [data-wizard-slot="coaching"]');
+  if (!coachingSlot) return null;
+  let card = km42$('#km42CoachingBlueprint', coachingSlot);
+  if (card) return card;
+  card = document.createElement('section');
+  card.id = 'km42CoachingBlueprint';
+  card.className = 'km42-blueprint-card km42-coaching-blueprint';
+  coachingSlot.prepend(card);
+  return card;
+}
+
+function km42PrincipleChip(principle, detailed = false) {
+  return `
+    <article class="km42-blueprint-principle" data-km42-principle="${km42Escape(principle.key)}">
+      <b>${km42Escape(principle.title)}</b>
+      ${detailed ? `<span>${km42Escape(principle.sessionPrompt || principle.rule || '')}</span><small>${km42Escape(principle.why || '')}</small>` : `<span>${km42Escape(principle.sessionPrompt || principle.rule || '')}</span>`}
+    </article>`;
+}
+
+function km42RenderSetupPreview() {
+  const preview = km42Preview();
+  if (!preview) return;
+  const { context, principles } = preview;
+  const summary = `${context.goalLabel} · ${context.phaseLabel} · ${context.opening} · ${context.timeLabel}`;
+  const compact = `
+    <div class="km42-blueprint-head"><div><small>Your custom training blueprint</small><b>${km42Escape(context.goalLabel)}</b></div><span>changes with every setup</span></div>
+    <p>${km42Escape(summary)}</p>
+    <div class="km42-blueprint-list">${principles.slice(0, 3).map((principle) => km42PrincipleChip(principle, false)).join('')}</div>`;
+  const setupCard = km42EnsureSetupPreview();
+  if (setupCard) setupCard.innerHTML = compact;
+  const coachingCard = km42EnsureCoachingPreview();
+  if (coachingCard) {
+    coachingCard.innerHTML = `
+      <div class="km42-blueprint-head"><div><small>Principles selected for this setup</small><b>${km42Escape(summary)}</b></div><span>custom v42</span></div>
+      <div class="km42-blueprint-list">${principles.slice(0, 5).map((principle) => km42PrincipleChip(principle, true)).join('')}</div>`;
+  }
+  const toggleText = km42$('#principleReview')?.closest('label')?.querySelector('span small');
+  if (toggleText) toggleText.textContent = 'Review the principles K-Mate selected from your goal, phase, opening, clock, color, challenge level, and position before the clock starts.';
+}
+
+function km42EnsureLearningBlueprint() {
+  const view = km42$('#learningView');
+  if (!view) return null;
+  let card = km42$('#km42LearningBlueprint', view);
+  if (card) return card;
+  card = document.createElement('section');
+  card.id = 'km42LearningBlueprint';
+  card.className = 'card km42-learning-blueprint';
+  const evidence = km42$('#km41RecommendationEvidence', view);
+  if (evidence) evidence.insertAdjacentElement('afterend', card);
+  else view.prepend(card);
+  return card;
+}
+
+function km42RenderLearningBlueprint(recommendation) {
+  const card = km42EnsureLearningBlueprint();
+  if (!card || !recommendation) return;
+  const intent = recommendation.trainingIntent || {};
+  const options = recommendation.optionEvidence || [];
+  const principles = recommendation.pregamePrinciples || [];
+  card.innerHTML = `
+    <div class="km42-learning-blueprint-head">
+      <div><div class="eyebrow">How your choices shaped this plan</div><h2>Gameplay first. Your setup still matters.</h2><p>${km42Escape(recommendation.customization?.summary || recommendation.puzzleSetSummary || '')}</p></div>
+      <span class="km42-weight-badge">${Math.round(Number(recommendation.customization?.gameplayWeight || 0) * 100)}% gameplay · ${Math.round(Number(recommendation.customization?.setupWeight || 1) * 100)}% setup</span>
+    </div>
+    <div class="km42-option-grid">${options.map((item) => `
+      <article><small>${km42Escape(item.label)}</small><b>${km42Escape(item.value)}</b><span>${km42Escape(item.effect)}</span></article>`).join('')}</div>
+    ${principles.length ? `<details class="km42-principles-recap"><summary>Principles K-Mate chose before this game</summary><div>${principles.map((principle) => `
+      <article><b>${km42Escape(principle.title)}</b><span>${km42Escape(principle.sessionPrompt || '')}</span><small>${km42Escape(principle.why || '')}</small></article>`).join('')}</div></details>` : ''}
+    <div class="km42-context-line">${km42Escape(intent.goalLabel || 'All themes')} · ${km42Escape(intent.phaseLabel || recommendation.phase || '')} · ${km42Escape(intent.opening || recommendation.opening || '')} · ${km42Escape(intent.timeLabel || '')}</div>`;
+}
+
+function km42VideoWords(video) {
+  return km42Tokens([
+    video.title,
+    video.creator,
+    ...(video.tags || []),
+    ...(video.focus || []),
+    ...(video.openingKeys || []),
+  ].join(' '));
+}
+
+function km42EvidenceWords(evidence) {
+  return km42Tokens([
+    evidence.focus,
+    evidence.focusLabel,
+    evidence.skill,
+    ...(evidence.lessonTags || []),
+    ...(evidence.themes || []).map(km42ThemeLabel),
+    ...(evidence.diagnoses || []).flatMap((diagnosis) => [diagnosis.title, diagnosis.evidence]),
+    ...(evidence.details || []),
+  ].join(' '));
+}
+
+function km42ExposurePenalty(videoId, fingerprint) {
+  const meta = km42ReadMeta();
+  const recent = [...meta.lessonExposures].reverse().filter((entry) => entry.fingerprint !== fingerprint).slice(0, 5);
+  let penalty = 0;
+  recent.forEach((entry, index) => {
+    if ((entry.videoIds || []).includes(videoId)) penalty += [92, 62, 38, 22, 12][index] || 0;
+  });
+  return penalty;
+}
+
+function km42OpeningMatch(video, opening) {
+  const normalized = km42Normalize(opening);
+  if (!normalized) return false;
+  return (video.openingKeys || []).some((key) => {
+    const candidate = km42Normalize(key);
+    return candidate && (normalized.includes(candidate) || candidate.includes(normalized));
+  });
+}
+
+function km42VideoEvidenceScore(video, evidence) {
+  if (!evidence) return { score: 0, overlaps: [] };
+  const videoWords = km42VideoWords(video);
+  const evidenceWords = km42EvidenceWords(evidence);
+  const overlaps = [...evidenceWords].filter((word) => videoWords.has(word));
+  let score = 0;
+  if ((video.focus || []).includes(evidence.focus)) score += 150;
+  score += Math.min(96, [...new Set(overlaps)].length * 16);
+  const videoText = km42Normalize([video.title, ...(video.tags || [])].join(' '));
+  for (const tag of evidence.lessonTags || []) {
+    const normalized = km42Normalize(tag);
+    if (normalized && videoText.includes(normalized)) score += 38;
+  }
+  score += Math.min(72, Math.max(0, Number(evidence.loss || 0)) / 5);
+  return { score, overlaps: [...new Set(overlaps)].slice(0, 5) };
+}
+
+function km42VideoIntentScore(video, recommendation) {
+  const intent = recommendation.trainingIntent || {};
+  const profile = window.__KMATE_PERSONALIZATION__?.goalProfiles?.[intent.goalKey] || null;
+  const videoText = km42Normalize([video.title, ...(video.tags || [])].join(' '));
+  let score = 0;
+  const matched = [];
+  if (profile?.focus && (video.focus || []).includes(profile.focus)) {
+    score += 82;
+    matched.push(intent.goalLabel || profile.focus);
+  }
+  for (const tag of profile?.lessonTags || []) {
+    const normalized = km42Normalize(tag);
+    if (normalized && videoText.includes(normalized)) {
+      score += 30;
+      matched.push(tag);
+    }
+  }
+  if (km42OpeningMatch(video, intent.opening || recommendation.opening)) {
+    score += 94;
+    matched.push(intent.opening || recommendation.opening);
+  }
+  const phaseFocus = window.__KMATE_PERSONALIZATION__?.phaseProfiles?.[intent.phase]?.focus;
+  if (phaseFocus && (video.focus || []).includes(phaseFocus)) score += 24;
+  return { score, matched: [...new Set(matched)].slice(0, 4) };
+}
+
+function km42ScoreVideos(catalog, recommendation) {
+  const progress = km42ReadProgress();
+  const target = Number(recommendation.puzzleRating || 1400);
+  const fingerprint = recommendation.customizationFingerprint || recommendation.sourceSessionId || 'preview';
+  return (catalog?.videos || []).map((video) => {
+    const matches = (recommendation.moveEvidence || []).slice(0, 6).map((evidence, index) => {
+      const scored = km42VideoEvidenceScore(video, evidence);
+      return { evidence, score: scored.score * Math.max(0.48, 1 - index * 0.1), overlaps: scored.overlaps };
+    }).filter((item) => item.score > 0).sort((a, b) => b.score - a.score);
+    const intent = km42VideoIntentScore(video, recommendation);
+    let score = matches.reduce((sum, item, index) => sum + item.score * (index === 0 ? 1 : 0.28), 0) + intent.score;
+    if (target < 1300 && ['beginner', 'improver'].includes(video.level)) score += 18;
+    if (target >= 1300 && ['intermediate', 'improver'].includes(video.level)) score += 16;
+    const watched = progress.videos?.[video.id];
+    if (!watched) score += 20;
+    else score -= Math.min(42, Number(watched.opens || 1) * 9);
+    score -= km42ExposurePenalty(video.id, fingerprint);
+    score += (km42Hash(`${fingerprint}:${video.id}`) % 1000) / 10000;
+    return { video, score, matches, intent };
+  }).sort((a, b) => b.score - a.score);
+}
+
+function km42LessonExplanation(entry, recommendation) {
+  const match = entry.matches[0];
+  if (match?.evidence) {
+    const evidence = match.evidence;
+    const overlap = match.overlaps.length ? ` It directly covers ${match.overlaps.slice(0, 3).join(', ')}.` : '';
+    const best = evidence.bestSan ? ` The engine preferred ${evidence.bestSan}.` : '';
+    return `${evidence.moveLabel} is the main trigger: ${evidence.explanation || `${evidence.focusLabel} needed attention.`}${best}${overlap}`;
+  }
+  if (entry.intent.matched.length) {
+    return `This lesson matches your chosen ${entry.intent.matched.join(', ')} setup, even though no single move dominated the post-game diagnosis.`;
+  }
+  return `This lesson is the closest available match to ${recommendation.focus?.label?.toLowerCase() || 'the current training focus'} near the selected level.`;
+}
+
+function km42DiversifiedLessons(catalog, recommendation, limit = 5) {
+  const scored = km42ScoreVideos(catalog, recommendation);
+  const chosen = [];
+  const used = new Set();
+  const creators = new Map();
+  const evidence = (recommendation.moveEvidence || []).slice(0, 3);
+
+  for (const item of evidence) {
+    const candidate = scored
+      .map((entry) => ({ entry, match: km42VideoEvidenceScore(entry.video, item) }))
+      .filter(({ entry, match }) => !used.has(entry.video.id) && match.score >= 70)
+      .sort((a, b) => {
+        const creatorPenaltyA = (creators.get(a.entry.video.creator) || 0) * 35;
+        const creatorPenaltyB = (creators.get(b.entry.video.creator) || 0) * 35;
+        return (b.match.score + b.entry.score * 0.25 - creatorPenaltyB) - (a.match.score + a.entry.score * 0.25 - creatorPenaltyA);
+      })[0]?.entry;
+    if (!candidate) continue;
+    used.add(candidate.video.id);
+    creators.set(candidate.video.creator, (creators.get(candidate.video.creator) || 0) + 1);
+    chosen.push(candidate);
+  }
+
+  const intentCandidate = scored.find((entry) => !used.has(entry.video.id) && entry.intent.score >= 45);
+  if (intentCandidate && chosen.length < limit) {
+    used.add(intentCandidate.video.id);
+    creators.set(intentCandidate.video.creator, (creators.get(intentCandidate.video.creator) || 0) + 1);
+    chosen.push(intentCandidate);
+  }
+
+  for (const entry of scored) {
+    if (chosen.length >= limit) break;
+    if (used.has(entry.video.id)) continue;
+    const creatorCount = creators.get(entry.video.creator) || 0;
+    if (creatorCount >= 2 && scored.some((candidate) => !used.has(candidate.video.id) && (creators.get(candidate.video.creator) || 0) === 0 && candidate.score > entry.score - 45)) continue;
+    used.add(entry.video.id);
+    creators.set(entry.video.creator, creatorCount + 1);
+    chosen.push(entry);
+  }
+
+  return chosen.slice(0, limit).map((entry, index) => ({
+    ...entry,
+    rank: index + 1,
+    why: km42LessonExplanation(entry, recommendation),
+    matchLabel: entry.matches[0]?.evidence
+      ? `From ${entry.matches[0].evidence.moveLabel}`
+      : entry.intent.matched.length
+        ? `From your ${entry.intent.matched[0]} choice`
+        : 'Related to this session',
+  }));
+}
+
+function km42RecordLessonExposure(recommendation, ranked) {
+  const fingerprint = recommendation.customizationFingerprint || recommendation.sourceSessionId || 'preview';
+  const meta = km42ReadMeta();
+  const existing = meta.lessonExposures.find((entry) => entry.fingerprint === fingerprint);
+  if (existing) return;
+  meta.lessonExposures.push({
+    fingerprint,
+    at: new Date().toISOString(),
+    videoIds: ranked.map((entry) => entry.video.id),
+  });
+  km42SaveMeta(meta);
+}
+
+function km42LessonRow(entry, compact = false) {
+  const video = entry.video;
+  return `
+    <article class="km41-lesson-row km42-lesson-row ${entry.rank === 1 ? 'primary-match' : ''}">
+      <div class="km41-lesson-copy">
+        <small>${km42Escape(entry.matchLabel)} · ${km42Escape(video.level || 'all levels')}</small>
+        <b>${km42Escape(video.title)}</b>
+        <span>${km42Escape(video.creator || 'Chess educator')}</span>
+        <span class="km41-lesson-why">${km42Escape(entry.why)}</span>
+      </div>
+      <div class="km41-lesson-actions">
+        <span class="km41-match-badge">#${entry.rank}</span>
+        <button class="learning-mini-button primary-lite" type="button" data-km42-watch-video="${km42Escape(video.id)}">Watch</button>
+        ${compact ? '' : `<a class="learning-mini-button" href="${km42Escape(video.sourceUrl)}" target="_blank" rel="noopener noreferrer">Lichess</a>`}
+      </div>
+    </article>`;
+}
+
+async function km42RenderLessonCard(recommendation) {
+  const card = km42$('#learningVideoCard');
+  if (!card || !recommendation) return;
+  try {
+    const catalog = await km42LoadVideos();
+    const ranked = km42DiversifiedLessons(catalog, recommendation, 5);
+    km42RankedLessons = ranked;
+    card.className = 'km41-ranked-lessons km42-ranked-lessons';
+    card.innerHTML = ranked.slice(0, 3).map((entry) => km42LessonRow(entry, true)).join('');
+    const section = card.closest('.learning-card');
+    const heading = section?.querySelector('h2');
+    const copy = section?.querySelector(':scope > p');
+    if (heading) heading.textContent = 'Different lessons for different decisions';
+    if (copy) copy.textContent = 'K-Mate covers separate mistakes and your chosen session goal, while heavily penalizing lessons shown in recent sessions.';
+    const button = km42$('#learningWatchLesson');
+    if (button) {
+      button.disabled = !ranked.length;
+      button.textContent = `Review ${ranked.length} custom lesson options`;
+    }
+  } catch (error) {
+    console.warn('K-Mate v42 lesson ranking failed.', error);
+  }
+}
+
+function km42EnsureLessonDialog() {
+  let dialog = km42$('#km42LessonDialog');
+  if (dialog) return dialog;
+  dialog = document.createElement('dialog');
+  dialog.id = 'km42LessonDialog';
+  dialog.className = 'modal km42-lesson-dialog';
+  dialog.innerHTML = `
+    <div class="km42-lesson-shell">
+      <header class="km42-dialog-head"><div><div class="eyebrow">Custom instructional lessons</div><h2>Choose the lesson that matches the move you want to fix</h2><p id="km42LessonSummary"></p></div><button class="roundbtn" id="km42LessonClose" type="button" aria-label="Close lessons">×</button></header>
+      <div id="km42LessonList" class="km42-lesson-list"></div>
+    </div>`;
+  document.body.append(dialog);
+  const close = () => dialog.open ? dialog.close() : dialog.removeAttribute('open');
+  km42$('#km42LessonClose', dialog)?.addEventListener('click', close);
+  dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
+  return dialog;
+}
+
+function km42EnsureVideoDialog() {
+  let dialog = km42$('#km42VideoDialog');
+  if (dialog) return dialog;
+  dialog = document.createElement('dialog');
+  dialog.id = 'km42VideoDialog';
+  dialog.className = 'modal km42-video-dialog';
+  dialog.innerHTML = `
+    <div class="km42-lesson-shell">
+      <header class="km42-dialog-head"><div><div class="eyebrow">Custom lesson</div><h2 id="km42VideoTitle">Chess lesson</h2><p id="km42VideoWhy"></p></div><div class="km42-dialog-actions"><button class="btn" id="km42VideoBack" type="button">Back to list</button><button class="roundbtn" id="km42VideoClose" type="button" aria-label="Close video">×</button></div></header>
+      <div class="km42-video-frame"><iframe id="km42VideoFrame" title="K-Mate custom chess lesson" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+      <div class="km42-video-footer"><span id="km42VideoCreator"></span><a id="km42VideoSource" target="_blank" rel="noopener noreferrer">Open source page on Lichess</a></div>
+    </div>`;
+  document.body.append(dialog);
+  const close = () => {
+    km42$('#km42VideoFrame', dialog)?.removeAttribute('src');
+    if (dialog.open) dialog.close(); else dialog.removeAttribute('open');
+  };
+  km42$('#km42VideoClose', dialog)?.addEventListener('click', close);
+  km42$('#km42VideoBack', dialog)?.addEventListener('click', () => {
+    close();
+    km42ShowDialog(km42EnsureLessonDialog());
+  });
+  dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
+  dialog.addEventListener('close', () => km42$('#km42VideoFrame', dialog)?.removeAttribute('src'));
+  return dialog;
+}
+
+function km42ShowDialog(dialog) {
+  if (!dialog) return;
+  if (typeof dialog.showModal === 'function') {
+    if (!dialog.open) dialog.showModal();
+  } else dialog.setAttribute('open', '');
+}
+
+async function km42OpenLessonList() {
+  const recommendation = km42Recommendation();
+  if (!recommendation) return false;
+  const dialog = km42EnsureLessonDialog();
+  const list = km42$('#km42LessonList', dialog);
+  km42$('#km42LessonSummary', dialog).textContent = recommendation.customization?.summary || recommendation.puzzleSetSummary || '';
+  list.innerHTML = '<div class="learning-library-empty">Matching separate lessons to your moves and setup choices…</div>';
+  km42ShowDialog(dialog);
+  try {
+    const catalog = await km42LoadVideos();
+    const ranked = km42DiversifiedLessons(catalog, recommendation, 5);
+    km42RankedLessons = ranked;
+    km42RecordLessonExposure(recommendation, ranked);
+    list.innerHTML = ranked.map((entry) => km42LessonRow(entry, false)).join('') || '<div class="learning-library-empty">No custom lesson match is available.</div>';
+    await km42RenderLessonCard(recommendation);
+  } catch (error) {
+    list.innerHTML = `<div class="learning-library-empty">${km42Escape(error?.message || 'The lesson catalog could not load.')}</div>`;
+  }
+  return true;
+}
+
+function km42PlayVideo(videoId) {
+  const entry = km42RankedLessons.find((item) => item.video.id === videoId);
+  if (!entry) return false;
+  const video = entry.video;
+  const listDialog = km42$('#km42LessonDialog');
+  if (listDialog?.open) listDialog.close();
+  const dialog = km42EnsureVideoDialog();
+  km42$('#km42VideoTitle', dialog).textContent = video.title;
+  km42$('#km42VideoWhy', dialog).textContent = entry.why;
+  km42$('#km42VideoCreator', dialog).textContent = `${video.creator || 'Chess educator'} · creator-hosted external lesson`;
+  km42$('#km42VideoSource', dialog).href = video.sourceUrl || `https://lichess.org/video/${video.id}`;
+  const base = video.embedUrl || `https://www.youtube-nocookie.com/embed/${video.id}`;
+  km42$('#km42VideoFrame', dialog).src = `${base}${base.includes('?') ? '&' : '?'}rel=0&modestbranding=1`;
+  const progress = km42ReadProgress();
+  const prior = progress.videos[video.id] || { opens: 0 };
+  progress.videos[video.id] = {
+    ...prior,
+    opens: Number(prior.opens || 0) + 1,
+    title: video.title,
+    matchedReason: entry.why,
+    matchedMoves: entry.matches.map((match) => match.evidence?.moveLabel).filter(Boolean),
+    lastAt: new Date().toISOString(),
+  };
+  km42SaveProgress(progress);
+  km42ShowDialog(dialog);
+  return true;
+}
