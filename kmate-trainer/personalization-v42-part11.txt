@@ -1,0 +1,58 @@
+
+/* K-Mate v42 — synchronously prefill the custom Learning blueprint. */
+let km42BlueprintRepairBusy = false;
+
+function km42RepairLearningBlueprintNow() {
+  if (km42BlueprintRepairBusy) return false;
+  const recommendation = km42Recommendation();
+  if (!recommendation) return false;
+  const card = km42EnsureLearningBlueprint();
+  if (!card) return false;
+  const expectedGoal = recommendation.trainingIntent?.goalLabel || recommendation.optionEvidence?.find((item) => item.key === 'goal')?.value || '';
+  const text = card.textContent || '';
+  if (text.includes('Gameplay first') && (!expectedGoal || text.includes(expectedGoal))) return true;
+  km42BlueprintRepairBusy = true;
+  try {
+    km42RenderLearningBlueprint(recommendation);
+  } finally {
+    km42BlueprintRepairBusy = false;
+  }
+  return Boolean((card.textContent || '').includes('Gameplay first'));
+}
+
+// Fill the hidden Learning view during startup. When the player opens it, the
+// explanation is already present rather than arriving a frame later.
+km42RepairLearningBlueprintNow();
+
+window.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target?.closest('#wizardLearningButton,#learningNavButton,[data-view="learning"]')) return;
+  km42RepairLearningBlueprintNow();
+  queueMicrotask(km42RepairLearningBlueprintNow);
+  window.setTimeout(km42RepairLearningBlueprintNow, 60);
+}, true);
+
+const km42BlueprintObserver = new MutationObserver(() => {
+  const view = km42$('#learningView');
+  const card = km42$('#km42LearningBlueprint');
+  if (!view || !card || card.textContent?.trim()) return;
+  km42RepairLearningBlueprintNow();
+});
+const km42LearningViewForRepair = km42$('#learningView');
+if (km42LearningViewForRepair) {
+  km42BlueprintObserver.observe(km42LearningViewForRepair, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['hidden'],
+  });
+}
+
+window.__KMATE_V42_BLUEPRINT_REPAIR__ = {
+  version: '42.0.0',
+  repair: km42RepairLearningBlueprintNow,
+  state: () => ({
+    ready: true,
+    populated: Boolean(km42$('#km42LearningBlueprint')?.textContent?.trim()),
+  }),
+};
