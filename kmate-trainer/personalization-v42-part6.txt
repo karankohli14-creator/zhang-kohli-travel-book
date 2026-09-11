@@ -25,6 +25,7 @@ function km42EnsureResultCard() {
   if (legacy) {
     legacy.hidden = true;
     legacy.setAttribute('aria-hidden', 'true');
+    legacy.classList.add('km42-superseded-result');
   }
   let card = km42$('#km42ResultCard', dialog);
   if (card) return card;
