@@ -102,6 +102,7 @@ async function prepare(page) {
       && window.__KMATE_LEARNING__
       && window.__KMATE_RELEVANCE__
       && window.__KMATE_V42__?.state?.().ready
+      && window.__KMATE_V42_AUTHORITY__?.state?.().ready
     ),
     undefined,
     { timeout: 60_000 },
@@ -152,7 +153,7 @@ test('players can openly browse puzzle and instructional-video categories', asyn
   await page.locator('#km42PuzzleClose').click();
 });
 
-test('the results screen presents a game-and-setup-specific lesson and puzzle set after play', async ({ page }) => {
+test('the results screen presents the authoritative game-and-setup-specific prescription', async ({ page }) => {
   test.setTimeout(90_000);
   await prepare(page);
 
@@ -163,15 +164,17 @@ test('the results screen presents a game-and-setup-specific lesson and puzzle se
   });
 
   await expect(page.locator('#resultDialog')).toBeVisible();
-  await expect(page.locator('#learningResultCard')).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator('#learningResultCard .learning-result-head small')).toContainText('Custom to this game and your setup');
-  await expect(page.locator('#learningResultTitle')).toContainText('Loose pieces');
-  await expect(page.locator('#km41ResultEvidence')).toContainText('a3');
-  await expect(page.locator('#km42ResultContext')).toContainText('Moves used');
-  await expect(page.locator('#km42ResultContext')).toContainText('Choices used');
-  await expect(page.locator('#learningResultPuzzles')).toBeEnabled();
-  await expect(page.locator('#learningResultVideo')).toBeEnabled();
-  await expect(page.locator('#learningResultLibrary')).toBeVisible();
+  await expect(page.locator('#km42ResultCard')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('#km42ResultCard .learning-result-head small')).toContainText('Custom to this game and your setup');
+  await expect(page.locator('#km42ResultTitle')).toContainText('Loose pieces');
+  await expect(page.locator('#km42ResultEvidence')).toContainText('Moves used');
+  await expect(page.locator('#km42ResultEvidence')).toContainText('a3');
+  await expect(page.locator('#km42ResultEvidence')).toContainText('Choices used');
+  await expect(page.locator('#km42ResultPuzzles')).toBeEnabled();
+  await expect(page.locator('#km42ResultLessons')).toBeEnabled();
+  await expect(page.locator('#km42ResultLearning')).toBeVisible();
+  await expect(page.locator('#learningResultCard')).toBeHidden();
+  await expect(page.locator('#learningResultCard')).toHaveClass(/km42-superseded-result/);
 
   const libraryState = await page.evaluate(() => window.__KMATE_LEARNING_LIBRARY__.state());
   expect(libraryState.ready).toBe(true);
@@ -180,4 +183,7 @@ test('the results screen presents a game-and-setup-specific lesson and puzzle se
   const v42 = await page.evaluate(() => window.__KMATE_V42__.state());
   expect(v42.movableByTap).toBe(true);
   expect(v42.movableByDrag).toBe(true);
+  const authority = await page.evaluate(() => window.__KMATE_V42_AUTHORITY__.state());
+  expect(authority.resultCard).toBe(true);
+  expect(authority.legacyResultHidden).toBe(true);
 });
