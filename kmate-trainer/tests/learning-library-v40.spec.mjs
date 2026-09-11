@@ -59,6 +59,7 @@ const seededStore = {
     positionRating: 1400,
     opponentRating: 1400,
     timeControl: '3+0',
+    trainingGoal: 'all',
     userColor: 'w',
     outcome: 'loss',
     reason: 'resignation',
@@ -91,6 +92,7 @@ async function prepare(page) {
   await page.addInitScript((store) => {
     localStorage.setItem('kmate-position-v7', JSON.stringify(store));
     localStorage.removeItem('kmate-learning-v40');
+    localStorage.removeItem('kmate-personalization-v42');
   }, seededStore);
   await routeChessJs(page);
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded', timeout: 60_000 });
@@ -99,6 +101,7 @@ async function prepare(page) {
       window.__KMATE_LEARNING_LIBRARY__
       && window.__KMATE_LEARNING__
       && window.__KMATE_RELEVANCE__
+      && window.__KMATE_V42__?.state?.().ready
     ),
     undefined,
     { timeout: 60_000 },
@@ -125,6 +128,7 @@ test('players can openly browse puzzle and instructional-video categories', asyn
   await expect(page.locator('[data-library-focus-card="calculation"]')).toContainText('puzzles');
   await expect(page.locator('[data-library-focus-card="calculation"]')).toContainText('videos');
   await expect(page.locator('#km41RecommendationEvidence')).toContainText('a3');
+  await expect(page.locator('#km42LearningBlueprint')).toBeVisible();
 
   await page.locator('#learningBrowseAllVideos').click();
   await expect(page.locator('#learningLibraryDialog')).toBeVisible();
@@ -142,13 +146,13 @@ test('players can openly browse puzzle and instructional-video categories', asyn
   await page.locator('#learningLibraryClose').click();
 
   await page.locator('[data-library-puzzles="calculation"]').click();
-  await expect(page.locator('#km41PuzzleMode')).toBeVisible();
-  await expect(page.locator('#km41PuzzleBoard .sq')).toHaveCount(64);
-  await expect(page.locator('#km41PuzzleMode .playerbar')).toHaveCount(2);
-  await page.locator('#km41PuzzleClose').click();
+  await expect(page.locator('#km42PuzzleMode')).toBeVisible();
+  await expect(page.locator('#km42PuzzleBoard .sq')).toHaveCount(64);
+  await expect(page.locator('#km42PuzzleMode .playerbar')).toHaveCount(2);
+  await page.locator('#km42PuzzleClose').click();
 });
 
-test('the results screen presents a move-matched lesson and puzzle set after play', async ({ page }) => {
+test('the results screen presents a game-and-setup-specific lesson and puzzle set after play', async ({ page }) => {
   test.setTimeout(90_000);
   await prepare(page);
 
@@ -160,9 +164,11 @@ test('the results screen presents a move-matched lesson and puzzle set after pla
 
   await expect(page.locator('#resultDialog')).toBeVisible();
   await expect(page.locator('#learningResultCard')).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator('#learningResultCard .learning-result-head small')).toContainText('Move-matched to this game');
+  await expect(page.locator('#learningResultCard .learning-result-head small')).toContainText('Custom to this game and your setup');
   await expect(page.locator('#learningResultTitle')).toContainText('Loose pieces');
   await expect(page.locator('#km41ResultEvidence')).toContainText('a3');
+  await expect(page.locator('#km42ResultContext')).toContainText('Moves used');
+  await expect(page.locator('#km42ResultContext')).toContainText('Choices used');
   await expect(page.locator('#learningResultPuzzles')).toBeEnabled();
   await expect(page.locator('#learningResultVideo')).toBeEnabled();
   await expect(page.locator('#learningResultLibrary')).toBeVisible();
@@ -171,4 +177,7 @@ test('the results screen presents a move-matched lesson and puzzle set after pla
   expect(libraryState.ready).toBe(true);
   expect(libraryState.categories).toBe(8);
   expect(libraryState.resultTailoring).toBe(true);
+  const v42 = await page.evaluate(() => window.__KMATE_V42__.state());
+  expect(v42.movableByTap).toBe(true);
+  expect(v42.movableByDrag).toBe(true);
 });
