@@ -1,0 +1,205 @@
+
+const km42BaseEnsurePuzzleMode = km42EnsurePuzzleMode;
+km42EnsurePuzzleMode = function km42EnsureReusablePuzzleMode() {
+  const existing = km42$('#km42PuzzleMode');
+  if (existing && !km42$('#km42PuzzleBoard', existing)) existing.remove();
+  return km42BaseEnsurePuzzleMode();
+};
+
+function km42RenderResultCustomization(recommendation) {
+  const card = km42$('#learningResultCard');
+  if (!card || !recommendation) return;
+  card.hidden = false;
+  const kicker = card.querySelector('.learning-result-head small');
+  const title = km42$('#learningResultTitle', card);
+  const reason = km42$('#learningResultReason', card);
+  if (kicker) kicker.textContent = 'Custom to this game and your setup';
+  if (title) title.textContent = `${recommendation.focus?.label || 'Targeted review'} from ${recommendation.moveEvidence?.[0]?.moveLabel || recommendation.trainingIntent?.goalLabel || 'your session'}`;
+  if (reason) reason.textContent = recommendation.customization?.summary || recommendation.puzzleSetSummary || '';
+  let context = km42$('#km42ResultContext', card);
+  if (!context) {
+    context = document.createElement('div');
+    context.id = 'km42ResultContext';
+    context.className = 'km42-result-context';
+    const actions = card.querySelector('.learning-result-actions');
+    if (actions) actions.before(context);
+    else card.append(context);
+  }
+  const moveEvidence = (recommendation.moveEvidence || []).slice(0, 3);
+  const options = (recommendation.optionEvidence || []).slice(0, 4);
+  context.innerHTML = `
+    <div><strong>Moves used</strong><span>${moveEvidence.length ? moveEvidence.map((item) => `${item.moveLabel} (${item.focusLabel})`).join(' · ') : 'No reviewed move-level error yet'}</span></div>
+    <div><strong>Choices used</strong><span>${options.map((item) => `${item.label}: ${item.value}`).join(' · ')}</span></div>`;
+  const puzzleButton = km42$('#learningResultPuzzles', card);
+  const videoButton = km42$('#learningResultVideo', card);
+  if (puzzleButton) puzzleButton.textContent = 'Start 5 custom puzzles';
+  if (videoButton) videoButton.textContent = 'Review custom lesson list';
+}
+
+function km42RenderKey(recommendation) {
+  const preview = km42Preview();
+  const moves = (recommendation?.moveEvidence || []).slice(0, 4).map((item) => `${item.id}:${item.loss}:${item.focus}`).join('|');
+  const options = recommendation?.customizationFingerprint || preview?.context?.fingerprint || 'none';
+  const progress = km42ReadProgress();
+  return `${recommendation?.sourceSessionId || 'preview'}:${options}:${moves}:${Object.keys(progress.videos || {}).length}:${progress.workouts.length}`;
+}
+
+async function km42RenderAll({ force = false } = {}) {
+  km42RenderSetupPreview();
+  const recommendation = km42Recommendation();
+  if (!recommendation) return;
+  const key = km42RenderKey(recommendation);
+  if (!force && key === km42LastRenderKey) {
+    km42RenderResultCustomization(recommendation);
+    return;
+  }
+  km42LastRenderKey = key;
+  km42RenderLearningBlueprint(recommendation);
+  km42RenderResultCustomization(recommendation);
+  if (km42$('#learningView') && !km42$('#learningView').hidden) await km42RenderLessonCard(recommendation);
+}
+
+function km42ScheduleRender(force = false) {
+  window.clearTimeout(km42RenderTimer);
+  km42RenderTimer = window.setTimeout(() => {
+    void km42RenderAll({ force });
+  }, 45);
+}
+
+function km42InterceptInteraction(event) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return;
+
+  const watch = target.closest('[data-km42-watch-video]');
+  if (watch) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    km42PlayVideo(watch.dataset.km42WatchVideo);
+    return;
+  }
+
+  const legacyWatch = target.closest('[data-km41-watch-video]');
+  if (legacyWatch && (target.closest('#learningView') || target.closest('#km41LessonChoices'))) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const id = legacyWatch.dataset.km41WatchVideo;
+    if (!km42PlayVideo(id)) void km42OpenLessonList();
+    return;
+  }
+
+  const puzzleButton = target.closest('#learningStartPuzzles,#learningResultPuzzles,[data-library-puzzles]');
+  if (puzzleButton) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const focusOverride = puzzleButton.dataset.libraryPuzzles || null;
+    void km42StartWorkout({ focusOverride, source: focusOverride ? 'open-library' : 'tailored' });
+    return;
+  }
+
+  const lessonButton = target.closest('#learningWatchLesson,#learningResultVideo');
+  if (lessonButton) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void km42OpenLessonList();
+    return;
+  }
+
+  if (target.closest('#wizardLearningButton,#learningNavButton,[data-view="learning"]')) {
+    window.setTimeout(() => km42ScheduleRender(true), 80);
+    window.setTimeout(() => km42ScheduleRender(true), 420);
+  }
+}
+
+function km42BindSetupChanges() {
+  const wizard = km42$('#setupWizard');
+  if (!wizard || wizard.dataset.km42Bound) return;
+  wizard.dataset.km42Bound = KM42_UI_VERSION;
+  wizard.addEventListener('input', () => km42ScheduleRender(true), true);
+  wizard.addEventListener('change', () => km42ScheduleRender(true), true);
+  wizard.addEventListener('click', (event) => {
+    if (event.target.closest('[data-phase],[data-side],[data-time],[data-step],[data-preset],[data-wizard-next],[data-wizard-back]')) {
+      window.setTimeout(() => km42ScheduleRender(true), 20);
+    }
+  }, true);
+}
+
+function km42WrapPublicApis() {
+  const learning = window.__KMATE_LEARNING__;
+  if (learning && learning.personalizationVersion !== KM42_UI_VERSION) {
+    const oldOpen = learning.open;
+    learning.open = (...args) => {
+      const result = typeof oldOpen === 'function' ? oldOpen(...args) : true;
+      km42ScheduleRender(true);
+      return result;
+    };
+    learning.startWorkout = (options = {}) => km42StartWorkout(options || {});
+    learning.openVideo = km42OpenLessonList;
+    learning.personalizationVersion = KM42_UI_VERSION;
+  }
+  const relevance = window.__KMATE_RELEVANCE__;
+  if (relevance && relevance.personalizationVersion !== KM42_UI_VERSION) {
+    relevance.startWorkout = (options = {}) => km42StartWorkout(options || {});
+    relevance.openLessons = km42OpenLessonList;
+    relevance.rankLessonsV42 = async () => km42DiversifiedLessons(await km42LoadVideos(), km42Recommendation(), 5);
+    relevance.personalizationVersion = KM42_UI_VERSION;
+  }
+}
+
+function km42ObserveApp() {
+  if (km42Observer) return;
+  km42Observer = new MutationObserver(() => {
+    km42BindSetupChanges();
+    km42WrapPublicApis();
+    km42ScheduleRender();
+  });
+  km42Observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['hidden', 'open', 'class'],
+  });
+}
+
+function km42Initialize(attempt = 0) {
+  if (!window.__KMATE_PERSONALIZATION__ || !window.__KMATE_LEARNING_CORE__ || !km42$('#setupWizard')) {
+    if (attempt < 200) window.setTimeout(() => km42Initialize(attempt + 1), 100);
+    else console.warn('K-Mate v42 personalization UI could not initialize.');
+    return;
+  }
+  km42InstallCss();
+  km42EnsureSetupPreview();
+  km42EnsureCoachingPreview();
+  km42EnsureLearningBlueprint();
+  km42EnsureLessonDialog();
+  km42EnsureVideoDialog();
+  km42EnsurePuzzleMode();
+  km42BindSetupChanges();
+  km42WrapPublicApis();
+  window.addEventListener('click', km42InterceptInteraction, true);
+  km42ObserveApp();
+  km42ScheduleRender(true);
+  void Promise.allSettled([km42LoadVideos(), km42LoadIndex()]);
+
+  window.__KMATE_V42__ = {
+    version: KM42_UI_VERSION,
+    recommendation: km42Recommendation,
+    preview: km42Preview,
+    openLessons: km42OpenLessonList,
+    startWorkout: km42StartWorkout,
+    state: () => ({
+      ready: true,
+      version: KM42_UI_VERSION,
+      customizationFingerprint: km42Recommendation()?.customizationFingerprint || km42Preview()?.context?.fingerprint || null,
+      goal: km42Recommendation()?.trainingIntent?.goalKey || km42Preview()?.context?.goalKey || null,
+      principles: km42Preview()?.principles?.map((principle) => principle.key) || [],
+      rankedLessons: km42RankedLessons.map((entry) => ({ id: entry.video.id, title: entry.video.title, why: entry.why })),
+      puzzleOpen: !km42$('#km42PuzzleMode')?.hidden,
+      movableByTap: true,
+      movableByDrag: true,
+      puzzleIndex: km42Puzzle.index,
+      puzzleCount: km42Puzzle.puzzles.length,
+    }),
+  };
+}
+
+km42Initialize();
