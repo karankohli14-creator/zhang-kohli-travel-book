@@ -1,0 +1,45 @@
+name: K-Mate voice API smoke tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kmate-voice-api/**"
+      - ".github/workflows/kmate-voice-api-smoke.yml"
+  pull_request:
+    paths:
+      - "kmate-voice-api/**"
+      - ".github/workflows/kmate-voice-api-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-secret-hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check server code syntax
+        run: npm --prefix kmate-voice-api run check
+      - name: Verify required deployment files
+        run: |
+          test -f kmate-voice-api/api/speak.js
+          test -f kmate-voice-api/api/health.js
+          test -f kmate-voice-api/vercel.json
+          test -f kmate-voice-api/.env.example
+          grep -Fq "ELEVENLABS_API_KEY" kmate-voice-api/.env.example
+          grep -Fq "KMATE_VOICE_ACCESS_KEY" kmate-voice-api/.env.example
+      - name: Reject common accidental secret assignments
+        shell: bash
+        run: |
+          if grep -RInE --exclude='.env.example' --exclude='README.md' \
+            '(ELEVENLABS_API_KEY|KMATE_VOICE_ACCESS_KEY)[[:space:]]*=[[:space:]]*[^$[:space:]]+' \
+            kmate-voice-api; then
+            echo "A possible real secret assignment was committed."
+            exit 1
+          fi
