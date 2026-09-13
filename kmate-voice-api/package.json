@@ -1,0 +1,12 @@
+{
+  "name": "kmate-voice-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check": "node --check api/health.js && node --check api/speak.js && node --check lib/security.js"
+  }
+}
