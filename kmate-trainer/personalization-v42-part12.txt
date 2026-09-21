@@ -12,7 +12,7 @@ km42StartWorkout = async function km43StartOrdinaryWorkout(options = {}) {
 const km43BaseRecordPuzzle = km42RecordPuzzle;
 km42RecordPuzzle = function km43RecordPuzzleWithPlan(puzzle, solved) {
   km43BaseRecordPuzzle(puzzle, solved);
-  const planId = String(puzzle?.km43PlanId || '').trim();
+  const planId = String(puzzle?.km43PlanId || km42Puzzle.planId || '').trim();
   if (!planId) return;
   try {
     const progress = km42ReadProgress();
@@ -20,12 +20,15 @@ km42RecordPuzzle = function km43RecordPuzzleWithPlan(puzzle, solved) {
     if (!entry) return;
     entry.plans = entry.plans && typeof entry.plans === 'object' ? entry.plans : {};
     const prior = entry.plans[planId] || { attempts: 0, solves: 0, wrong: 0 };
+    const curriculumIndex = Number.isFinite(Number(puzzle?.km43CurriculumIndex))
+      ? Number(puzzle.km43CurriculumIndex)
+      : Number(km42Puzzle.index || 0);
     entry.plans[planId] = {
       attempts: Number(prior.attempts || 0) + 1,
       solves: Number(prior.solves || 0) + (solved ? 1 : 0),
       wrong: Number(prior.wrong || 0) + Number(km42Puzzle.wrongAttempts || 0),
       solved: Boolean(prior.solved || solved),
-      curriculumIndex: Number.isFinite(Number(puzzle.km43CurriculumIndex)) ? Number(puzzle.km43CurriculumIndex) : null,
+      curriculumIndex,
       lastAt: new Date().toISOString(),
     };
     km42SaveProgress(progress);
@@ -35,7 +38,7 @@ km42RecordPuzzle = function km43RecordPuzzleWithPlan(puzzle, solved) {
         puzzleId: puzzle.id,
         solved: Boolean(solved),
         wrong: Number(km42Puzzle.wrongAttempts || 0),
-        curriculumIndex: puzzle.km43CurriculumIndex ?? null,
+        curriculumIndex,
       },
     }));
   } catch (error) {
