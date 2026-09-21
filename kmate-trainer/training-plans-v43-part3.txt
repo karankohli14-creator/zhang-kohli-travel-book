@@ -1,0 +1,264 @@
+
+async function tpBuildCurriculum(planId, { force = false } = {}) {
+  const key = `${planId}:${force ? Date.now() : 'stable'}`;
+  if (!force && tpCurriculumPromises.has(key)) return tpCurriculumPromises.get(key);
+  const task = (async () => {
+    const [definitions, index, catalog] = await Promise.all([tpDefinitions(), tpPuzzleIndex(), tpVideoCatalog()]);
+    const definition = (definitions.plans || []).find((item) => item.id === planId);
+    if (!definition) throw new Error('Training plan was not found.');
+    const recommendation = tpRecommendation();
+    const plan = definition.dynamic ? tpCustomPlanProfile(definition, recommendation) : definition;
+    const rating = tpCurrentRating(recommendation);
+    const band = tpBandForRating(index, rating);
+    const fingerprint = tpCurriculumFingerprint(plan, recommendation, band.key);
+    const store = tpReadStore();
+    const existing = store.plans[planId];
+    const targetPuzzles = Number(definitions.puzzleTarget || TP_DEFAULT_PUZZLES);
+    const targetLessons = Number(definitions.lessonTarget || TP_DEFAULT_LESSONS);
+
+    if (!force && existing?.curriculum?.fingerprint === fingerprint && existing.curriculum.puzzles?.length === targetPuzzles) {
+      return { definition, plan, recommendation, state: existing, stale: false };
+    }
+    if (!force && existing?.curriculum?.puzzles?.length === targetPuzzles && plan.dynamic) {
+      return { definition, plan, recommendation, state: existing, stale: existing.curriculum.fingerprint !== fingerprint };
+    }
+
+    const selected = await tpSelectPuzzles({
+      plan,
+      recommendation,
+      index,
+      rating,
+      band,
+      fingerprint,
+      target: targetPuzzles,
+    });
+    const learning = tpReadLearningProgress();
+    const videos = tpSelectVideos(
+      catalog.videos || [],
+      plan,
+      recommendation,
+      learning,
+      fingerprint,
+      targetLessons,
+    );
+    if (videos.length < targetLessons) throw new Error(`Only ${videos.length} suitable lessons were available for this plan.`);
+
+    const next = existing || {};
+    if (existing?.curriculum && existing.curriculum.fingerprint !== fingerprint) {
+      next.history = Array.isArray(next.history) ? next.history : [];
+      next.history.push({
+        fingerprint: existing.curriculum.fingerprint,
+        createdAt: existing.curriculum.createdAt,
+        archivedAt: new Date().toISOString(),
+        sourceSessionId: existing.curriculum.sourceSessionId || null,
+      });
+      next.history = next.history.slice(-10);
+    }
+    next.curriculum = {
+      version: 43,
+      fingerprint,
+      createdAt: new Date().toISOString(),
+      sourceSessionId: recommendation?.sourceSessionId || null,
+      rating,
+      band: band.key,
+      focusMix: selected.focusMix,
+      puzzles: selected.entries,
+      videoIds: videos.map((video) => video.id),
+      summary: plan.dynamic
+        ? recommendation?.customization?.summary || recommendation?.puzzleSetSummary || definition.description
+        : definition.outcome,
+    };
+    next.videoProgress = next.videoProgress && typeof next.videoProgress === 'object' ? next.videoProgress : {};
+    next.sessions = Array.isArray(next.sessions) ? next.sessions : [];
+    next.history = Array.isArray(next.history) ? next.history : [];
+    store.plans[planId] = next;
+    store.activePlanId = planId;
+    tpSaveStore(store);
+    tpRecordActivity(
+      planId,
+      'curriculum',
+      force ? 'Training plan refreshed' : 'Training plan created',
+      `${selected.entries.length} puzzles · ${videos.length} lessons`,
+    );
+    return { definition, plan, recommendation, state: next, stale: false };
+  })();
+  tpCurriculumPromises.set(key, task);
+  try {
+    return await task;
+  } finally {
+    tpCurriculumPromises.delete(key);
+  }
+}
+
+async function tpHydratePuzzles(entries) {
+  const byFile = new Map();
+  for (const entry of entries || []) {
+    if (!entry.file) continue;
+    if (!byFile.has(entry.file)) byFile.set(entry.file, []);
+    byFile.get(entry.file).push(entry);
+  }
+  const output = [];
+  for (const [file, requested] of byFile.entries()) {
+    const index = await tpPuzzleIndex();
+    const shard = (index.shards || []).find((item) => item.file === file);
+    if (!shard) continue;
+    const puzzles = await tpLoadShard(shard);
+    const map = new Map(puzzles.map((puzzle) => [puzzle.id, puzzle]));
+    for (const entry of requested) {
+      const puzzle = map.get(entry.id);
+      if (!puzzle) continue;
+      output.push({
+        ...puzzle,
+        km43CurriculumIndex: entry.curriculumIndex,
+        km43Reason: entry.reason,
+      });
+    }
+  }
+  const order = new Map((entries || []).map((entry, index) => [entry.id, index]));
+  return output.sort((a, b) => Number(order.get(a.id)) - Number(order.get(b.id)));
+}
+
+function tpPlanMetrics(planId, state = null, definitions = null) {
+  const store = tpReadStore();
+  const planState = state || store.plans[planId] || {};
+  const learning = tpReadLearningProgress();
+  const puzzleEntries = planState.curriculum?.puzzles || [];
+  let attempted = 0;
+  let solved = 0;
+  let attempts = 0;
+  let wrong = 0;
+  const activityDates = [];
+  for (const entry of puzzleEntries) {
+    const progress = learning.puzzles?.[entry.id]?.plans?.[planId];
+    if (!progress) continue;
+    if (Number(progress.attempts || 0) > 0) attempted += 1;
+    if (progress.solved) solved += 1;
+    attempts += Number(progress.attempts || 0);
+    wrong += Number(progress.wrong || 0);
+    if (progress.lastAt) activityDates.push(progress.lastAt);
+  }
+  const videoIds = planState.curriculum?.videoIds || [];
+  let videosStarted = 0;
+  let videosCompleted = 0;
+  for (const id of videoIds) {
+    const progress = planState.videoProgress?.[id];
+    if (progress?.startedAt) videosStarted += 1;
+    if (progress?.completedAt) videosCompleted += 1;
+    if (progress?.completedAt || progress?.startedAt) activityDates.push(progress.completedAt || progress.startedAt);
+  }
+  const puzzleTarget = Number(definitions?.puzzleTarget || TP_DEFAULT_PUZZLES);
+  const lessonTarget = Number(definitions?.lessonTarget || TP_DEFAULT_LESSONS);
+  const puzzleWeight = Number(definitions?.progressWeights?.puzzles ?? 0.8);
+  const lessonWeight = Number(definitions?.progressWeights?.lessons ?? 0.2);
+  const completion = Math.round(
+    Math.min(1, solved / puzzleTarget) * puzzleWeight * 100
+    + Math.min(1, videosCompleted / lessonTarget) * lessonWeight * 100,
+  );
+  const accuracy = attempted ? Math.round(solved / attempted * 100) : null;
+  const latest = activityDates.sort().at(-1) || planState.lastActivityAt || null;
+  return {
+    attempted,
+    solved,
+    attempts,
+    wrong,
+    videosStarted,
+    videosCompleted,
+    puzzleTarget,
+    lessonTarget,
+    completion,
+    accuracy,
+    latest,
+    status: completion >= 100 ? 'Completed' : (attempted || videosStarted ? 'In progress' : 'Not started'),
+  };
+}
+
+function tpAllMetrics(definitions, store = tpReadStore()) {
+  return (definitions.plans || []).map((plan) => ({
+    plan,
+    metrics: tpPlanMetrics(plan.id, store.plans[plan.id], definitions),
+  }));
+}
+
+function tpFormatDate(value) {
+  if (!value) return 'Not started';
+  try {
+    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value));
+  } catch {
+    return String(value).slice(0, 10);
+  }
+}
+
+function tpRelativeTime(value) {
+  if (!value) return 'Not started';
+  const milliseconds = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(milliseconds)) return tpFormatDate(value);
+  const minutes = Math.max(0, Math.round(milliseconds / 60000));
+  if (minutes < 2) return 'Just now';
+  if (minutes < 60) return `${minutes} minutes ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  if (days < 8) return `${days} day${days === 1 ? '' : 's'} ago`;
+  return tpFormatDate(value);
+}
+
+function tpCustomIsStale(state, recommendation, index) {
+  if (!state?.curriculum || !recommendation || !index) return false;
+  const band = tpBandForRating(index, tpCurrentRating(recommendation));
+  return state.curriculum.fingerprint !== tpCurriculumFingerprint(
+    { id: 'custom', dynamic: true },
+    recommendation,
+    band.key,
+  );
+}
+
+function tpPlanPuzzleStatus(planId, puzzleId) {
+  const progress = tpReadLearningProgress().puzzles?.[puzzleId]?.plans?.[planId];
+  if (progress?.solved) return 'solved';
+  if (Number(progress?.attempts || 0) > 0) return 'attempted';
+  return 'new';
+}
+
+function tpNextPuzzleEntries(planId, planState, count = 10, startIndex = null) {
+  const entries = planState?.curriculum?.puzzles || [];
+  if (!entries.length) return [];
+  if (Number.isFinite(Number(startIndex))) {
+    const start = Math.max(0, Math.min(entries.length - 1, Number(startIndex)));
+    const ordered = [...entries.slice(start), ...entries.slice(0, start)];
+    return ordered.slice(0, Math.max(1, count));
+  }
+  const unsolved = entries.filter((entry) => tpPlanPuzzleStatus(planId, entry.id) !== 'solved');
+  const attempted = unsolved.filter((entry) => tpPlanPuzzleStatus(planId, entry.id) === 'attempted');
+  const newEntries = unsolved.filter((entry) => tpPlanPuzzleStatus(planId, entry.id) === 'new');
+  const solved = entries.filter((entry) => tpPlanPuzzleStatus(planId, entry.id) === 'solved');
+  return [...attempted, ...newEntries, ...solved].slice(0, Math.max(1, count));
+}
+
+function tpVideoProgress(planId, videoId) {
+  return tpReadStore().plans?.[planId]?.videoProgress?.[videoId] || null;
+}
+
+function tpRecordVideo(planId, video, action) {
+  const store = tpReadStore();
+  const plan = store.plans[planId] || {};
+  plan.videoProgress = plan.videoProgress && typeof plan.videoProgress === 'object' ? plan.videoProgress : {};
+  const prior = plan.videoProgress[video.id] || { opens: 0 };
+  const now = new Date().toISOString();
+  plan.videoProgress[video.id] = {
+    ...prior,
+    title: video.title,
+    opens: Number(prior.opens || 0) + (action === 'start' ? 1 : 0),
+    startedAt: prior.startedAt || now,
+    completedAt: action === 'complete' ? now : prior.completedAt || null,
+    lastAt: now,
+  };
+  plan.lastActivityAt = now;
+  store.plans[planId] = plan;
+  tpSaveStore(store);
+  tpRecordActivity(
+    planId,
+    action === 'complete' ? 'lesson-complete' : 'lesson-start',
+    action === 'complete' ? 'Lesson completed' : 'Lesson started',
+    video.title,
+  );
+}
