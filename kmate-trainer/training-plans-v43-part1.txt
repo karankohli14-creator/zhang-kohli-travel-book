@@ -1,0 +1,270 @@
+const TP_VERSION = '43.0.0';
+const TP_BASE = new URL('./', window.location.href);
+const TP_PLAN_URL = new URL(`./learning/training-plans-v43.json?v=${TP_VERSION}`, TP_BASE).href;
+const TP_BASE_VIDEO_URL = new URL(`./learning/videos-v40.json?v=${TP_VERSION}`, TP_BASE).href;
+const TP_EXTRA_VIDEO_URL = new URL(`./learning/training-videos-v43.json?v=${TP_VERSION}`, TP_BASE).href;
+const TP_PUZZLE_INDEX_URL = new URL(`./learning/puzzles/index.json?v=${TP_VERSION}`, TP_BASE).href;
+const TP_STORE_KEY = 'kmate-training-plans-v43';
+const TP_LEARNING_KEY = 'kmate-learning-v40';
+const TP_DEFAULT_PUZZLES = 100;
+const TP_DEFAULT_LESSONS = 20;
+
+let tpDefinitionsPromise = null;
+let tpVideosPromise = null;
+let tpIndexPromise = null;
+const tpShardCache = new Map();
+const tpCurriculumPromises = new Map();
+let tpActivePlanId = 'custom';
+let tpActiveTab = 'overview';
+let tpPuzzleFilter = 'all';
+let tpVideoDialogState = { planId: null, videoId: null };
+let tpRenderSerial = 0;
+let tpToastTimer = null;
+
+function tp$(selector, root = document) {
+  return root.querySelector(selector);
+}
+
+function tp$$(selector, root = document) {
+  return [...root.querySelectorAll(selector)];
+}
+
+function tpEscape(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function tpNormalize(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function tpHash(value) {
+  let hash = 2166136261;
+  for (const character of String(value || '')) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function tpShowToast(message) {
+  const toast = tp$('#toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add('show');
+  window.clearTimeout(tpToastTimer);
+  tpToastTimer = window.setTimeout(() => toast.classList.remove('show'), 2900);
+}
+
+async function tpFetchJson(url, label) {
+  const response = await fetch(url, { cache: 'force-cache' });
+  if (!response.ok) throw new Error(`${label} could not load (${response.status}).`);
+  return response.json();
+}
+
+function tpDefinitions() {
+  if (!tpDefinitionsPromise) tpDefinitionsPromise = tpFetchJson(TP_PLAN_URL, 'Training-plan definitions');
+  return tpDefinitionsPromise;
+}
+
+function tpPuzzleIndex() {
+  if (!tpIndexPromise) tpIndexPromise = tpFetchJson(TP_PUZZLE_INDEX_URL, 'The CC0 puzzle index');
+  return tpIndexPromise;
+}
+
+function tpVideoCatalog() {
+  if (!tpVideosPromise) {
+    tpVideosPromise = Promise.all([
+      tpFetchJson(TP_BASE_VIDEO_URL, 'The core lesson catalog'),
+      tpFetchJson(TP_EXTRA_VIDEO_URL, 'The training-plan lesson catalog'),
+    ]).then(([base, extra]) => {
+      const map = new Map();
+      for (const video of [...(base.videos || []), ...(extra.videos || [])]) {
+        if (!video?.id) continue;
+        map.set(video.id, { ...video, licenseClass: video.licenseClass || 'externalEmbed' });
+      }
+      return { version: 43, videos: [...map.values()] };
+    });
+  }
+  return tpVideosPromise;
+}
+
+function tpEmptyStore() {
+  return { version: 43, activePlanId: 'custom', plans: {}, activity: [] };
+}
+
+function tpReadStore() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TP_STORE_KEY) || 'null');
+    if (!parsed || typeof parsed !== 'object') return tpEmptyStore();
+    parsed.version = 43;
+    parsed.plans = parsed.plans && typeof parsed.plans === 'object' ? parsed.plans : {};
+    parsed.activity = Array.isArray(parsed.activity) ? parsed.activity : [];
+    parsed.activePlanId = parsed.activePlanId || 'custom';
+    return parsed;
+  } catch {
+    return tpEmptyStore();
+  }
+}
+
+function tpSaveStore(store) {
+  try {
+    store.version = 43;
+    store.activity = (store.activity || []).slice(-500);
+    localStorage.setItem(TP_STORE_KEY, JSON.stringify(store));
+  } catch (error) {
+    console.warn('K-Mate could not save Training Plan progress.', error);
+  }
+}
+
+function tpReadLearningProgress() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TP_LEARNING_KEY) || '{}');
+    return parsed && typeof parsed === 'object'
+      ? {
+          puzzles: parsed.puzzles && typeof parsed.puzzles === 'object' ? parsed.puzzles : {},
+          videos: parsed.videos && typeof parsed.videos === 'object' ? parsed.videos : {},
+          workouts: Array.isArray(parsed.workouts) ? parsed.workouts : [],
+          seen: Array.isArray(parsed.seen) ? parsed.seen : [],
+        }
+      : { puzzles: {}, videos: {}, workouts: [], seen: [] };
+  } catch {
+    return { puzzles: {}, videos: {}, workouts: [], seen: [] };
+  }
+}
+
+function tpRecordActivity(planId, type, title, detail = null) {
+  const store = tpReadStore();
+  store.activity.push({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    planId,
+    type,
+    title,
+    detail,
+    at: new Date().toISOString(),
+  });
+  const plan = store.plans[planId] || {};
+  plan.lastActivityAt = new Date().toISOString();
+  store.plans[planId] = plan;
+  tpSaveStore(store);
+}
+
+function tpRecommendation() {
+  try {
+    return window.__KMATE_V42__?.recommendation?.()
+      || window.__KMATE_LEARNING__?.recommendation?.()
+      || null;
+  } catch (error) {
+    console.warn('K-Mate could not read the latest custom recommendation.', error);
+    return null;
+  }
+}
+
+function tpAppState() {
+  try {
+    return window.__KMATE__?.state?.() || {};
+  } catch {
+    return {};
+  }
+}
+
+function tpBandForRating(index, rating) {
+  const numeric = Math.max(800, Math.min(2300, Number(rating) || 1400));
+  return (index.bands || []).find((band) => numeric >= band.minRating && numeric <= band.maxRating)
+    || (index.bands || []).at(-1)
+    || { key: '1400-1599', minRating: 1400, maxRating: 1599 };
+}
+
+function tpAdjacentBands(index, bandKey) {
+  const bands = index.bands || [];
+  const position = Math.max(0, bands.findIndex((band) => band.key === bandKey));
+  return [bands[position], bands[position - 1], bands[position + 1], bands[position - 2], bands[position + 2]].filter(Boolean);
+}
+
+function tpNormalizeMix(mix, target = TP_DEFAULT_PUZZLES) {
+  const entries = Object.entries(mix || {}).filter(([, value]) => Number(value) > 0);
+  if (!entries.length) return { calculation: target };
+  const total = entries.reduce((sum, [, value]) => sum + Number(value), 0);
+  const raw = entries.map(([key, value]) => ({ key, exact: Number(value) / total * target }));
+  const output = Object.fromEntries(raw.map(({ key, exact }) => [key, Math.floor(exact)]));
+  let allocated = Object.values(output).reduce((sum, value) => sum + value, 0);
+  raw.sort((a, b) => (b.exact - Math.floor(b.exact)) - (a.exact - Math.floor(a.exact)));
+  let cursor = 0;
+  while (allocated < target) {
+    output[raw[cursor % raw.length].key] += 1;
+    cursor += 1;
+    allocated += 1;
+  }
+  return output;
+}
+
+function tpCustomFocusMix(recommendation) {
+  const scores = {};
+  const add = (key, value) => {
+    if (!key) return;
+    scores[key] = Number(scores[key] || 0) + Number(value || 0);
+  };
+  for (const slot of recommendation?.puzzlePlan || []) add(slot.focus, 4);
+  add(recommendation?.focus?.key, 8);
+  for (const item of recommendation?.profile || []) add(item.key, Math.max(0.5, Number(item.score || 0) / 4));
+  if (recommendation?.phase === 'endgame') add('endgames', 5);
+  if (recommendation?.trainingIntent?.goalFocus) add(recommendation.trainingIntent.goalFocus, 4);
+  if (!Object.keys(scores).length) {
+    return tpNormalizeMix({ calculation: 35, positionalPlay: 25, defense: 15, pawnPlay: 10, kingSafety: 10, endgames: 5 });
+  }
+  return tpNormalizeMix(scores);
+}
+
+function tpCustomPlanProfile(definition, recommendation) {
+  const moveTags = [];
+  const moveFocus = [];
+  for (const move of recommendation?.moveEvidence || []) {
+    if (move.focus) moveFocus.push(move.focus);
+    for (const tag of move.lessonTags || []) moveTags.push(tag);
+    for (const theme of move.themes || []) moveTags.push(theme);
+  }
+  return {
+    ...definition,
+    focusMix: tpCustomFocusMix(recommendation),
+    videoFocus: [...new Set([
+      recommendation?.focus?.key,
+      ...(recommendation?.puzzlePlan || []).map((slot) => slot.focus),
+      ...moveFocus,
+      ...(definition.videoFocus || []),
+    ].filter(Boolean))],
+    videoTags: [...new Set([
+      ...(definition.videoTags || []),
+      ...(recommendation?.trainingIntent?.goalLessonTags || []),
+      ...(recommendation?.puzzlePlan || []).flatMap((slot) => slot.lessonTags || []),
+      ...moveTags,
+    ].filter(Boolean))],
+  };
+}
+
+function tpCurrentRating(recommendation = null) {
+  const state = tpAppState();
+  return Math.max(800, Math.min(2300, Number(
+    recommendation?.puzzleRating
+    || state.settings?.positionRating
+    || state.settings?.opponentRating
+    || 1400,
+  )));
+}
+
+function tpCustomFingerprint(recommendation) {
+  if (!recommendation) return 'custom:no-reviewed-session';
+  const moves = (recommendation.moveEvidence || []).slice(0, 5)
+    .map((move) => `${move.id || move.moveLabel}:${move.loss || 0}:${move.focus || ''}`)
+    .join('|');
+  return `custom:${recommendation.sourceSessionId || 'preview'}:${recommendation.customizationFingerprint || ''}:${moves}`;
+}
+
+function tpCurriculumFingerprint(plan, recommendation, ratingBand) {
+  return plan.dynamic
+    ? `${tpCustomFingerprint(recommendation)}:${ratingBand}`
+    : `${TP_VERSION}:${plan.id}:${ratingBand}`;
+}
