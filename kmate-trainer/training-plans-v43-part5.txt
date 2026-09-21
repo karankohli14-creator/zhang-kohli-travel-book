@@ -1,0 +1,214 @@
+
+let tpCurrentContext = null;
+
+function tpHumanize(value) {
+  return String(value || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function tpFocusLabel(key) {
+  return window.__KMATE_LEARNING_CORE__?.taxonomy?.[key]?.label || tpHumanize(key);
+}
+
+async function tpOpenPlan(planId) {
+  tpActivePlanId = planId || 'custom';
+  tpActiveTab = 'overview';
+  tpPuzzleFilter = 'all';
+  const store = tpReadStore();
+  store.activePlanId = tpActivePlanId;
+  tpSaveStore(store);
+  const list = tp$('#trainingPlanListView');
+  const detail = tp$('#trainingPlanDetail');
+  if (list) list.hidden = true;
+  if (!detail) return;
+  detail.hidden = false;
+  detail.innerHTML = '<div class="card tp-loading">Building your 100-puzzle and 20-lesson curriculum…</div>';
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  try {
+    const context = await tpBuildCurriculum(tpActivePlanId);
+    tpCurrentContext = context;
+    await tpRenderPlanDetail(context);
+  } catch (error) {
+    console.error('K-Mate could not open the training plan.', error);
+    detail.innerHTML = `
+      <section class="card tp-panel">
+        <button class="tp-back" type="button" id="tpDetailBack">← All training plans</button>
+        <div class="tp-empty">${tpEscape(error?.message || 'The training plan could not be built.')}</div>
+      </section>`;
+    tp$('#tpDetailBack')?.addEventListener('click', () => {
+      tpShowPlanList();
+      void tpRenderPlanList();
+    });
+  }
+}
+
+function tpDetailStatsMarkup(metrics) {
+  return `
+    <div class="tp-stat-grid">
+      <article><b>${metrics.completion}%</b><span>Overall complete</span></article>
+      <article><b>${metrics.solved}/${metrics.puzzleTarget}</b><span>Puzzles solved</span></article>
+      <article><b>${metrics.videosCompleted}/${metrics.lessonTarget}</b><span>Lessons completed</span></article>
+      <article><b>${metrics.accuracy == null ? '—' : `${metrics.accuracy}%`}</b><span>Puzzle accuracy</span></article>
+      <article><b>${metrics.latest ? tpEscape(tpRelativeTime(metrics.latest)) : '—'}</b><span>Last activity</span></article>
+    </div>`;
+}
+
+function tpDetailHeroMarkup(context, metrics) {
+  const { definition, state, stale } = context;
+  return `
+    <section class="card tp-detail-hero">
+      <div class="tp-detail-top">
+        <button class="tp-back" type="button" id="tpDetailBack">← All training plans</button>
+        <div>${stale ? '<span class="tp-badge">New reviewed game available</span>' : `<span class="tp-chip">${tpEscape(metrics.status)}</span>`}</div>
+      </div>
+      <div class="tp-detail-title">
+        <span class="tp-plan-icon">${tpEscape(definition.icon)}</span>
+        <div><h1>${tpEscape(definition.title)}</h1><p>${tpEscape(definition.description)}</p></div>
+      </div>
+      <div class="tp-detail-actions">
+        <button class="btn primary" type="button" id="tpContinuePlan">Continue with 10 puzzles</button>
+        <button class="btn" type="button" id="tpOpenLessons">Open 20 lessons</button>
+        ${definition.dynamic && stale ? '<button class="btn" type="button" id="tpRefreshPlan">Refresh from latest game</button>' : ''}
+        ${!definition.dynamic ? '<button class="btn" type="button" id="tpRebuildPlan">Rebuild at current level</button>' : ''}
+      </div>
+      ${tpDetailStatsMarkup(metrics)}
+      <div class="tp-plan-progress"><div class="tp-plan-progress-head"><span>80% puzzles · 20% completed lessons</span><b>${metrics.completion}%</b></div><div class="tp-progress-track"><span style="width:${metrics.completion}%"></span></div></div>
+      <div class="tp-plan-counts"><span>Level ${Math.round(Number(state.curriculum?.rating || 1400))}</span><span>Built ${tpEscape(tpFormatDate(state.curriculum?.createdAt))}</span><span>${tpEscape(state.curriculum?.band || '')}</span></div>
+    </section>`;
+}
+
+function tpTabsMarkup() {
+  const tabs = [
+    ['overview', 'Plan overview'],
+    ['puzzles', '100 puzzles'],
+    ['lessons', '20 lessons'],
+    ['activity', 'Progress history'],
+  ];
+  return `<nav class="tp-tabs" aria-label="Training plan sections">${tabs.map(([key, label]) => `<button class="tp-tab ${tpActiveTab === key ? 'active' : ''}" type="button" data-tp-tab="${key}">${label}</button>`).join('')}</nav>`;
+}
+
+function tpMoveEvidenceMarkup(recommendation) {
+  const moves = (recommendation?.moveEvidence || []).slice(0, 5);
+  if (!moves.length) return '<div class="tp-empty">No move-level review is available yet. The custom plan currently uses your chosen setup and rolling K-Mate profile.</div>';
+  return `<div class="tp-evidence-list">${moves.map((move) => `
+    <div class="tp-evidence-row">
+      <strong>${tpEscape(move.moveLabel || move.san || 'Move')}</strong>
+      <span>${tpEscape(move.reason || move.evidence || `${move.focusLabel || tpHumanize(move.focus)} · approximately ${Math.round(Number(move.loss || 0))} centipawns`)}</span>
+    </div>`).join('')}</div>`;
+}
+
+function tpOverviewMarkup(context) {
+  const { definition, plan, recommendation, state, stale } = context;
+  const mix = Object.entries(state.curriculum?.focusMix || {}).sort((a, b) => b[1] - a[1]);
+  const custom = definition.dynamic;
+  const optionEvidence = (recommendation?.optionEvidence || []).slice(0, 6);
+  return `
+    <section class="card tp-panel" data-tp-panel="overview">
+      <div class="eyebrow">How this curriculum was built</div>
+      <h2>${custom ? 'Gameplay first, then your chosen session purpose' : 'A structured progression for one chess skill'}</h2>
+      <p>${tpEscape(state.curriculum?.summary || definition.outcome)}</p>
+      ${stale ? '<div class="tp-badge" style="margin-top:12px">Refresh to use the newest reviewed game</div>' : ''}
+      <div class="tp-why-grid">
+        <article class="tp-why-card">
+          <h3>${custom ? 'Reviewed moves used' : 'Training outcome'}</h3>
+          ${custom ? tpMoveEvidenceMarkup(recommendation) : `<p>${tpEscape(definition.outcome)}</p><div class="tp-mix">${(definition.principles || []).map((key) => `<span>${tpEscape(tpHumanize(key))}</span>`).join('')}</div>`}
+        </article>
+        <article class="tp-why-card">
+          <h3>${custom ? 'Setup choices used' : 'Puzzle composition'}</h3>
+          ${custom
+            ? (optionEvidence.length ? `<div class="tp-evidence-list">${optionEvidence.map((item) => `<div class="tp-evidence-row"><strong>${tpEscape(item.label)}</strong><span>${tpEscape(item.value)}</span></div>`).join('')}</div>` : '<p>Current phase, opening, goal, rating, opponent, clock, and side contribute to the plan.</p>')
+            : `<p>The 100 positions are distributed across related CC0 puzzle categories rather than a single broad theme.</p>`}
+        </article>
+      </div>
+      <div class="tp-why-card" style="margin-top:10px">
+        <h3>100-puzzle curriculum mix</h3>
+        <div class="tp-mix">${mix.map(([focus, count]) => `<span>${tpEscape(tpFocusLabel(focus))}: ${count}</span>`).join('')}</div>
+      </div>
+      <div class="tp-why-card" style="margin-top:10px">
+        <h3>How progress is measured</h3>
+        <p>Each plan tracks its own attempts and solves for the 100 saved puzzles. A lesson counts toward completion only after you mark it complete. Puzzle mastery contributes 80% of the overall plan score, and the 20 completed lessons contribute 20%.</p>
+      </div>
+    </section>`;
+}
+
+function tpPuzzleListMarkup(context) {
+  const { definition, state } = context;
+  const entries = state.curriculum?.puzzles || [];
+  const filtered = entries.filter((entry) => {
+    const status = tpPlanPuzzleStatus(definition.id, entry.id);
+    return tpPuzzleFilter === 'all' || status === tpPuzzleFilter;
+  });
+  return `
+    <section class="card tp-panel" data-tp-panel="puzzles">
+      <div class="eyebrow">Fixed curriculum</div><h2>100 puzzles near level ${Math.round(Number(state.curriculum?.rating || 1400))}</h2>
+      <p>Continue in ten-puzzle sessions, or start from a particular curriculum position. Solved positions remain available for review.</p>
+      <div class="tp-puzzle-toolbar">
+        <div class="tp-filter-group">${[['all','All'],['new','Not started'],['attempted','Attempted'],['solved','Solved']].map(([key,label]) => `<button class="tp-filter ${tpPuzzleFilter === key ? 'active' : ''}" type="button" data-tp-puzzle-filter="${key}">${label}</button>`).join('')}</div>
+        <button class="btn primary" type="button" data-tp-start-batch>Start next 10</button>
+      </div>
+      <div class="tp-puzzle-list">${filtered.length ? filtered.map((entry) => {
+        const status = tpPlanPuzzleStatus(definition.id, entry.id);
+        return `<article class="tp-puzzle-row ${status}">
+          <span class="tp-puzzle-number">${entry.curriculumIndex + 1}</span>
+          <div class="tp-puzzle-copy"><b>${tpEscape(tpFocusLabel(entry.focus))} · rating ${Math.round(Number(entry.rating || 0))}</b><span>${tpEscape((entry.themes || []).slice(0, 5).map(tpHumanize).join(' · ') || entry.reason)}</span></div>
+          <span class="tp-status ${status}">${status === 'new' ? 'Not started' : status}</span>
+          <button class="tp-row-button" type="button" data-tp-start-puzzle="${entry.curriculumIndex}">${status === 'solved' ? 'Review' : 'Practice'}</button>
+        </article>`;
+      }).join('') : '<div class="tp-empty">No puzzles match this filter.</div>'}</div>
+    </section>`;
+}
+
+function tpVideoReason(plan, video, recommendation) {
+  const focusMatch = (video.focus || []).filter((focus) => (plan.videoFocus || []).includes(focus));
+  const planTags = (plan.videoTags || []).map(tpNormalize);
+  const matchingTags = (video.tags || []).filter((tag) => planTags.some((candidate) => tpNormalize(tag).includes(candidate) || candidate.includes(tpNormalize(tag))));
+  if (plan.dynamic) {
+    const move = (recommendation?.moveEvidence || []).find((item) => focusMatch.includes(item.focus)) || recommendation?.moveEvidence?.[0];
+    if (move) return `${move.moveLabel || move.san || 'Your reviewed game'} highlighted ${move.focusLabel || tpFocusLabel(move.focus)}. This lesson develops ${matchingTags.slice(0, 2).join(' and ') || focusMatch.map(tpFocusLabel).join(' and ') || 'the same skill'}.`;
+  }
+  return `Included for ${plan.title.toLowerCase()} because it covers ${matchingTags.slice(0, 3).join(', ') || focusMatch.map(tpFocusLabel).join(', ') || (video.tags || []).slice(0, 2).join(', ')}.`;
+}
+
+function tpLessonsMarkup(context, catalog) {
+  const { definition, plan, recommendation, state } = context;
+  const videoMap = new Map((catalog.videos || []).map((video) => [video.id, video]));
+  const videos = (state.curriculum?.videoIds || []).map((id) => videoMap.get(id)).filter(Boolean);
+  return `
+    <section class="card tp-panel" data-tp-panel="lessons">
+      <div class="eyebrow">Curated instruction</div><h2>20 lessons for this plan</h2>
+      <p>These videos remain hosted by their creators. K-Mate explains why each one belongs in this curriculum and tracks the lessons you mark complete.</p>
+      <div class="tp-lesson-toolbar"><span class="tp-chip">${videos.length} creator-hosted lessons</span><button class="btn primary" type="button" data-tp-play-next-video>Play next unfinished lesson</button></div>
+      <div class="tp-video-grid">${videos.map((video, index) => {
+        const progress = state.videoProgress?.[video.id];
+        const complete = Boolean(progress?.completedAt);
+        const started = Boolean(progress?.startedAt);
+        return `<article class="tp-video-card ${complete ? 'complete' : ''}">
+          <div class="tp-video-top"><span class="tp-video-index">${index + 1}</span><span class="tp-status ${complete ? 'solved' : started ? 'attempted' : ''}">${complete ? 'Completed' : started ? 'Started' : 'New'}</span></div>
+          <small>${tpEscape(video.creator)} · ${tpEscape(video.level || 'all levels')}</small>
+          <h3>${tpEscape(video.title)}</h3>
+          <p>${tpEscape(tpVideoReason(plan, video, recommendation))}</p>
+          <div class="tp-video-tags">${(video.tags || []).slice(0, 5).map((tag) => `<span>${tpEscape(tag)}</span>`).join('')}</div>
+          <div class="tp-video-actions">
+            <button class="play" type="button" data-tp-play-video="${tpEscape(video.id)}">▶ Play lesson</button>
+            <button class="complete ${complete ? 'done' : ''}" type="button" data-tp-complete-video="${tpEscape(video.id)}">${complete ? '✓ Completed' : 'Mark complete'}</button>
+            <a href="${tpEscape(video.sourceUrl)}" target="_blank" rel="noopener noreferrer">Source</a>
+          </div>
+        </article>`;
+      }).join('')}</div>
+    </section>`;
+}
+
+function tpActivityMarkup(context) {
+  const { definition, state } = context;
+  const store = tpReadStore();
+  const items = (store.activity || []).filter((item) => item.planId === definition.id).slice().reverse().slice(0, 60);
+  return `
+    <section class="card tp-panel" data-tp-panel="activity">
+      <div class="eyebrow">Plan history</div><h2>Progress over time</h2><p>Workout completions, individual puzzle results, curriculum refreshes, and lesson activity are recorded on this device.</p>
+      <div class="tp-activity-list">${items.length ? items.map((item) => `
+        <article class="tp-activity-item"><span class="tp-activity-icon">${item.type.includes('lesson') ? '▶' : item.type.includes('curriculum') ? '✦' : '♟'}</span><div><b>${tpEscape(item.title)}</b><span>${tpEscape(item.detail || '')}</span></div><time>${tpEscape(tpRelativeTime(item.at))}</time></article>`).join('') : '<div class="tp-empty">No activity has been recorded for this plan yet.</div>'}</div>
+      ${state.history?.length ? `<div class="tp-why-card" style="margin-top:12px"><h3>Archived custom-plan versions</h3><p>${state.history.length} earlier curriculum version${state.history.length === 1 ? '' : 's'} preserved in history.</p></div>` : ''}
+    </section>`;
+}
