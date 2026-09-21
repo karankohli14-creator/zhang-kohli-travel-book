@@ -68,6 +68,7 @@ async function tpBuildCurriculum(planId, { force = false } = {}) {
         ? recommendation?.customization?.summary || recommendation?.puzzleSetSummary || definition.description
         : definition.outcome,
     };
+    next.puzzleProgress = next.puzzleProgress && typeof next.puzzleProgress === 'object' ? next.puzzleProgress : {};
     next.videoProgress = next.videoProgress && typeof next.videoProgress === 'object' ? next.videoProgress : {};
     next.sessions = Array.isArray(next.sessions) ? next.sessions : [];
     next.history = Array.isArray(next.history) ? next.history : [];
@@ -118,6 +119,14 @@ async function tpHydratePuzzles(entries) {
   return output.sort((a, b) => Number(order.get(a.id)) - Number(order.get(b.id)));
 }
 
+function tpStoredPuzzleProgress(planId, puzzleId, planState = null, learning = null) {
+  const localPlan = planState || tpReadStore().plans?.[planId] || {};
+  const planSpecific = localPlan.puzzleProgress?.[puzzleId];
+  if (planSpecific) return planSpecific;
+  const learningProgress = learning || tpReadLearningProgress();
+  return learningProgress.puzzles?.[puzzleId]?.plans?.[planId] || null;
+}
+
 function tpPlanMetrics(planId, state = null, definitions = null) {
   const store = tpReadStore();
   const planState = state || store.plans[planId] || {};
@@ -129,7 +138,7 @@ function tpPlanMetrics(planId, state = null, definitions = null) {
   let wrong = 0;
   const activityDates = [];
   for (const entry of puzzleEntries) {
-    const progress = learning.puzzles?.[entry.id]?.plans?.[planId];
+    const progress = tpStoredPuzzleProgress(planId, entry.id, planState, learning);
     if (!progress) continue;
     if (Number(progress.attempts || 0) > 0) attempted += 1;
     if (progress.solved) solved += 1;
@@ -213,7 +222,7 @@ function tpCustomIsStale(state, recommendation, index) {
 }
 
 function tpPlanPuzzleStatus(planId, puzzleId) {
-  const progress = tpReadLearningProgress().puzzles?.[puzzleId]?.plans?.[planId];
+  const progress = tpStoredPuzzleProgress(planId, puzzleId);
   if (progress?.solved) return 'solved';
   if (Number(progress?.attempts || 0) > 0) return 'attempted';
   return 'new';
