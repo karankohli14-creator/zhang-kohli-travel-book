@@ -87,7 +87,23 @@ async function tpStartPlanBatch(planId, { startIndex = null, count = null } = {}
 
 function tpHandlePuzzleProgress(event) {
   const detail = event.detail || {};
-  if (!detail.planId) return;
+  if (!detail.planId || !detail.puzzleId) return;
+  const store = tpReadStore();
+  const plan = store.plans[detail.planId] || {};
+  plan.puzzleProgress = plan.puzzleProgress && typeof plan.puzzleProgress === 'object' ? plan.puzzleProgress : {};
+  const prior = plan.puzzleProgress[detail.puzzleId] || { attempts: 0, solves: 0, wrong: 0, solved: false };
+  const now = new Date().toISOString();
+  plan.puzzleProgress[detail.puzzleId] = {
+    attempts: Number(prior.attempts || 0) + 1,
+    solves: Number(prior.solves || 0) + (detail.solved ? 1 : 0),
+    wrong: Number(prior.wrong || 0) + Number(detail.wrong || 0),
+    solved: Boolean(prior.solved || detail.solved),
+    curriculumIndex: detail.curriculumIndex ?? prior.curriculumIndex ?? null,
+    lastAt: now,
+  };
+  plan.lastActivityAt = now;
+  store.plans[detail.planId] = plan;
+  tpSaveStore(store);
   tpRecordActivity(
     detail.planId,
     detail.solved ? 'puzzle-solved' : 'puzzle-attempt',
