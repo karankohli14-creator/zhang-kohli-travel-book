@@ -99,7 +99,14 @@ try {
       console.warn('Optional move-relevance learning layer could not load.', error);
     }
     try {
-      await import('./personalization-v42.js?v=42.0.0');
+      await import('./personalization-v42.js?v=43.0.0');
+      try {
+        await import('./training-plans-v43.js?v=43.0.0');
+      } catch (error) {
+        // Training Plans are an optional structured curriculum layer. Core
+        // personalized learning and puzzle practice remain available.
+        console.warn('Optional v43 Training Plan system could not load.', error);
+      }
     } catch (error) {
       // v42 makes the selected setup part of every principle, puzzle, and
       // lesson recommendation and adds reliable tap/drag puzzle controls.
