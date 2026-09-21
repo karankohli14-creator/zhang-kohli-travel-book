@@ -1,4 +1,7 @@
 
+let tpActiveWorkout = null;
+let tpPuzzleProgressObserver = null;
+
 function tpPreparedRecommendation(context, entries) {
   const mix = context.state.curriculum?.focusMix || {};
   const primaryKey = Object.entries(mix).sort((a, b) => b[1] - a[1])[0]?.[0] || 'calculation';
@@ -35,6 +38,99 @@ function tpPreparedRecommendation(context, entries) {
   };
 }
 
+function tpCorrectionsFromStatus(text) {
+  const match = String(text || '').match(/after\s+(\d+)\s+correction/i);
+  return match ? Number(match[1]) : 0;
+}
+
+function tpRecordPlanPuzzleProgress(detail, { source = 'event' } = {}) {
+  const planId = String(detail?.planId || '').trim();
+  const puzzleId = String(detail?.puzzleId || '').trim();
+  if (!planId || !puzzleId) return false;
+
+  const active = tpActiveWorkout?.planId === planId ? tpActiveWorkout : null;
+  const curriculumIndex = Number.isFinite(Number(detail.curriculumIndex))
+    ? Number(detail.curriculumIndex)
+    : active?.entries?.find((entry) => entry.id === puzzleId)?.curriculumIndex ?? null;
+  const eventKey = `${active?.token || 'external'}:${puzzleId}:${curriculumIndex ?? 'unknown'}`;
+  if (active?.recorded?.has(eventKey)) return false;
+
+  const store = tpReadStore();
+  const plan = store.plans[planId] || {};
+  plan.puzzleProgress = plan.puzzleProgress && typeof plan.puzzleProgress === 'object' ? plan.puzzleProgress : {};
+  plan.progressEvents = plan.progressEvents && typeof plan.progressEvents === 'object' ? plan.progressEvents : {};
+  if (plan.progressEvents[eventKey]) {
+    active?.recorded?.add(eventKey);
+    return false;
+  }
+
+  const prior = plan.puzzleProgress[puzzleId] || { attempts: 0, solves: 0, wrong: 0, solved: false };
+  const now = new Date().toISOString();
+  plan.puzzleProgress[puzzleId] = {
+    attempts: Number(prior.attempts || 0) + 1,
+    solves: Number(prior.solves || 0) + (detail.solved ? 1 : 0),
+    wrong: Number(prior.wrong || 0) + Number(detail.wrong || 0),
+    solved: Boolean(prior.solved || detail.solved),
+    curriculumIndex,
+    lastAt: now,
+    lastSource: source,
+  };
+  plan.progressEvents[eventKey] = now;
+  const eventKeys = Object.keys(plan.progressEvents);
+  if (eventKeys.length > 500) {
+    for (const key of eventKeys.slice(0, eventKeys.length - 500)) delete plan.progressEvents[key];
+  }
+  plan.lastActivityAt = now;
+  store.plans[planId] = plan;
+  tpSaveStore(store);
+  active?.recorded?.add(eventKey);
+
+  tpRecordActivity(
+    planId,
+    detail.solved ? 'puzzle-solved' : 'puzzle-attempt',
+    detail.solved ? 'Puzzle solved' : 'Puzzle attempted',
+    `Curriculum position ${Number(curriculumIndex || 0) + 1}`,
+  );
+  window.setTimeout(() => {
+    void tpRefreshCurrentDetail();
+    void tpRenderPlanList();
+  }, 20);
+  return true;
+}
+
+function tpObserveActivePuzzleProgress() {
+  tpPuzzleProgressObserver?.disconnect();
+  tpPuzzleProgressObserver = null;
+  const active = tpActiveWorkout;
+  const nextButton = tp$('#km42PuzzleNext');
+  const statusText = tp$('#km42PuzzleStatusText');
+  if (!active || !nextButton) return;
+
+  const recordVisibleCompletion = () => {
+    if (nextButton.hidden || tpActiveWorkout !== active) return;
+    let puzzleIndex = 0;
+    try {
+      puzzleIndex = Number(window.__KMATE_V42__?.state?.()?.puzzleIndex || 0);
+    } catch {}
+    const entry = active.entries[puzzleIndex];
+    if (!entry) return;
+    const text = statusText?.textContent || '';
+    const solved = /^Solved\b/i.test(text);
+    tpRecordPlanPuzzleProgress({
+      planId: active.planId,
+      puzzleId: entry.id,
+      curriculumIndex: entry.curriculumIndex,
+      solved,
+      wrong: tpCorrectionsFromStatus(text),
+    }, { source: 'board-observer' });
+  };
+
+  tpPuzzleProgressObserver = new MutationObserver(recordVisibleCompletion);
+  tpPuzzleProgressObserver.observe(nextButton, { attributes: true, attributeFilter: ['hidden'] });
+  if (statusText) tpPuzzleProgressObserver.observe(statusText, { childList: true, characterData: true, subtree: true });
+  recordVisibleCompletion();
+}
+
 async function tpStartPlanBatch(planId, { startIndex = null, count = null } = {}) {
   try {
     const definitions = await tpDefinitions();
@@ -68,6 +164,12 @@ async function tpStartPlanBatch(planId, { startIndex = null, count = null } = {}
     const startPrepared = window.__KMATE_V42__?.startPreparedWorkout;
     if (typeof startPrepared !== 'function') throw new Error('The K-Mate puzzle board is not ready. Reload the app and try again.');
     tpRecordActivity(planId, 'workout-start', 'Puzzle session started', `${prepared.length} puzzle${prepared.length === 1 ? '' : 's'}`);
+    tpActiveWorkout = {
+      token: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      planId,
+      entries: entries.map((entry) => ({ ...entry })),
+      recorded: new Set(),
+    };
     await startPrepared({
       puzzles: prepared,
       recommendation,
@@ -77,6 +179,7 @@ async function tpStartPlanBatch(planId, { startIndex = null, count = null } = {}
       returnContext: 'training-plan',
       kicker: `Training Plan · ${context.definition.shortTitle || context.definition.title}`,
     });
+    tpObserveActivePuzzleProgress();
     return true;
   } catch (error) {
     console.error('K-Mate could not start the training-plan puzzle session.', error);
@@ -86,34 +189,7 @@ async function tpStartPlanBatch(planId, { startIndex = null, count = null } = {}
 }
 
 function tpHandlePuzzleProgress(event) {
-  const detail = event.detail || {};
-  if (!detail.planId || !detail.puzzleId) return;
-  const store = tpReadStore();
-  const plan = store.plans[detail.planId] || {};
-  plan.puzzleProgress = plan.puzzleProgress && typeof plan.puzzleProgress === 'object' ? plan.puzzleProgress : {};
-  const prior = plan.puzzleProgress[detail.puzzleId] || { attempts: 0, solves: 0, wrong: 0, solved: false };
-  const now = new Date().toISOString();
-  plan.puzzleProgress[detail.puzzleId] = {
-    attempts: Number(prior.attempts || 0) + 1,
-    solves: Number(prior.solves || 0) + (detail.solved ? 1 : 0),
-    wrong: Number(prior.wrong || 0) + Number(detail.wrong || 0),
-    solved: Boolean(prior.solved || detail.solved),
-    curriculumIndex: detail.curriculumIndex ?? prior.curriculumIndex ?? null,
-    lastAt: now,
-  };
-  plan.lastActivityAt = now;
-  store.plans[detail.planId] = plan;
-  tpSaveStore(store);
-  tpRecordActivity(
-    detail.planId,
-    detail.solved ? 'puzzle-solved' : 'puzzle-attempt',
-    detail.solved ? 'Puzzle solved' : 'Puzzle attempted',
-    `Curriculum position ${Number(detail.curriculumIndex || 0) + 1}`,
-  );
-  window.setTimeout(() => {
-    void tpRefreshCurrentDetail();
-    void tpRenderPlanList();
-  }, 20);
+  tpRecordPlanPuzzleProgress(event.detail || {}, { source: 'puzzle-event' });
 }
 
 function tpHandleWorkoutComplete(event) {
@@ -209,6 +285,11 @@ function tpInitialize(attempt = 0) {
         lessonTarget: definitions.lessonTarget,
         activePlanId: tpActivePlanId,
         activeTab: tpActiveTab,
+        activeWorkout: tpActiveWorkout ? {
+          planId: tpActiveWorkout.planId,
+          count: tpActiveWorkout.entries.length,
+          recorded: tpActiveWorkout.recorded.size,
+        } : null,
         metrics: tpAllMetrics(definitions, store).map(({ plan, metrics }) => ({ id: plan.id, ...metrics })),
       };
     },
