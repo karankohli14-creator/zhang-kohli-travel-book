@@ -1,0 +1,231 @@
+
+function tpInstallStyles() {
+  if (tp$('#trainingPlansV43Styles')) return;
+  const link = document.createElement('link');
+  link.id = 'trainingPlansV43Styles';
+  link.rel = 'stylesheet';
+  link.href = `./training-plans-v43.css?v=${TP_VERSION}`;
+  document.head.append(link);
+}
+
+function tpEnsureView() {
+  let view = tp$('#trainingPlanView');
+  if (view) return view;
+  view = document.createElement('section');
+  view.id = 'trainingPlanView';
+  view.className = 'view training-plan-view';
+  view.hidden = true;
+  view.innerHTML = `
+    <div id="trainingPlanListView">
+      <section class="card tp-hero">
+        <div class="tp-hero-copy">
+          <div class="eyebrow">A curriculum, not a one-off recommendation</div>
+          <h1>Training Plan</h1>
+          <p>Choose a 100-puzzle and 20-lesson curriculum for a specific chess skill, or let K-Mate build a living custom plan from your reviewed moves and the sessions you choose to play.</p>
+          <div class="tp-hero-meta">
+            <span class="tp-chip cc0">100 CC0 puzzles per plan</span>
+            <span class="tp-chip">20 creator-hosted lessons</span>
+            <span class="tp-chip">Progress by category</span>
+            <span class="tp-chip">10-puzzle practice sessions</span>
+          </div>
+          <div class="tp-dashboard" id="tpDashboard"></div>
+        </div>
+      </section>
+      <section class="card tp-section">
+        <div class="tp-section-head">
+          <div><div class="eyebrow">Your curricula</div><h2>Choose what to improve</h2><p>Every category keeps its own puzzle attempts, lessons completed, accuracy, and overall completion.</p></div>
+        </div>
+        <div class="tp-plan-grid" id="tpPlanGrid"><div class="tp-loading">Loading training plans…</div></div>
+      </section>
+    </div>
+    <div class="tp-detail" id="trainingPlanDetail" hidden></div>`;
+  tp$('main.shell')?.append(view);
+  return view;
+}
+
+function tpEnsureNavigation() {
+  const nav = tp$('.topnav');
+  if (nav && !tp$('#trainingPlanNavButton')) {
+    const button = document.createElement('button');
+    button.id = 'trainingPlanNavButton';
+    button.className = 'navbutton';
+    button.type = 'button';
+    button.textContent = 'Training Plan';
+    button.title = 'Open structured chess training plans';
+    button.addEventListener('click', () => tpOpen());
+    nav.append(button);
+  }
+
+  const welcome = tp$('#setupWizard .wizard-welcome-main');
+  if (welcome && !tp$('#wizardTrainingPlanButton')) {
+    const button = document.createElement('button');
+    button.id = 'wizardTrainingPlanButton';
+    button.className = 'tp-welcome-card';
+    button.type = 'button';
+    button.innerHTML = `
+      <span aria-hidden="true">✦</span>
+      <div><b>Training Plan</b><small>Follow a custom curriculum or focus on one chess skill</small></div>
+      <i aria-hidden="true">→</i>`;
+    button.addEventListener('click', () => tpOpen());
+    const path = tp$('.wizard-path', welcome);
+    if (path) path.insertAdjacentElement('afterend', button);
+    else welcome.append(button);
+  }
+
+  const learningActions = tp$('#learningView .learning-hero-actions');
+  if (learningActions && !tp$('#learningTrainingPlanButton')) {
+    const button = document.createElement('button');
+    button.id = 'learningTrainingPlanButton';
+    button.className = 'btn';
+    button.type = 'button';
+    button.textContent = 'Open Training Plan';
+    button.addEventListener('click', () => tpOpen('custom'));
+    learningActions.append(button);
+  }
+}
+
+function tpCanOpen() {
+  const state = tpAppState();
+  const gameVisible = Boolean(tp$('#gameView') && !tp$('#gameView').hidden);
+  if (gameVisible && state.current && !state.finalized) {
+    tpShowToast('Finish or leave the current position before opening Training Plan.');
+    return false;
+  }
+  return true;
+}
+
+function tpHideOtherViews() {
+  for (const selector of ['#setupView', '#gameView', '#insightsView', '#learningView']) {
+    const view = tp$(selector);
+    if (view) view.hidden = true;
+  }
+  document.documentElement.classList.remove('game-mode');
+  document.body.classList.remove('game-mode', 'board-focus', 'game-panel-open', 'setup-wizard-mode');
+  document.documentElement.classList.remove('setup-wizard-root');
+}
+
+function tpOpen(planId = null) {
+  if (!tpCanOpen()) return false;
+  const view = tpEnsureView();
+  tpHideOtherViews();
+  view.hidden = false;
+  tp$$('.navbutton').forEach((button) => button.classList.toggle('active', button.id === 'trainingPlanNavButton'));
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  if (planId) void tpOpenPlan(planId);
+  else {
+    tpShowPlanList();
+    void tpRenderPlanList();
+  }
+  return true;
+}
+
+function tpShowPlanList() {
+  const list = tp$('#trainingPlanListView');
+  const detail = tp$('#trainingPlanDetail');
+  if (list) list.hidden = false;
+  if (detail) detail.hidden = true;
+  tpActiveTab = 'overview';
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+}
+
+function tpBindExistingNavigation() {
+  for (const button of tp$$('.topnav .navbutton')) {
+    if (button.id === 'trainingPlanNavButton' || button.dataset.tpHideBound) continue;
+    button.dataset.tpHideBound = TP_VERSION;
+    button.addEventListener('click', () => {
+      const view = tp$('#trainingPlanView');
+      if (view) view.hidden = true;
+    }, { capture: true });
+  }
+  for (const button of [tp$('#brandButton'), tp$('#wizardInsightsButton')].filter(Boolean)) {
+    if (button.dataset.tpHideBound) continue;
+    button.dataset.tpHideBound = TP_VERSION;
+    button.addEventListener('click', () => {
+      const view = tp$('#trainingPlanView');
+      if (view) view.hidden = true;
+    }, { capture: true });
+  }
+}
+
+function tpDashboardMarkup(allMetrics) {
+  const active = allMetrics.filter((item) => item.metrics.status === 'In progress').length;
+  const completed = allMetrics.filter((item) => item.metrics.status === 'Completed').length;
+  const solved = allMetrics.reduce((sum, item) => sum + item.metrics.solved, 0);
+  const lessons = allMetrics.reduce((sum, item) => sum + item.metrics.videosCompleted, 0);
+  return `
+    <article><b>${active}</b><span>Plans in progress</span></article>
+    <article><b>${completed}</b><span>Plans completed</span></article>
+    <article><b>${solved}</b><span>Plan puzzles solved</span></article>
+    <article><b>${lessons}</b><span>Lessons completed</span></article>`;
+}
+
+function tpCustomEvidenceMarkup(recommendation) {
+  const moves = (recommendation?.moveEvidence || []).slice(0, 3);
+  const moveText = moves.length
+    ? moves.map((move) => move.moveLabel || move.san || 'Reviewed move').join(' · ')
+    : 'Complete a reviewed practice to add move-level evidence.';
+  const choices = (recommendation?.optionEvidence || []).slice(0, 3);
+  const choiceText = choices.length
+    ? choices.map((item) => `${item.label}: ${item.value}`).join(' · ')
+    : recommendation?.trainingIntent?.goalLabel || 'Current K-Mate setup and learning profile';
+  return `
+    <div class="tp-custom-evidence">
+      <div><b>Gameplay evidence</b><span>${tpEscape(moveText)}</span></div>
+      <div><b>Session choices</b><span>${tpEscape(choiceText)}</span></div>
+    </div>`;
+}
+
+function tpPlanCardMarkup(plan, metrics, { recommendation = null, stale = false } = {}) {
+  const custom = plan.id === 'custom';
+  return `
+    <article class="tp-plan-card ${custom ? 'custom' : ''}" data-tp-plan-card="${tpEscape(plan.id)}">
+      <div class="tp-card-top">
+        <span class="tp-plan-icon">${tpEscape(plan.icon)}</span>
+        <div class="tp-progress-ring" style="--p:${metrics.completion}"><b>${metrics.completion}%</b></div>
+      </div>
+      <h3>${tpEscape(plan.title)}</h3>
+      <p>${tpEscape(plan.description)}</p>
+      ${custom ? tpCustomEvidenceMarkup(recommendation) : ''}
+      <div class="tp-plan-counts">
+        <span>${metrics.solved}/${metrics.puzzleTarget} puzzles</span>
+        <span>${metrics.videosCompleted}/${metrics.lessonTarget} lessons</span>
+        <span>${metrics.status}</span>
+        ${stale ? '<span class="tp-badge">New game data available</span>' : ''}
+      </div>
+      <div class="tp-plan-progress">
+        <div class="tp-plan-progress-head"><span>Overall progress</span><b>${metrics.completion}%</b></div>
+        <div class="tp-progress-track"><span style="width:${metrics.completion}%"></span></div>
+      </div>
+      <div class="tp-plan-actions">
+        <button class="btn primary" type="button" data-tp-open-plan="${tpEscape(plan.id)}">${metrics.status === 'Not started' ? 'Build plan' : 'Continue plan'}</button>
+        ${metrics.latest ? `<span class="tp-chip">Active ${tpEscape(tpRelativeTime(metrics.latest))}</span>` : ''}
+      </div>
+    </article>`;
+}
+
+async function tpRenderPlanList() {
+  const serial = ++tpRenderSerial;
+  const grid = tp$('#tpPlanGrid');
+  const dashboard = tp$('#tpDashboard');
+  if (!grid || !dashboard) return;
+  try {
+    const [definitions, index] = await Promise.all([tpDefinitions(), tpPuzzleIndex()]);
+    if (serial !== tpRenderSerial) return;
+    const store = tpReadStore();
+    const allMetrics = tpAllMetrics(definitions, store);
+    dashboard.innerHTML = tpDashboardMarkup(allMetrics);
+    const recommendation = tpRecommendation();
+    const customState = store.plans.custom;
+    const customStale = tpCustomIsStale(customState, recommendation, index);
+    grid.innerHTML = allMetrics.map(({ plan, metrics }) => tpPlanCardMarkup(plan, metrics, {
+      recommendation: plan.id === 'custom' ? recommendation : null,
+      stale: plan.id === 'custom' && customStale,
+    })).join('');
+    for (const button of tp$$('[data-tp-open-plan]', grid)) {
+      button.addEventListener('click', () => void tpOpenPlan(button.dataset.tpOpenPlan));
+    }
+  } catch (error) {
+    console.error('K-Mate Training Plan list could not render.', error);
+    grid.innerHTML = `<div class="tp-empty">${tpEscape(error?.message || 'Training plans could not load.')}</div>`;
+  }
+}
