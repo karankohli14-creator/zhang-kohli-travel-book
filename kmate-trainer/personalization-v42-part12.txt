@@ -1,0 +1,157 @@
+
+/* K-Mate v43 bridge — allow fixed training-plan curricula to use the v42 board. */
+const KM43_PREPARED_WORKOUT_VERSION = '43.0.0';
+
+const km43BaseRecordPuzzle = km42RecordPuzzle;
+km42RecordPuzzle = function km43RecordPuzzleWithPlan(puzzle, solved) {
+  km43BaseRecordPuzzle(puzzle, solved);
+  const planId = String(puzzle?.km43PlanId || '').trim();
+  if (!planId) return;
+  try {
+    const progress = km42ReadProgress();
+    const entry = progress.puzzles?.[puzzle.id];
+    if (!entry) return;
+    entry.plans = entry.plans && typeof entry.plans === 'object' ? entry.plans : {};
+    const prior = entry.plans[planId] || { attempts: 0, solves: 0, wrong: 0 };
+    entry.plans[planId] = {
+      attempts: Number(prior.attempts || 0) + 1,
+      solves: Number(prior.solves || 0) + (solved ? 1 : 0),
+      wrong: Number(prior.wrong || 0) + Number(km42Puzzle.wrongAttempts || 0),
+      solved: Boolean(prior.solved || solved),
+      curriculumIndex: Number.isFinite(Number(puzzle.km43CurriculumIndex)) ? Number(puzzle.km43CurriculumIndex) : null,
+      lastAt: new Date().toISOString(),
+    };
+    km42SaveProgress(progress);
+    window.dispatchEvent(new CustomEvent('kmate:training-plan-progress', {
+      detail: {
+        planId,
+        puzzleId: puzzle.id,
+        solved: Boolean(solved),
+        curriculumIndex: puzzle.km43CurriculumIndex ?? null,
+      },
+    }));
+  } catch (error) {
+    console.warn('K-Mate could not attach puzzle progress to the training plan.', error);
+  }
+};
+
+const km43BaseFinishWorkout = km42FinishWorkout;
+km42FinishWorkout = function km43FinishWorkoutWithPlanActions() {
+  const planId = String(km42Puzzle.planId || '').trim();
+  const planTitle = String(km42Puzzle.planTitle || '').trim();
+  const completed = {
+    planId,
+    planTitle,
+    solved: Number(km42Puzzle.solved || 0),
+    skipped: Number(km42Puzzle.skipped || 0),
+    wrong: Number(km42Puzzle.totalWrong || 0),
+    total: Number(km42Puzzle.puzzles?.length || 0),
+    source: km42Puzzle.source,
+  };
+  km43BaseFinishWorkout();
+  if (!planId) return;
+
+  const again = km42$('#km42WorkoutAgain');
+  if (again) {
+    const clean = again.cloneNode(true);
+    clean.textContent = 'Continue training plan';
+    clean.id = 'km42WorkoutAgain';
+    again.replaceWith(clean);
+    clean.addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('kmate:training-plan-continue', { detail: { planId } }));
+    });
+  }
+  const lessons = km42$('#km42WorkoutLessons');
+  if (lessons) {
+    const clean = lessons.cloneNode(true);
+    clean.textContent = 'Plan lessons';
+    clean.id = 'km42WorkoutLessons';
+    lessons.replaceWith(clean);
+    clean.addEventListener('click', () => {
+      km42ClosePuzzleMode({ restore: false });
+      window.dispatchEvent(new CustomEvent('kmate:training-plan-lessons', { detail: { planId } }));
+    });
+  }
+  window.dispatchEvent(new CustomEvent('kmate:training-plan-workout-complete', { detail: completed }));
+};
+
+async function km43StartPreparedWorkout({
+  puzzles,
+  recommendation,
+  planId = null,
+  planTitle = null,
+  source = 'training-plan',
+  returnContext = 'training-plan',
+  kicker = 'Training plan practice',
+} = {}) {
+  if (!Array.isArray(puzzles) || !puzzles.length || !recommendation) return false;
+  const resultDialog = km42$('#resultDialog');
+  km42Puzzle.returnContext = returnContext;
+  if (resultDialog?.open) resultDialog.close();
+  const oldV40 = km42$('#learningPuzzleDialog');
+  if (oldV40?.open) oldV40.close();
+  const oldV41 = km42$('#km41PuzzleMode');
+  if (oldV41) oldV41.hidden = true;
+
+  const mode = km42EnsurePuzzleMode();
+  mode.hidden = false;
+  document.body.classList.add('km42-puzzle-open');
+  km42$('#km42PuzzleFlip').hidden = false;
+  km42$('#km42PuzzleKicker').textContent = kicker;
+  km42$('#km42PuzzleTitle').textContent = `Preparing ${puzzles.length} puzzle${puzzles.length === 1 ? '' : 's'}…`;
+  km42SetPuzzleStatus('Loading your saved curriculum positions…', 'thinking');
+
+  const normalized = puzzles.map((puzzle, index) => ({
+    ...puzzle,
+    km43PlanId: planId || puzzle.km43PlanId || null,
+    km43CurriculumIndex: Number.isFinite(Number(puzzle.km43CurriculumIndex))
+      ? Number(puzzle.km43CurriculumIndex)
+      : index,
+    km42Slot: puzzle.km42Slot || {
+      slot: index + 1,
+      focus: puzzle.focus || recommendation.focus?.key || 'calculation',
+      focusLabel: recommendation.focus?.label || planTitle || 'Training plan',
+      themes: puzzle.themes || [],
+      sourceType: planId ? `training-plan:${planId}` : source,
+      skill: planTitle || recommendation.focus?.label || 'Training plan',
+      reason: puzzle.km43Reason || recommendation.customization?.summary || 'Selected from your saved training curriculum.',
+    },
+  }));
+
+  Object.assign(km42Puzzle, {
+    puzzles: normalized,
+    index: 0,
+    game: null,
+    selected: null,
+    legalMoves: [],
+    solutionIndex: 0,
+    wrongAttempts: 0,
+    totalWrong: 0,
+    solved: 0,
+    skipped: 0,
+    recommendation,
+    hintSquares: [],
+    locked: false,
+    orientation: 'w',
+    startedAt: new Date().toISOString(),
+    source: planId ? `training-plan:${planId}` : source,
+    planId,
+    planTitle,
+    pointer: null,
+    dragGhost: null,
+    suppressClickUntil: 0,
+  });
+  km42LoadPuzzleAtIndex();
+  return true;
+}
+
+function km43AttachPreparedWorkoutApi(attempt = 0) {
+  if (!window.__KMATE_V42__) {
+    if (attempt < 120) window.setTimeout(() => km43AttachPreparedWorkoutApi(attempt + 1), 50);
+    return;
+  }
+  window.__KMATE_V42__.preparedWorkoutVersion = KM43_PREPARED_WORKOUT_VERSION;
+  window.__KMATE_V42__.startPreparedWorkout = km43StartPreparedWorkout;
+}
+
+km43AttachPreparedWorkoutApi();
