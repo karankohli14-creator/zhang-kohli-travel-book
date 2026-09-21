@@ -1,4 +1,4 @@
-name: K-Mate live personalization deployment check
+name: K-Mate live Training Plan deployment check
 
 on:
   push:
@@ -12,13 +12,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: kmate-live-personalization-check
+  group: kmate-live-training-plan-check
   cancel-in-progress: true
 
 jobs:
-  verify-live-personalization:
+  verify-live-training-plans:
     runs-on: ubuntu-latest
-    timeout-minutes: 16
+    timeout-minutes: 18
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -32,37 +32,39 @@ jobs:
         env:
           LIVE_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/
         run: |
-          for attempt in {1..84}; do
+          for attempt in {1..96}; do
             html="$(curl --fail --silent --show-error --location --max-time 20 "${LIVE_URL}?deploy=${GITHUB_SHA}" || true)"
-            if grep -Fq 'app-v7.js?v=42.0.0' <<<"$html"; then
-              echo "The v42 public loader is live."
+            if grep -Fq 'app-v7.js?v=43.0.0' <<<"$html"; then
+              echo "The v43 public loader is live."
               exit 0
             fi
-            echo "Waiting for GitHub Pages deployment (${attempt}/84)…"
+            echo "Waiting for GitHub Pages deployment (${attempt}/96)…"
             sleep 5
           done
-          echo "The public page did not expose the v42 loader in time."
+          echo "The public page did not expose the v43 loader in time."
           exit 1
 
-      - name: Verify public personalization assets
+      - name: Verify public Training Plan assets
         env:
           LIVE_ROOT: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer
         run: |
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7.js?v=42.0.0" | grep -Fq "personalization-v42.js?v=42.0.0"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7-part12.txt?v=42.0.0" | grep -Fq "KM42_PERSONALIZATION_VERSION"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7-part13.txt?v=42.0.0" | grep -Fq "gameplayWeight"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/personalization-v42.js?v=42.0.0" | grep -Fq "personalization-v42-part"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/personalization-v42-part3.txt?v=42.0.0" | grep -Fq "pointerdown"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/personalization-v42.css?v=42.0.0" | grep -Fq "touch-action:none"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/puzzles/index.json?v=42.0.0" | grep -Fq '"total":11902'
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/videos-v40.json?v=42.0.0" | grep -Fq '"videos"'
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7.js?v=43.0.0" | grep -Fq "training-plans-v43.js?v=43.0.0"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7.js?v=43.0.0" | grep -Fq "personalization-v42.js?v=43.0.0"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/personalization-v42.js?v=43.0.0" | grep -Fq "personalization-v42-part"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/personalization-v42-part12.txt?v=43.0.0" | grep -Fq "km43StartPreparedWorkout"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/training-plans-v43.js?v=43.0.0" | grep -Fq "training-plans-v43-part"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/training-plans-v43-part8.txt?v=43.0.0" | grep -Fq "tp43StoreMemory"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/training-plans-v43.json?v=43.0.0" | grep -Fq '"puzzleTarget": 100'
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/training-plans-v43.json?v=43.0.0" | grep -Fq '"lessonTarget": 20'
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/training-videos-v43.json?v=43.0.0" | grep -Fq '"videos"'
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/puzzles/index.json?v=43.0.0" | grep -Fq '"total":11902'
 
       - name: Install Chromium browser check
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Exercise live custom principles, lessons, and puzzle movement
+      - name: Exercise the live dashboard, curriculum, and progress tracking
         env:
           LIVE_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/
         run: |
@@ -79,36 +81,22 @@ jobs:
             },
             legacy: { sessions: 0, wins: 0, draws: 0, losses: 0, best: 0 },
             sessions: [{
-              id: 'live-v42-check',
-              startedAt: '2026-09-11T03:00:00.000Z',
-              endedAt: '2026-09-11T03:09:00.000Z',
-              positionId: 'live-v42', seedPositionId: 'live-v42',
-              title: 'Chess.com · Kmate_00 vs LiveV42', opening: 'London System',
-              theme: 'Live customization check', tags: ['calculation', 'king safety'],
-              phase: 'middlegame', positionRating: 1400, opponentRating: 1400,
-              requestedOpponentRating: 1400, timeControl: '3+0', trainingGoal: 'attack',
-              userColor: 'w', outcome: 'loss', reason: 'resignation', completed: true,
+              id: 'live-v43-plan', startedAt: '2026-09-21T18:00:00.000Z',
+              endedAt: '2026-09-21T18:09:00.000Z', positionId: 'live-v43',
+              seedPositionId: 'live-v43', title: 'Chess.com · Kmate_00 vs LiveV43',
+              opening: 'London System', theme: 'Live Training Plan check',
+              tags: ['calculation', 'king safety'], phase: 'middlegame',
+              positionRating: 1400, opponentRating: 1400, requestedOpponentRating: 1400,
+              timeControl: '3+0', trainingGoal: 'attack', userColor: 'w',
+              outcome: 'loss', reason: 'resignation', completed: true,
               timeUsedPct: 0.14, avgCpLoss: 220,
-              positionPrinciples: [
-                { key: 'king-safety', title: 'King safety before ambition', sessionPrompt: 'Track forcing lines around both kings.', why: 'You chose Attack the king.' },
-                { key: 'pawn-breaks', title: 'Prepare pawn breaks', sessionPrompt: 'Calculate which files each break opens.', why: 'The attacking goal requires prepared pawn breaks.' },
-              ],
-              userMoves: [
-                {
-                  id: 'live-v42-move-14', san: 'a3?', uci: 'a2a3', from: 'a2', to: 'a3',
-                  fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 14',
-                  spentMs: 2500, cpLoss: 260, bestMove: 'e2e4', quality: 'blunder',
-                  principleDiagnoses: [{ key: 'loose-pieces', title: 'Loose pieces', confidence: 'high', evidence: 'An undefended tactical target needed attention.' }],
-                  ignoredPrinciples: ['loose-pieces'],
-                },
-                {
-                  id: 'live-v42-move-21', san: 'h3?', uci: 'h2h3', from: 'h2', to: 'h3',
-                  fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 21',
-                  spentMs: 1900, cpLoss: 180, bestMove: 'e2e4', quality: 'mistake',
-                  principleDiagnoses: [{ key: 'forcing-scan', title: 'Forcing move scan', confidence: 'high', evidence: 'Checks, captures, and threats were not compared.' }],
-                  ignoredPrinciples: ['candidate-comparison'],
-                },
-              ],
+              userMoves: [{
+                id: 'live-v43-move-14', san: 'a3?', uci: 'a2a3', from: 'a2', to: 'a3',
+                fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 14',
+                spentMs: 2500, cpLoss: 260, bestMove: 'e2e4', quality: 'blunder',
+                principleDiagnoses: [{ key: 'loose-pieces', title: 'Loose pieces', confidence: 'high', evidence: 'An undefended tactical target needed attention.' }],
+                ignoredPrinciples: ['loose-pieces'],
+              }],
             }],
           };
 
@@ -119,109 +107,66 @@ jobs:
           await page.addInitScript((store) => {
             localStorage.setItem('kmate-position-v7', JSON.stringify(store));
             localStorage.removeItem('kmate-learning-v40');
-            localStorage.removeItem('kmate-personalization-v42');
+            localStorage.removeItem('kmate-training-plans-v43');
           }, seed);
 
           await page.goto(`${process.env.LIVE_URL}?deploy=${process.env.GITHUB_SHA}`, {
-            waitUntil: 'domcontentloaded',
-            timeout: 90_000,
+            waitUntil: 'domcontentloaded', timeout: 90_000,
           });
           await page.waitForFunction(
-            () => Boolean(window.__KMATE_V42__?.state?.().ready && window.__KMATE_PERSONALIZATION__),
+            () => Boolean(window.__KMATE_TRAINING_PLANS__ && window.__KMATE_V42__?.startPreparedWorkout),
             undefined,
             { timeout: 90_000 },
           );
 
-          const recommendation = await page.evaluate(() => window.__KMATE_V42__.recommendation());
-          if (recommendation.version !== '42.0.0') throw new Error(`Unexpected recommendation version: ${recommendation.version}`);
-          if (recommendation.customization?.mode !== 'gameplay-plus-intent') throw new Error(`Expected gameplay-plus-intent: ${JSON.stringify(recommendation.customization)}`);
-          if (recommendation.puzzlePlan?.length !== 5) throw new Error('The custom puzzle plan does not contain five slots.');
-          if (!recommendation.puzzlePlan.some((slot) => slot.sourceType === 'session-intent')) throw new Error('The chosen training goal was not preserved in the puzzle plan.');
-          if (!recommendation.optionEvidence?.some((item) => item.value === 'Attack the king')) throw new Error('The selected training goal is missing from option evidence.');
-
-          const previews = await page.evaluate(async () => {
-            const attack = window.__KMATE_PERSONALIZATION__.preview();
-            const goal = document.querySelector('#goalSelect');
-            goal.value = 'convert';
-            goal.dispatchEvent(new Event('change', { bubbles: true }));
-            document.querySelector('[data-phase="endgame"]')?.click();
-            document.querySelector('[data-time="10+0"]')?.click();
-            document.querySelector('[data-side="b"]')?.click();
-            await new Promise((resolve) => setTimeout(resolve, 140));
-            const convert = window.__KMATE_PERSONALIZATION__.preview();
-            return {
-              attack: attack.principles.map((item) => item.key),
-              convert: convert.principles.map((item) => item.key),
-            };
-          });
-          if (JSON.stringify(previews.attack) === JSON.stringify(previews.convert)) throw new Error(`Principles did not change: ${JSON.stringify(previews)}`);
-          if (!previews.convert.includes('conversion') || !previews.convert.includes('king-activity')) throw new Error(`Endgame conversion principles are incomplete: ${JSON.stringify(previews.convert)}`);
-
-          await page.locator('#wizardLearningButton').click();
-          await page.locator('#km42LearningBlueprint').waitFor({ state: 'visible', timeout: 30_000 });
-          const blueprint = (await page.locator('#km42LearningBlueprint').textContent()) || '';
-          if (!blueprint.includes('Attack the king') || !blueprint.includes('Gameplay first')) throw new Error(`Custom blueprint missing: ${blueprint}`);
-
-          await page.locator('#learningWatchLesson').click();
-          await page.locator('#km42LessonDialog').waitFor({ state: 'visible', timeout: 30_000 });
-          const lessonTitles = await page.locator('#km42LessonList .km42-lesson-row b').allTextContents();
-          if (lessonTitles.length !== 5 || new Set(lessonTitles).size !== 5) throw new Error(`Expected five diverse lessons: ${JSON.stringify(lessonTitles)}`);
-          const lessonText = (await page.locator('#km42LessonList').textContent()) || '';
-          if (!lessonText.includes('14. a3') || !lessonText.includes('21. h3')) throw new Error(`Lessons are not tied to separate moves: ${lessonText}`);
-          await page.locator('#km42LessonClose').click();
-
-          await page.setViewportSize({ width: 390, height: 844 });
-          await page.evaluate(() => {
-            document.documentElement.style.setProperty('--kmate-safe-top', '47px');
-            document.documentElement.style.setProperty('--kmate-safe-bottom', '34px');
-          });
-          await page.locator('#learningStartPuzzles').click();
-          await page.locator('#km42PuzzleMode').waitFor({ state: 'visible', timeout: 60_000 });
-          await page.locator('#km42PuzzleBoard .sq').first().waitFor({ state: 'visible', timeout: 60_000 });
-          const initial = await page.evaluate(() => window.__KMATE_V42__.state().puzzle);
-          if (!initial.expectedMove) throw new Error(`The live puzzle has no expected move: ${JSON.stringify(initial)}`);
-          const fromSquare = initial.expectedMove.slice(0, 2);
-          const toSquare = initial.expectedMove.slice(2, 4);
-          await page.locator(`[data-km42-square="${fromSquare}"]`).click();
-          const selected = await page.locator(`[data-km42-square="${fromSquare}"]`).getAttribute('class');
-          const targetClass = await page.locator(`[data-km42-square="${toSquare}"]`).getAttribute('class');
-          if (!selected?.includes('selected') || !(targetClass?.includes('legal') || targetClass?.includes('capture'))) {
-            throw new Error(`Tap selection did not expose legal movement: ${selected} / ${targetClass}`);
+          const initial = await page.evaluate(() => window.__KMATE_TRAINING_PLANS__.state());
+          if (initial.plans !== 11 || initial.namedPlans !== 10 || initial.puzzleTarget !== 100 || initial.lessonTarget !== 20) {
+            throw new Error(`Unexpected Training Plan state: ${JSON.stringify(initial)}`);
           }
-          await page.locator(`[data-km42-square="${fromSquare}"]`).click();
 
-          const from = await page.locator(`[data-km42-square="${fromSquare}"]`).boundingBox();
-          const to = await page.locator(`[data-km42-square="${toSquare}"]`).boundingBox();
-          if (!from || !to) throw new Error('The expected drag squares are not visible.');
-          await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
-          await page.mouse.down();
-          await page.mouse.move((from.x + to.x) / 2 + from.width / 2, (from.y + to.y) / 2 + from.height / 2, { steps: 4 });
-          await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
-          await page.mouse.up();
-          await page.waitForFunction(
-            (fen) => window.__KMATE_V42__.state().puzzle.fen !== fen,
-            initial.fen,
-            { timeout: 15_000 },
-          );
+          await page.locator('#wizardTrainingPlanButton').waitFor({ state: 'visible', timeout: 30_000 });
+          await page.locator('#wizardTrainingPlanButton').click();
+          await page.locator('[data-tp-plan-card]').first().waitFor({ state: 'visible', timeout: 30_000 });
+          const cards = await page.locator('[data-tp-plan-card]').count();
+          if (cards !== 11) throw new Error(`Expected 11 Training Plan cards, found ${cards}.`);
+          const customText = (await page.locator('[data-tp-plan-card="custom"]').textContent()) || '';
+          if (!customText.includes('a3')) throw new Error(`Custom plan is missing reviewed-move evidence: ${customText}`);
 
-          const layout = await page.evaluate(() => {
-            const mode = document.querySelector('#km42PuzzleMode').getBoundingClientRect();
-            const board = document.querySelector('#km42PuzzleBoard').getBoundingClientRect();
-            return { mode, board, viewportHeight: innerHeight };
-          });
-          if (layout.mode.top < 46 || layout.mode.bottom > layout.viewportHeight - 33) throw new Error(`Puzzle screen crossed the safe area: ${JSON.stringify(layout.mode)}`);
-          if (layout.board.width < 350 || Math.abs(layout.board.width - layout.board.height) > 2) throw new Error(`Puzzle board lost phone-priority space: ${JSON.stringify(layout.board)}`);
-          if (await page.locator('#km42PuzzleBoard .vector-piece').count() < 2) throw new Error('The puzzle board is not using the normal K-Mate piece renderer.');
+          await page.locator('[data-tp-open-plan="calculation"]').click();
+          await page.locator('#trainingPlanDetail').waitFor({ state: 'visible', timeout: 90_000 });
+          await page.locator('[data-tp-tab="puzzles"]').click();
+          await page.locator('.tp-puzzle-row').first().waitFor({ state: 'visible', timeout: 90_000 });
+          const puzzleRows = await page.locator('.tp-puzzle-row').count();
+          if (puzzleRows !== 100) throw new Error(`Expected 100 curriculum puzzles, found ${puzzleRows}.`);
+
+          await page.locator('[data-tp-tab="lessons"]').click();
+          await page.locator('.tp-video-card').first().waitFor({ state: 'visible', timeout: 60_000 });
+          const lessonCards = await page.locator('.tp-video-card').count();
+          if (lessonCards !== 20) throw new Error(`Expected 20 plan lessons, found ${lessonCards}.`);
+
+          await page.locator('[data-tp-tab="puzzles"]').click();
+          await page.locator('[data-tp-start-batch]').click();
+          await page.locator('#km42PuzzleMode').waitFor({ state: 'visible', timeout: 90_000 });
+          const boardSquares = await page.locator('#km42PuzzleBoard .sq').count();
+          const boardBars = await page.locator('#km42PuzzleMode .playerbar').count();
+          const puzzleState = await page.evaluate(() => window.__KMATE_V42__.state());
+          if (boardSquares !== 64 || boardBars !== 2 || puzzleState.puzzleCount !== 10) {
+            throw new Error(`Unexpected prepared workout: ${JSON.stringify({ boardSquares, boardBars, puzzleState })}`);
+          }
+          await page.locator('#km42PuzzleSkip').click();
+          await page.locator('#km42PuzzleNext').waitFor({ state: 'visible', timeout: 30_000 });
+          await page.locator('#km42PuzzleClose').click();
+
+          const finalState = await page.evaluate(() => window.__KMATE_TRAINING_PLANS__.state());
+          const calculation = finalState.metrics.find((item) => item.id === 'calculation');
+          if (calculation?.attempted !== 1 || calculation?.status !== 'In progress') {
+            throw new Error(`Plan progress did not persist: ${JSON.stringify(calculation)}`);
+          }
           if (pageErrors.length) throw new Error(`Live page errors: ${pageErrors.join('\n')}`);
 
           console.log(JSON.stringify({
-            status: 'pass',
-            principleSets: previews,
-            lessons: lessonTitles,
-            expectedMove: initial.expectedMove,
-            boardWidth: layout.board.width,
-            safeTop: layout.mode.top,
-            safeBottom: layout.viewportHeight - layout.mode.bottom,
+            status: 'pass', cards, puzzleRows, lessonCards,
+            boardSquares, boardBars, calculation,
           }, null, 2));
           await browser.close();
           NODE

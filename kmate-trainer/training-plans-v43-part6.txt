@@ -1,0 +1,209 @@
+
+async function tpRenderPlanDetail(context) {
+  const detail = tp$('#trainingPlanDetail');
+  if (!detail) return;
+  const definitions = await tpDefinitions();
+  const metrics = tpPlanMetrics(context.definition.id, context.state, definitions);
+  detail.innerHTML = `${tpDetailHeroMarkup(context, metrics)}${tpTabsMarkup()}<div id="tpDetailPanel"></div>`;
+  tp$('#tpDetailBack')?.addEventListener('click', () => {
+    tpShowPlanList();
+    void tpRenderPlanList();
+  });
+  tp$('#tpContinuePlan')?.addEventListener('click', () => void tpStartPlanBatch(context.definition.id));
+  tp$('#tpOpenLessons')?.addEventListener('click', () => {
+    tpActiveTab = 'lessons';
+    void tpRenderDetailPanel();
+  });
+  tp$('#tpRefreshPlan')?.addEventListener('click', () => void tpRefreshPlan(context.definition.id));
+  tp$('#tpRebuildPlan')?.addEventListener('click', () => void tpRefreshPlan(context.definition.id));
+  for (const button of tp$$('[data-tp-tab]')) {
+    button.addEventListener('click', () => {
+      tpActiveTab = button.dataset.tpTab;
+      for (const tab of tp$$('[data-tp-tab]')) tab.classList.toggle('active', tab === button);
+      void tpRenderDetailPanel();
+    });
+  }
+  await tpRenderDetailPanel();
+}
+
+async function tpRenderDetailPanel() {
+  const container = tp$('#tpDetailPanel');
+  const context = tpCurrentContext;
+  if (!container || !context) return;
+  if (tpActiveTab === 'overview') container.innerHTML = tpOverviewMarkup(context);
+  if (tpActiveTab === 'puzzles') container.innerHTML = tpPuzzleListMarkup(context);
+  if (tpActiveTab === 'lessons') {
+    container.innerHTML = '<section class="card tp-loading">Loading the 20-lesson curriculum…</section>';
+    const catalog = await tpVideoCatalog();
+    if (context !== tpCurrentContext) return;
+    container.innerHTML = tpLessonsMarkup(context, catalog);
+  }
+  if (tpActiveTab === 'activity') container.innerHTML = tpActivityMarkup(context);
+  tpBindDetailPanelActions();
+}
+
+function tpBindDetailPanelActions() {
+  const container = tp$('#tpDetailPanel');
+  if (!container || !tpCurrentContext) return;
+  for (const button of tp$$('[data-tp-puzzle-filter]', container)) {
+    button.addEventListener('click', () => {
+      tpPuzzleFilter = button.dataset.tpPuzzleFilter || 'all';
+      void tpRenderDetailPanel();
+    });
+  }
+  for (const button of tp$$('[data-tp-start-batch]', container)) {
+    button.addEventListener('click', () => void tpStartPlanBatch(tpCurrentContext.definition.id));
+  }
+  for (const button of tp$$('[data-tp-start-puzzle]', container)) {
+    button.addEventListener('click', () => void tpStartPlanBatch(
+      tpCurrentContext.definition.id,
+      { startIndex: Number(button.dataset.tpStartPuzzle), count: 1 },
+    ));
+  }
+  for (const button of tp$$('[data-tp-play-video]', container)) {
+    button.addEventListener('click', () => void tpPlayVideo(tpCurrentContext.definition.id, button.dataset.tpPlayVideo));
+  }
+  for (const button of tp$$('[data-tp-complete-video]', container)) {
+    button.addEventListener('click', () => void tpCompleteVideo(tpCurrentContext.definition.id, button.dataset.tpCompleteVideo));
+  }
+  tp$('[data-tp-play-next-video]', container)?.addEventListener('click', () => void tpPlayNextVideo(tpCurrentContext.definition.id));
+}
+
+async function tpRefreshCurrentDetail({ preserveTab = true } = {}) {
+  if (!tpActivePlanId || tp$('#trainingPlanDetail')?.hidden) return;
+  const activeTab = tpActiveTab;
+  const [definitions, index] = await Promise.all([tpDefinitions(), tpPuzzleIndex()]);
+  const definition = (definitions.plans || []).find((item) => item.id === tpActivePlanId);
+  if (!definition) return;
+  const recommendation = tpRecommendation();
+  const plan = definition.dynamic ? tpCustomPlanProfile(definition, recommendation) : definition;
+  const state = tpReadStore().plans[tpActivePlanId];
+  if (!state?.curriculum) return;
+  tpCurrentContext = {
+    definition,
+    plan,
+    recommendation,
+    state,
+    stale: definition.dynamic ? tpCustomIsStale(state, recommendation, index) : false,
+  };
+  if (preserveTab) tpActiveTab = activeTab;
+  await tpRenderPlanDetail(tpCurrentContext);
+}
+
+async function tpRefreshPlan(planId) {
+  const detail = tp$('#trainingPlanDetail');
+  if (detail) detail.innerHTML = '<div class="card tp-loading">Rebuilding the curriculum from current data and rating…</div>';
+  try {
+    const context = await tpBuildCurriculum(planId, { force: true });
+    tpCurrentContext = context;
+    tpActiveTab = 'overview';
+    await tpRenderPlanDetail(context);
+    tpShowToast('Training plan refreshed.');
+  } catch (error) {
+    tpShowToast(error?.message || 'The training plan could not be refreshed.');
+    await tpOpenPlan(planId);
+  }
+}
+
+function tpEnsureVideoDialog() {
+  let dialog = tp$('#tpVideoDialog');
+  if (dialog) return dialog;
+  dialog = document.createElement('dialog');
+  dialog.id = 'tpVideoDialog';
+  dialog.className = 'modal tp-video-dialog';
+  dialog.innerHTML = `
+    <div class="tp-video-shell">
+      <header class="tp-video-head">
+        <div><div class="eyebrow">Training Plan lesson</div><h2 id="tpVideoTitle">Chess lesson</h2><p id="tpVideoCreator">Creator-hosted instruction</p></div>
+        <button class="tp-close" id="tpVideoClose" type="button" aria-label="Close lesson">×</button>
+      </header>
+      <div class="tp-frame"><iframe id="tpVideoFrame" title="K-Mate training-plan lesson" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+      <div class="tp-why-card" id="tpVideoWhy" style="margin-top:11px"></div>
+      <footer class="tp-video-footer">
+        <p>The creator retains the video rights. K-Mate embeds the original lesson and does not rehost it.</p>
+        <div class="tp-video-footer-actions"><button class="btn primary" id="tpVideoComplete" type="button">Mark lesson complete</button><a class="btn" id="tpVideoSource" target="_blank" rel="noopener noreferrer">Open source page</a></div>
+      </footer>
+    </div>`;
+  document.body.append(dialog);
+  const close = () => {
+    tp$('#tpVideoFrame', dialog)?.removeAttribute('src');
+    if (dialog.open && typeof dialog.close === 'function') dialog.close();
+    else dialog.removeAttribute('open');
+  };
+  tp$('#tpVideoClose', dialog)?.addEventListener('click', close);
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    close();
+  });
+  dialog.addEventListener('close', () => tp$('#tpVideoFrame', dialog)?.removeAttribute('src'));
+  tp$('#tpVideoComplete', dialog)?.addEventListener('click', () => {
+    if (!tpVideoDialogState.planId || !tpVideoDialogState.videoId) return;
+    void tpCompleteVideo(tpVideoDialogState.planId, tpVideoDialogState.videoId, { keepDialog: true });
+  });
+  return dialog;
+}
+
+async function tpVideoById(videoId) {
+  const catalog = await tpVideoCatalog();
+  return (catalog.videos || []).find((video) => video.id === videoId) || null;
+}
+
+async function tpPlayVideo(planId, videoId) {
+  const video = await tpVideoById(videoId);
+  if (!video) {
+    tpShowToast('This lesson is unavailable.');
+    return false;
+  }
+  const definitions = await tpDefinitions();
+  const definition = (definitions.plans || []).find((plan) => plan.id === planId);
+  const recommendation = tpRecommendation();
+  const plan = definition?.dynamic ? tpCustomPlanProfile(definition, recommendation) : definition;
+  tpRecordVideo(planId, video, 'start');
+  const dialog = tpEnsureVideoDialog();
+  tpVideoDialogState = { planId, videoId };
+  tp$('#tpVideoTitle', dialog).textContent = video.title;
+  tp$('#tpVideoCreator', dialog).textContent = `${video.creator} · ${video.level || 'all levels'}`;
+  tp$('#tpVideoWhy', dialog).innerHTML = `<h3>Why this lesson is in your plan</h3><p>${tpEscape(tpVideoReason(plan || definition, video, recommendation))}</p>`;
+  tp$('#tpVideoSource', dialog).href = video.sourceUrl || `https://lichess.org/video/${video.id}`;
+  const frame = tp$('#tpVideoFrame', dialog);
+  const base = video.embedUrl || `https://www.youtube-nocookie.com/embed/${video.id}`;
+  frame.src = `${base}${base.includes('?') ? '&' : '?'}rel=0&modestbranding=1`;
+  const complete = Boolean(tpVideoProgress(planId, videoId)?.completedAt);
+  const completeButton = tp$('#tpVideoComplete', dialog);
+  completeButton.textContent = complete ? '✓ Lesson completed' : 'Mark lesson complete';
+  completeButton.disabled = complete;
+  if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+  else dialog.setAttribute('open', '');
+  await tpRefreshCurrentDetail();
+  return true;
+}
+
+async function tpCompleteVideo(planId, videoId, { keepDialog = false } = {}) {
+  const video = await tpVideoById(videoId);
+  if (!video) return false;
+  if (!tpVideoProgress(planId, videoId)?.completedAt) {
+    tpRecordVideo(planId, video, 'complete');
+    tpShowToast('Lesson marked complete.');
+  }
+  if (keepDialog) {
+    const button = tp$('#tpVideoComplete');
+    if (button) {
+      button.textContent = '✓ Lesson completed';
+      button.disabled = true;
+    }
+  }
+  await tpRefreshCurrentDetail();
+  void tpRenderPlanList();
+  return true;
+}
+
+async function tpPlayNextVideo(planId) {
+  const store = tpReadStore();
+  const videoIds = store.plans?.[planId]?.curriculum?.videoIds || [];
+  const next = videoIds.find((id) => !store.plans?.[planId]?.videoProgress?.[id]?.completedAt) || videoIds[0];
+  if (!next) {
+    tpShowToast('No lesson is available in this plan.');
+    return;
+  }
+  await tpPlayVideo(planId, next);
+}

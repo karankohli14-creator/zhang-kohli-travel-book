@@ -1,0 +1,101 @@
+name: K-Mate v43 Training Plan QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kmate-trainer/training-plans-v43*"
+      - "kmate-trainer/personalization-v42*"
+      - "kmate-trainer/learning/training-*-v43.json"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/index.html"
+      - "kmate-trainer/tests/training-plans-v43.spec.mjs"
+      - ".github/workflows/kmate-training-plans-v43.yml"
+  pull_request:
+    paths:
+      - "kmate-trainer/training-plans-v43*"
+      - "kmate-trainer/personalization-v42*"
+      - "kmate-trainer/learning/training-*-v43.json"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/index.html"
+      - "kmate-trainer/tests/training-plans-v43.spec.mjs"
+      - ".github/workflows/kmate-training-plans-v43.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  training-plan-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate modules and curriculum data
+        run: |
+          node --check kmate-trainer/training-plans-v43.js
+          cat kmate-trainer/training-plans-v43-part{1..8}.txt > /tmp/kmate-training-plans-v43.js
+          node --check /tmp/kmate-training-plans-v43.js
+          cat kmate-trainer/personalization-v42-part{1..12}.txt > /tmp/kmate-personalization-v43.js
+          node --check /tmp/kmate-personalization-v43.js
+          node --check kmate-trainer/tests/training-plans-v43.spec.mjs
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const definitions = JSON.parse(fs.readFileSync('kmate-trainer/learning/training-plans-v43.json', 'utf8'));
+          const base = JSON.parse(fs.readFileSync('kmate-trainer/learning/videos-v40.json', 'utf8'));
+          const extra = JSON.parse(fs.readFileSync('kmate-trainer/learning/training-videos-v43.json', 'utf8'));
+          const plans = definitions.plans || [];
+          if (definitions.puzzleTarget !== 100 || definitions.lessonTarget !== 20) throw new Error('Training targets must remain 100 puzzles and 20 lessons.');
+          if (plans.length !== 11 || plans.filter((plan) => !plan.dynamic).length !== 10) throw new Error('Expected one custom and ten named plans.');
+          for (const plan of plans.filter((item) => !item.dynamic)) {
+            const total = Object.values(plan.focusMix || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+            if (total !== 100) throw new Error(`${plan.id} puzzle mix totals ${total}, not 100.`);
+          }
+          const videos = new Map([...base.videos, ...extra.videos].map((video) => [video.id, video]));
+          if (videos.size < 60) throw new Error(`Expected at least 60 distinct lessons, found ${videos.size}.`);
+          if ([...videos.values()].some((video) => !video.sourceUrl?.startsWith('https://lichess.org/video/') || !video.embedUrl?.startsWith('https://www.youtube-nocookie.com/embed/'))) {
+            throw new Error('Every training lesson must retain a Lichess source and privacy-enhanced creator-hosted embed.');
+          }
+          console.log(`Validated ${plans.length} plans and ${videos.size} creator-hosted lessons.`);
+          NODE
+
+      - name: Install browser-test dependencies
+        run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start static K-Mate server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v43-http.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/kmate-v43-http.log
+          exit 1
+
+      - name: Exercise curricula, lessons, puzzles, and progress
+        env:
+          KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
+        run: npx playwright test kmate-trainer/tests/training-plans-v43.spec.mjs --workers=1 --reporter=line
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmate-training-plans-v43-failure
+          path: |
+            test-results
+            /tmp/kmate-v43-http.log
+          if-no-files-found: ignore
+          retention-days: 7

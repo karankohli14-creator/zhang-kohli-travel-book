@@ -18,7 +18,7 @@ permissions:
 jobs:
   syntax-and-wiring:
     runs-on: ubuntu-latest
-    timeout-minutes: 9
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -40,12 +40,15 @@ jobs:
           node --check kmate-trainer/learning-relevance-v41.js
           node --check kmate-trainer/learning-relevance-v41-stability.js
           node --check kmate-trainer/personalization-v42.js
-          cat kmate-trainer/app-v7-part{1..14}.txt > /tmp/kmate-app-v42.js
-          node --check /tmp/kmate-app-v42.js
+          node --check kmate-trainer/training-plans-v43.js
+          cat kmate-trainer/app-v7-part{1..14}.txt > /tmp/kmate-app-v43.js
+          node --check /tmp/kmate-app-v43.js
           cat kmate-trainer/learning-v40-part{1..5}.txt > /tmp/kmate-learning-v40.js
           node --check /tmp/kmate-learning-v40.js
-          cat kmate-trainer/personalization-v42-part{1..11}.txt > /tmp/kmate-personalization-v42.js
-          node --check /tmp/kmate-personalization-v42.js
+          cat kmate-trainer/personalization-v42-part{1..12}.txt > /tmp/kmate-personalization-v43.js
+          node --check /tmp/kmate-personalization-v43.js
+          cat kmate-trainer/training-plans-v43-part{1..8}.txt > /tmp/kmate-training-plans-v43.js
+          node --check /tmp/kmate-training-plans-v43.js
           node --check kmate-trainer/tests/importers.spec.mjs
           node --check kmate-trainer/tests/chess-position-visibility.spec.mjs
           node --check kmate-trainer/tests/restart-practice.spec.mjs
@@ -54,6 +57,7 @@ jobs:
           node --check kmate-trainer/tests/learning-relevance-v41.spec.mjs
           node --check kmate-trainer/tests/personalization-v42.spec.mjs
           node --check kmate-trainer/tests/personalization-v42-release.spec.mjs
+          node --check kmate-trainer/tests/training-plans-v43.spec.mjs
           node --check kmate-trainer/tests/chesscom-live-contract.mjs
 
       - name: Validate learning catalogs
@@ -61,11 +65,21 @@ jobs:
           node - <<'NODE'
           const fs = require('node:fs');
           const videos = JSON.parse(fs.readFileSync('kmate-trainer/learning/videos-v40.json', 'utf8'));
-          if (videos.version !== 40 || videos.videos.length < 20) throw new Error('Video catalog is incomplete.');
-          for (const video of videos.videos) {
+          const extraVideos = JSON.parse(fs.readFileSync('kmate-trainer/learning/training-videos-v43.json', 'utf8'));
+          const plans = JSON.parse(fs.readFileSync('kmate-trainer/learning/training-plans-v43.json', 'utf8'));
+          if (videos.version !== 40 || videos.videos.length < 20) throw new Error('Core video catalog is incomplete.');
+          const allVideos = new Map([...videos.videos, ...extraVideos.videos].map((video) => [video.id, video]));
+          if (allVideos.size < 60) throw new Error(`Training catalog has only ${allVideos.size} distinct lessons.`);
+          for (const video of allVideos.values()) {
             if (video.licenseClass !== 'externalEmbed') throw new Error(`Unexpected video license class: ${video.id}`);
             if (!video.sourceUrl.startsWith('https://lichess.org/video/')) throw new Error(`Missing Lichess source: ${video.id}`);
             if (!video.embedUrl.startsWith('https://www.youtube-nocookie.com/embed/')) throw new Error(`Unsafe embed URL: ${video.id}`);
+          }
+          if (plans.puzzleTarget !== 100 || plans.lessonTarget !== 20 || plans.plans.length !== 11) throw new Error('Training Plan targets or count are incorrect.');
+          if (plans.plans.filter((plan) => !plan.dynamic).length !== 10) throw new Error('Expected ten named training plans.');
+          for (const plan of plans.plans.filter((item) => !item.dynamic)) {
+            const total = Object.values(plan.focusMix || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+            if (total !== 100) throw new Error(`${plan.id} focus mix totals ${total}.`);
           }
           const index = JSON.parse(fs.readFileSync('kmate-trainer/learning/puzzles/index.json', 'utf8'));
           if (index.license !== 'CC0-1.0' || index.total < 10000 || index.shards.length !== 56) {
@@ -80,9 +94,11 @@ jobs:
         run: |
           grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]" kmate-trainer/app-v7.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/learning-v40.js
-          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]" kmate-trainer/personalization-v42.js
-          grep -q "app-v7.js?v=42.0.0" kmate-trainer/index.html
-          grep -q "personalization-v42.js?v=42.0.0" kmate-trainer/app-v7.js
+          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]" kmate-trainer/personalization-v42.js
+          grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8]" kmate-trainer/training-plans-v43.js
+          grep -q "app-v7.js?v=43.0.0" kmate-trainer/index.html
+          grep -q "personalization-v42.js?v=43.0.0" kmate-trainer/app-v7.js
+          grep -q "training-plans-v43.js?v=43.0.0" kmate-trainer/app-v7.js
           grep -q "KM42_PERSONALIZATION_VERSION = '42.0.0'" kmate-trainer/app-v7-part12.txt
           grep -q "trainingIntent" kmate-trainer/app-v7-part12.txt
           grep -q "customizationFingerprint" kmate-trainer/app-v7-part13.txt
@@ -93,13 +109,11 @@ jobs:
           grep -q "km42PuzzleMode" kmate-trainer/personalization-v42-part2.txt
           grep -q "pointerdown" kmate-trainer/personalization-v42-part3.txt
           grep -q "movableByTap" kmate-trainer/personalization-v42-part4.txt
-          grep -q "dragEnabled" kmate-trainer/personalization-v42-part5.txt
-          grep -q "km42-authoritative-result" kmate-trainer/personalization-v42-part6.txt
-          grep -q "directSquareCapture" kmate-trainer/personalization-v42-part7.txt
-          grep -q "tapHandlerCount: 1" kmate-trainer/personalization-v42-part8.txt
-          grep -q "pointerup-capture" kmate-trainer/personalization-v42-part9.txt
-          grep -q "goalAnchor" kmate-trainer/personalization-v42-part10.txt
-          grep -q "km42RepairLearningBlueprintNow" kmate-trainer/personalization-v42-part11.txt
+          grep -q "km43StartPreparedWorkout" kmate-trainer/personalization-v42-part12.txt
+          grep -q "trainingPlanNavButton" kmate-trainer/training-plans-v43-part4.txt
+          grep -q "Custom Training Plan" kmate-trainer/learning/training-plans-v43.json
+          grep -q "tpStartPlanBatch" kmate-trainer/training-plans-v43-part7.txt
+          grep -q "tp43StoreMemory" kmate-trainer/training-plans-v43-part8.txt
           grep -q "touch-action:none" kmate-trainer/personalization-v42.css
           grep -q "learningOpenLibrary" kmate-trainer/learning-library-v40.js
           grep -q "km41RecommendationEvidence" kmate-trainer/learning-relevance-v41.js

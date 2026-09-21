@@ -1,0 +1,24 @@
+
+/* K-Mate v43 — prevent closely spaced async progress writes from losing data. */
+const tp43OriginalReadStore = tpReadStore;
+const tp43OriginalSaveStore = tpSaveStore;
+let tp43StoreMemory = null;
+
+tpReadStore = function tp43ReadSharedStore() {
+  if (!tp43StoreMemory) tp43StoreMemory = tp43OriginalReadStore();
+  return tp43StoreMemory;
+};
+
+tpSaveStore = function tp43SaveSharedStore(store) {
+  if (store && typeof store === 'object') {
+    store.version = 43;
+    store.plans = store.plans && typeof store.plans === 'object' ? store.plans : {};
+    store.activity = Array.isArray(store.activity) ? store.activity.slice(-500) : [];
+    store.activePlanId = store.activePlanId || 'custom';
+    tp43StoreMemory = store;
+  }
+  return tp43OriginalSaveStore(tp43StoreMemory || store);
+};
+
+// Prime the shared object before any curriculum or progress task starts.
+tp43StoreMemory = tp43OriginalReadStore();
