@@ -34,6 +34,7 @@ km42RecordPuzzle = function km43RecordPuzzleWithPlan(puzzle, solved) {
         planId,
         puzzleId: puzzle.id,
         solved: Boolean(solved),
+        wrong: Number(km42Puzzle.wrongAttempts || 0),
         curriculumIndex: puzzle.km43CurriculumIndex ?? null,
       },
     }));
