@@ -45,14 +45,14 @@ function tpCorrectionsFromStatus(text) {
 
 function tpRecordPlanPuzzleProgress(detail, { source = 'event' } = {}) {
   const planId = String(detail?.planId || '').trim();
-  const puzzleId = String(detail?.puzzleId || '').trim();
-  if (!planId || !puzzleId) return false;
+  const reportedPuzzleId = String(detail?.puzzleId || '').trim();
+  if (!planId || !reportedPuzzleId) return false;
 
   const active = tpActiveWorkout?.planId === planId ? tpActiveWorkout : null;
   const curriculumIndex = Number.isFinite(Number(detail.curriculumIndex))
     ? Number(detail.curriculumIndex)
-    : active?.entries?.find((entry) => entry.id === puzzleId)?.curriculumIndex ?? null;
-  const eventKey = `${active?.token || 'external'}:${puzzleId}:${curriculumIndex ?? 'unknown'}`;
+    : active?.entries?.find((entry) => entry.id === reportedPuzzleId)?.curriculumIndex ?? null;
+  const eventKey = `${active?.token || 'external'}:${reportedPuzzleId}:${curriculumIndex ?? 'unknown'}`;
   if (active?.recorded?.has(eventKey)) return false;
 
   const store = tpReadStore();
@@ -64,17 +64,30 @@ function tpRecordPlanPuzzleProgress(detail, { source = 'event' } = {}) {
     return false;
   }
 
-  const prior = plan.puzzleProgress[puzzleId] || { attempts: 0, solves: 0, wrong: 0, solved: false };
+  // The playable puzzle can be rehydrated from a shard and decorated by the
+  // board layer. Always resolve it back to the fixed curriculum entry before
+  // counting progress so a transport alias can never become an orphan record.
+  const canonicalEntry = Number.isFinite(Number(curriculumIndex))
+    ? (plan.curriculum?.puzzles || []).find((entry) => Number(entry.curriculumIndex) === Number(curriculumIndex))
+    : (plan.curriculum?.puzzles || []).find((entry) => entry.id === reportedPuzzleId);
+  const canonicalPuzzleId = String(canonicalEntry?.id || reportedPuzzleId).trim();
+  const aliases = [...new Set([reportedPuzzleId, canonicalPuzzleId].filter(Boolean))];
+  const prior = aliases
+    .map((id) => plan.puzzleProgress[id])
+    .find(Boolean)
+    || { attempts: 0, solves: 0, wrong: 0, solved: false };
   const now = new Date().toISOString();
-  plan.puzzleProgress[puzzleId] = {
+  const progressRecord = {
     attempts: Number(prior.attempts || 0) + 1,
     solves: Number(prior.solves || 0) + (detail.solved ? 1 : 0),
     wrong: Number(prior.wrong || 0) + Number(detail.wrong || 0),
     solved: Boolean(prior.solved || detail.solved),
     curriculumIndex,
+    canonicalPuzzleId,
     lastAt: now,
     lastSource: source,
   };
+  for (const id of aliases) plan.puzzleProgress[id] = { ...progressRecord };
   plan.progressEvents[eventKey] = now;
   const eventKeys = Object.keys(plan.progressEvents);
   if (eventKeys.length > 500) {
