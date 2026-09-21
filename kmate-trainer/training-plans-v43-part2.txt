@@ -1,0 +1,205 @@
+
+async function tpLoadShard(shard) {
+  if (!shard?.file) return [];
+  if (!tpShardCache.has(shard.file)) {
+    const url = new URL(`./learning/puzzles/${shard.file}?v=${TP_VERSION}`, TP_BASE).href;
+    tpShardCache.set(shard.file, tpFetchJson(url, `Puzzle file ${shard.file}`).then((payload) =>
+      (payload.puzzles || []).map((puzzle) => ({
+        ...puzzle,
+        __file: shard.file,
+        __focus: shard.focus,
+        __band: shard.band,
+      })),
+    ));
+  }
+  return tpShardCache.get(shard.file);
+}
+
+async function tpCandidatesForFocus(index, focus, bandKey) {
+  const shards = [];
+  for (const band of tpAdjacentBands(index, bandKey)) {
+    const shard = (index.shards || []).find((item) => item.focus === focus && item.band === band.key && Number(item.count) > 0);
+    if (shard) shards.push(shard);
+    if (shards.length >= 4) break;
+  }
+  const groups = await Promise.all(shards.map(tpLoadShard));
+  return groups.flat();
+}
+
+function tpPreferredPuzzleThemes(plan, recommendation, focus) {
+  const themes = [];
+  if (plan.dynamic) {
+    for (const slot of recommendation?.puzzlePlan || []) {
+      if (slot.focus === focus) themes.push(...(slot.themes || []));
+    }
+  }
+  return [...new Set(themes)];
+}
+
+function tpPuzzleScore(puzzle, { plan, recommendation, focus, rating, seen, used, fingerprint }) {
+  if (!puzzle?.id || used.has(puzzle.id)) return -Infinity;
+  let score = puzzle.focus === focus || puzzle.__focus === focus ? 260 : 0;
+  const distance = Math.abs(Number(puzzle.rating || rating) - rating);
+  score += Math.max(0, 180 - distance * 0.55);
+  score += Math.min(45, Number(puzzle.popularity || 0) / 2.3);
+  score += Math.min(25, Math.log10(Math.max(1, Number(puzzle.plays || 1))) * 5);
+  score += seen.has(puzzle.id) ? -180 : 70;
+  const themes = new Set(puzzle.themes || []);
+  const preferred = tpPreferredPuzzleThemes(plan, recommendation, focus);
+  score += preferred.filter((theme) => themes.has(theme)).length * 115;
+  const opening = tpNormalize(recommendation?.trainingIntent?.opening || recommendation?.opening);
+  if (opening) {
+    const puzzleOpening = tpNormalize((puzzle.openingTags || []).join(' '));
+    const words = opening.split(' ').filter((word) => word.length >= 4);
+    const overlap = words.filter((word) => puzzleOpening.includes(word)).length;
+    score += overlap >= 2 ? 120 : overlap === 1 ? 45 : 0;
+  }
+  score += (tpHash(`${fingerprint}:${puzzle.id}`) % 10000) / 10000;
+  return score;
+}
+
+function tpPuzzleReason(plan, recommendation, focus) {
+  if (!plan.dynamic) return `${plan.title}: ${plan.outcome}`;
+  const move = (recommendation?.moveEvidence || []).find((item) => item.focus === focus)
+    || recommendation?.moveEvidence?.[0];
+  if (move) {
+    return `${move.moveLabel || move.san || 'A reviewed move'} pointed to ${move.focusLabel || focus}. This puzzle reinforces the same decision pattern.`;
+  }
+  const choice = recommendation?.trainingIntent?.goalLabel || 'your selected session setup';
+  return `Selected from ${choice} and your most recent K-Mate learning profile.`;
+}
+
+function tpInterleave(groups, fingerprint, target) {
+  const output = [];
+  const queues = Object.entries(groups).map(([focus, puzzles]) => ({ focus, puzzles: [...puzzles], index: 0 }));
+  let guard = 0;
+  while (output.length < target && guard < target * 20) {
+    guard += 1;
+    let added = false;
+    for (const queue of queues) {
+      if (queue.index >= queue.puzzles.length || output.length >= target) continue;
+      output.push(queue.puzzles[queue.index]);
+      queue.index += 1;
+      added = true;
+    }
+    if (!added) break;
+  }
+  return output.sort((a, b) => {
+    const bucketA = tpHash(`${fingerprint}:order:${a.id}`);
+    const bucketB = tpHash(`${fingerprint}:order:${b.id}`);
+    return bucketA - bucketB;
+  }).slice(0, target);
+}
+
+function tpVideoScore(video, plan, recommendation, progress, fingerprint) {
+  const focuses = new Set(plan.videoFocus || []);
+  const tags = (plan.videoTags || []).map(tpNormalize).filter(Boolean);
+  const videoFocus = new Set(video.focus || []);
+  const videoTags = (video.tags || []).map(tpNormalize);
+  let score = [...focuses].filter((focus) => videoFocus.has(focus)).length * 80;
+  for (const tag of tags) {
+    if (videoTags.some((candidate) => candidate.includes(tag) || tag.includes(candidate))) score += 34;
+  }
+  const opening = tpNormalize(recommendation?.trainingIntent?.opening || recommendation?.opening);
+  if (opening && (video.openingKeys || []).some((key) => {
+    const normalized = tpNormalize(key);
+    return opening.includes(normalized) || normalized.includes(opening);
+  })) score += 115;
+  const global = progress.videos?.[video.id];
+  if (!global) score += 18;
+  else score -= Math.min(42, Number(global.opens || 1) * 7);
+  score += (tpHash(`${fingerprint}:video:${video.id}`) % 1000) / 1000;
+  return score;
+}
+
+function tpSelectVideos(videos, plan, recommendation, existingProgress, fingerprint, target) {
+  const ranked = videos.map((video) => ({
+    video,
+    score: tpVideoScore(video, plan, recommendation, existingProgress, fingerprint),
+  })).sort((a, b) => b.score - a.score);
+  const selected = [];
+  const creatorCounts = new Map();
+  const focusCounts = new Map();
+  const remaining = [...ranked];
+  while (selected.length < target && remaining.length) {
+    let bestIndex = 0;
+    let bestAdjusted = -Infinity;
+    remaining.forEach((entry, index) => {
+      const creatorPenalty = Number(creatorCounts.get(entry.video.creator) || 0) * 22;
+      const primaryFocus = entry.video.focus?.[0] || 'general';
+      const focusPenalty = Number(focusCounts.get(primaryFocus) || 0) * 5;
+      const adjusted = entry.score - creatorPenalty - focusPenalty;
+      if (adjusted > bestAdjusted) {
+        bestAdjusted = adjusted;
+        bestIndex = index;
+      }
+    });
+    const [entry] = remaining.splice(bestIndex, 1);
+    selected.push(entry.video);
+    creatorCounts.set(entry.video.creator, Number(creatorCounts.get(entry.video.creator) || 0) + 1);
+    const primaryFocus = entry.video.focus?.[0] || 'general';
+    focusCounts.set(primaryFocus, Number(focusCounts.get(primaryFocus) || 0) + 1);
+  }
+  return selected.slice(0, target);
+}
+
+async function tpSelectPuzzles({ plan, recommendation, index, rating, band, fingerprint, target }) {
+  const focusMix = tpNormalizeMix(plan.focusMix, target);
+  const learning = tpReadLearningProgress();
+  const seen = new Set(learning.seen || []);
+  const used = new Set();
+  const groups = {};
+  for (const [focus, quota] of Object.entries(focusMix)) {
+    const candidates = await tpCandidatesForFocus(index, focus, band.key);
+    const ranked = candidates.map((puzzle) => ({
+      puzzle,
+      score: tpPuzzleScore(puzzle, { plan, recommendation, focus, rating, seen, used, fingerprint }),
+    })).filter((entry) => Number.isFinite(entry.score)).sort((a, b) => b.score - a.score);
+    groups[focus] = [];
+    for (const entry of ranked) {
+      if (used.has(entry.puzzle.id)) continue;
+      used.add(entry.puzzle.id);
+      groups[focus].push(entry.puzzle);
+      if (groups[focus].length >= quota) break;
+    }
+  }
+
+  let selected = tpInterleave(groups, fingerprint, target);
+  if (selected.length < target) {
+    const allCandidates = (await Promise.all(Object.keys(focusMix).map((focus) => tpCandidatesForFocus(index, focus, band.key)))).flat();
+    const ranked = allCandidates.map((puzzle) => ({
+      puzzle,
+      score: tpPuzzleScore(puzzle, {
+        plan,
+        recommendation,
+        focus: puzzle.focus || puzzle.__focus,
+        rating,
+        seen,
+        used,
+        fingerprint,
+      }),
+    })).filter((entry) => Number.isFinite(entry.score)).sort((a, b) => b.score - a.score);
+    for (const entry of ranked) {
+      if (used.has(entry.puzzle.id)) continue;
+      used.add(entry.puzzle.id);
+      selected.push(entry.puzzle);
+      if (selected.length >= target) break;
+    }
+  }
+  if (selected.length < target) throw new Error(`Only ${selected.length} suitable puzzles were available for this plan.`);
+  return {
+    focusMix,
+    entries: selected.slice(0, target).map((puzzle, indexValue) => ({
+      id: puzzle.id,
+      file: puzzle.__file,
+      focus: puzzle.focus || puzzle.__focus,
+      band: puzzle.band || puzzle.__band,
+      rating: puzzle.rating,
+      themes: puzzle.themes || [],
+      openingTags: puzzle.openingTags || [],
+      sourceGame: puzzle.sourceGame || null,
+      curriculumIndex: indexValue,
+      reason: tpPuzzleReason(plan, recommendation, puzzle.focus || puzzle.__focus),
+    })),
+  };
+}
