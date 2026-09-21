@@ -1,0 +1,202 @@
+
+function tpPreparedRecommendation(context, entries) {
+  const mix = context.state.curriculum?.focusMix || {};
+  const primaryKey = Object.entries(mix).sort((a, b) => b[1] - a[1])[0]?.[0] || 'calculation';
+  const taxonomy = window.__KMATE_LEARNING_CORE__?.taxonomy?.[primaryKey] || {
+    key: primaryKey,
+    label: tpFocusLabel(primaryKey),
+    description: context.definition.description,
+    icon: context.definition.icon,
+  };
+  const base = context.recommendation || {};
+  return {
+    ...base,
+    version: TP_VERSION,
+    sourceSessionId: context.state.curriculum?.sourceSessionId || base.sourceSessionId || null,
+    focus: taxonomy,
+    puzzleRating: context.state.curriculum?.rating || base.puzzleRating || 1400,
+    puzzleBand: context.state.curriculum?.band || base.puzzleBand || '1400-1599',
+    customizationFingerprint: context.state.curriculum?.fingerprint,
+    phase: base.phase || tpAppState().phase || null,
+    opening: base.opening || tpAppState().opening || null,
+    exactRetryAvailable: false,
+    puzzleSetSummary: `${entries.length} positions from the ${context.definition.title} curriculum.`,
+    customization: {
+      mode: 'training-plan',
+      gameplayWeight: context.definition.dynamic ? 0.75 : 0,
+      setupWeight: context.definition.dynamic ? 0.25 : 1,
+      summary: context.state.curriculum?.summary || context.definition.outcome,
+    },
+    trainingIntent: {
+      ...(base.trainingIntent || {}),
+      goalKey: context.definition.id,
+      goalLabel: context.definition.title,
+    },
+  };
+}
+
+async function tpStartPlanBatch(planId, { startIndex = null, count = null } = {}) {
+  try {
+    const definitions = await tpDefinitions();
+    const batchSize = Math.max(1, Number(count || definitions.sessionPuzzleCount || 10));
+    let context = tpCurrentContext?.definition?.id === planId ? tpCurrentContext : await tpBuildCurriculum(planId);
+    const latestState = tpReadStore().plans[planId];
+    context = { ...context, state: latestState || context.state };
+    const entries = tpNextPuzzleEntries(planId, context.state, batchSize, startIndex);
+    if (!entries.length) throw new Error('This plan has no puzzle positions yet.');
+    const puzzles = await tpHydratePuzzles(entries);
+    if (puzzles.length !== entries.length) throw new Error('One or more saved puzzle positions could not be loaded.');
+    const recommendation = tpPreparedRecommendation(context, entries);
+    const prepared = puzzles.map((puzzle, index) => {
+      const entry = entries[index];
+      return {
+        ...puzzle,
+        km43PlanId: planId,
+        km43CurriculumIndex: entry.curriculumIndex,
+        km43Reason: entry.reason,
+        km42Slot: {
+          slot: index + 1,
+          focus: entry.focus,
+          focusLabel: tpFocusLabel(entry.focus),
+          themes: entry.themes || [],
+          sourceType: `training-plan:${planId}`,
+          skill: context.definition.title,
+          reason: entry.reason,
+        },
+      };
+    });
+    const startPrepared = window.__KMATE_V42__?.startPreparedWorkout;
+    if (typeof startPrepared !== 'function') throw new Error('The K-Mate puzzle board is not ready. Reload the app and try again.');
+    tpRecordActivity(planId, 'workout-start', 'Puzzle session started', `${prepared.length} puzzle${prepared.length === 1 ? '' : 's'}`);
+    await startPrepared({
+      puzzles: prepared,
+      recommendation,
+      planId,
+      planTitle: context.definition.title,
+      source: `training-plan:${planId}`,
+      returnContext: 'training-plan',
+      kicker: `Training Plan · ${context.definition.shortTitle || context.definition.title}`,
+    });
+    return true;
+  } catch (error) {
+    console.error('K-Mate could not start the training-plan puzzle session.', error);
+    tpShowToast(error?.message || 'The puzzle session could not start.');
+    return false;
+  }
+}
+
+function tpHandlePuzzleProgress(event) {
+  const detail = event.detail || {};
+  if (!detail.planId) return;
+  tpRecordActivity(
+    detail.planId,
+    detail.solved ? 'puzzle-solved' : 'puzzle-attempt',
+    detail.solved ? 'Puzzle solved' : 'Puzzle attempted',
+    `Curriculum position ${Number(detail.curriculumIndex || 0) + 1}`,
+  );
+  window.setTimeout(() => {
+    void tpRefreshCurrentDetail();
+    void tpRenderPlanList();
+  }, 20);
+}
+
+function tpHandleWorkoutComplete(event) {
+  const detail = event.detail || {};
+  if (!detail.planId) return;
+  const store = tpReadStore();
+  const plan = store.plans[detail.planId] || {};
+  plan.sessions = Array.isArray(plan.sessions) ? plan.sessions : [];
+  plan.sessions.push({
+    at: new Date().toISOString(),
+    solved: Number(detail.solved || 0),
+    skipped: Number(detail.skipped || 0),
+    wrong: Number(detail.wrong || 0),
+    total: Number(detail.total || 0),
+  });
+  plan.sessions = plan.sessions.slice(-100);
+  store.plans[detail.planId] = plan;
+  tpSaveStore(store);
+  tpRecordActivity(
+    detail.planId,
+    'workout-complete',
+    'Puzzle session completed',
+    `${detail.solved || 0}/${detail.total || 0} solved · ${detail.wrong || 0} corrections`,
+  );
+  void tpRefreshCurrentDetail();
+  void tpRenderPlanList();
+}
+
+function tpOpenLessonsForPlan(planId) {
+  tpOpen(planId);
+  window.setTimeout(() => {
+    tpActiveTab = 'lessons';
+    const tab = tp$('[data-tp-tab="lessons"]');
+    if (tab) {
+      for (const button of tp$$('[data-tp-tab]')) button.classList.toggle('active', button === tab);
+    }
+    void tpRenderDetailPanel();
+  }, 80);
+}
+
+function tpBindPlanEvents() {
+  if (document.documentElement.dataset.tpPlanEventsBound === TP_VERSION) return;
+  document.documentElement.dataset.tpPlanEventsBound = TP_VERSION;
+  window.addEventListener('kmate:training-plan-progress', tpHandlePuzzleProgress);
+  window.addEventListener('kmate:training-plan-workout-complete', tpHandleWorkoutComplete);
+  window.addEventListener('kmate:training-plan-continue', (event) => {
+    if (event.detail?.planId) void tpStartPlanBatch(event.detail.planId);
+  });
+  window.addEventListener('kmate:training-plan-lessons', (event) => {
+    if (event.detail?.planId) tpOpenLessonsForPlan(event.detail.planId);
+  });
+}
+
+function tpObserveApp() {
+  const observer = new MutationObserver(() => {
+    tpEnsureNavigation();
+    tpBindExistingNavigation();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+function tpInitialize(attempt = 0) {
+  if (!window.__KMATE_V42__?.startPreparedWorkout || !window.__KMATE_LEARNING_CORE__ || !tp$('#setupWizard')) {
+    if (attempt < 240) window.setTimeout(() => tpInitialize(attempt + 1), 100);
+    else console.warn('K-Mate Training Plan could not initialize.');
+    return;
+  }
+  tpInstallStyles();
+  tpEnsureView();
+  tpEnsureNavigation();
+  tpBindExistingNavigation();
+  tpEnsureVideoDialog();
+  tpBindPlanEvents();
+  tpObserveApp();
+  void Promise.allSettled([tpDefinitions(), tpPuzzleIndex(), tpVideoCatalog()]);
+
+  window.__KMATE_TRAINING_PLANS__ = {
+    version: TP_VERSION,
+    open: tpOpen,
+    openPlan: tpOpenPlan,
+    continuePlan: tpStartPlanBatch,
+    openLessons: tpOpenLessonsForPlan,
+    refreshPlan: (planId = tpActivePlanId) => tpRefreshPlan(planId),
+    state: async () => {
+      const definitions = await tpDefinitions();
+      const store = tpReadStore();
+      return {
+        ready: true,
+        version: TP_VERSION,
+        plans: definitions.plans.length,
+        namedPlans: definitions.plans.filter((plan) => !plan.dynamic).length,
+        puzzleTarget: definitions.puzzleTarget,
+        lessonTarget: definitions.lessonTarget,
+        activePlanId: tpActivePlanId,
+        activeTab: tpActiveTab,
+        metrics: tpAllMetrics(definitions, store).map(({ plan, metrics }) => ({ id: plan.id, ...metrics })),
+      };
+    },
+  };
+}
+
+tpInitialize();
