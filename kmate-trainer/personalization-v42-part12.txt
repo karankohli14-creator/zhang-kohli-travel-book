@@ -2,6 +2,13 @@
 /* K-Mate v43 bridge — allow fixed training-plan curricula to use the v42 board. */
 const KM43_PREPARED_WORKOUT_VERSION = '43.0.0';
 
+const km43BaseStartWorkout = km42StartWorkout;
+km42StartWorkout = async function km43StartOrdinaryWorkout(options = {}) {
+  km42Puzzle.planId = null;
+  km42Puzzle.planTitle = null;
+  return km43BaseStartWorkout(options);
+};
+
 const km43BaseRecordPuzzle = km42RecordPuzzle;
 km42RecordPuzzle = function km43RecordPuzzleWithPlan(puzzle, solved) {
   km43BaseRecordPuzzle(puzzle, solved);
@@ -151,6 +158,7 @@ function km43AttachPreparedWorkoutApi(attempt = 0) {
     return;
   }
   window.__KMATE_V42__.preparedWorkoutVersion = KM43_PREPARED_WORKOUT_VERSION;
+  window.__KMATE_V42__.startWorkout = km42StartWorkout;
   window.__KMATE_V42__.startPreparedWorkout = km43StartPreparedWorkout;
 }
 
