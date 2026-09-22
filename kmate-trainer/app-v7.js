@@ -121,10 +121,10 @@ try {
   try {
     await import('./svg-board-v44.js?v=44.0.0');
     try {
-      await import('./svg-board-v44-input.js?v=44.0.1');
+      await import('./svg-board-v44-input.js?v=44.0.3');
     } catch (error) {
-      // This small compatibility layer makes tap and right-click gestures
-      // deterministic across touch browsers and pointer-event implementations.
+      // This compatibility layer keeps taps, drags, right-click annotations,
+      // and keyboard focus deterministic across embedded and mobile browsers.
       console.warn('Optional v44 SVG board input compatibility layer could not load.', error);
     }
   } catch (error) {
