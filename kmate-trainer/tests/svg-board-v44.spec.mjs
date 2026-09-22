@@ -135,8 +135,9 @@ test('normal K-Mate play uses one responsive SVG board with working tap moves an
   await expect(page.locator('#svgBoardStyleButton')).toBeVisible();
   await page.locator('#svgBoardStyleButton').click();
   await expect(page.locator('#svgBoardDialog')).toBeVisible();
-  await page.locator('[data-svg44-theme="slate"]').click();
-  await expect(page.locator('[data-svg44-theme="slate"]')).toHaveClass(/active/);
+  const slateButton = page.locator('#svgBoardDialog button[data-svg44-theme="slate"]');
+  await slateButton.click();
+  await expect(slateButton).toHaveClass(/active/);
   await page.locator('#svg44Done').click();
   await expect(page.locator('#board')).toHaveAttribute('data-svg44-theme', 'slate');
 
@@ -147,6 +148,7 @@ test('normal K-Mate play uses one responsive SVG board with working tap moves an
   expect(state.svg.enabled).toBe(true);
   expect(state.svg.theme).toBe('slate');
   expect(state.input.originalTapAndDrag).toBe(true);
+  expect(state.input.geometricTapFallback).toBe(true);
   expect(state.svg.boards.find((board) => board.id === 'board')).toMatchObject({
     enhanced: true,
     squares: 64,
@@ -194,6 +196,9 @@ test('annotations and keyboard controls remain available in the SVG interface', 
     undefined,
     { timeout: 20_000 },
   );
+
+  const inputState = await page.evaluate(() => window.__KMATE_SVG_BOARD_INPUT__.state());
+  expect(inputState.keyboardFocusRepair).toBe(true);
 
   await page.locator('#svgBoardStyleButton').click();
   await page.locator('#svg44ClearAnnotations').click();
