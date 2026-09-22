@@ -119,8 +119,9 @@ function svg44InputRecentDrag(board) {
 }
 
 // The SVG hit rectangles are the visible board's authoritative interaction
-// layer. Proxy a completed tap to the original K-Mate square button so all
-// existing move, promotion, clock, sound, and puzzle logic remains unchanged.
+// layer. Snap the visible piece first, then proxy the tap to the original
+// K-Mate square button so move legality, clocks, sounds, and puzzles remain
+// authoritative while the board responds immediately.
 function svg44InputProxyOverlayClick(event) {
   if (event.button !== 0) return;
   const resolved = svg44InputEventBoardAndSquare(event);
@@ -128,6 +129,7 @@ function svg44InputProxyOverlayClick(event) {
   event.preventDefault();
   event.stopImmediatePropagation();
   if (svg44InputRecentDrag(resolved.board)) return;
+  window.__KMATE_SVG_BOARD_PERFORMANCE__?.snapTap?.(resolved.board, resolved.square);
   svg44InputSourceButton(resolved.board, resolved.square)?.click();
 }
 
@@ -229,6 +231,7 @@ function svg44InputInitialize() {
       keyboardFocusRepair: true,
       annotationContextBridge: true,
       geometricTapFallback: true,
+      synchronousOptimisticTap: Boolean(window.__KMATE_SVG_BOARD_PERFORMANCE__?.snapTap),
       activePointer: Boolean(svg44InputPointer),
       lastPointer: svg44InputLastPointer ? {
         button: svg44InputLastPointer.button,
