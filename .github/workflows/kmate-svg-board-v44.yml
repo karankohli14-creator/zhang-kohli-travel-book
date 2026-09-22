@@ -1,0 +1,86 @@
+name: K-Mate v44 SVG board QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kmate-trainer/svg-board-v44.js"
+      - "kmate-trainer/svg-board-v44.css"
+      - "kmate-trainer/licenses/svgchessboard-MIT.txt"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/index.html"
+      - "kmate-trainer/tests/svg-board-v44.spec.mjs"
+      - ".github/workflows/kmate-svg-board-v44.yml"
+  pull_request:
+    paths:
+      - "kmate-trainer/svg-board-v44.js"
+      - "kmate-trainer/svg-board-v44.css"
+      - "kmate-trainer/licenses/svgchessboard-MIT.txt"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/index.html"
+      - "kmate-trainer/tests/svg-board-v44.spec.mjs"
+      - ".github/workflows/kmate-svg-board-v44.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  svg-board-browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate source and attribution
+        run: |
+          node --check kmate-trainer/svg-board-v44.js
+          node --check kmate-trainer/tests/svg-board-v44.spec.mjs
+          grep -Fq "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
+          grep -Fq "Copyright (c) 2014 Fuzzy" kmate-trainer/licenses/svgchessboard-MIT.txt
+          grep -Fq "does not include the ChessX piece or texture assets" kmate-trainer/licenses/svgchessboard-MIT.txt
+          grep -Fq "app-v7.js?v=44.0.0" kmate-trainer/index.html
+
+      - name: Install browser dependencies
+        run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start static K-Mate server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-svg44-http.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/kmate-svg44-http.log
+          exit 1
+
+      - name: Test full-SVG play, drag, annotations, themes, and puzzle proxying
+        env:
+          KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
+        run: >-
+          npx playwright test
+          kmate-trainer/tests/svg-board-v44.spec.mjs
+          --workers=1
+          --reporter=line
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmate-svg-board-v44-failure
+          path: |
+            test-results
+            /tmp/kmate-svg44-http.log
+          if-no-files-found: ignore
+          retention-days: 7
