@@ -48,10 +48,11 @@ jobs:
           node --check kmate-trainer/svg-board-v44-input.js
           node --check kmate-trainer/tests/svg-board-v44.spec.mjs
           grep -Fq "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
-          grep -Fq "svg-board-v44-input.js?v=44.0.3" kmate-trainer/app-v7.js
+          grep -Fq "svg-board-v44-input.js?v=44.0.4" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44-interaction.css" kmate-trainer/svg-board-v44-input.js
           grep -Fq "keyboardFocusRepair: true" kmate-trainer/svg-board-v44-input.js
           grep -Fq "geometricTapFallback: true" kmate-trainer/svg-board-v44-input.js
+          grep -Fq "pointer-events: auto !important" kmate-trainer/svg-board-v44-interaction.css
           grep -Fq "Copyright (c) 2014 Fuzzy" kmate-trainer/licenses/svgchessboard-MIT.txt
           grep -Fq "does not redistribute the ChessX piece or texture assets" kmate-trainer/licenses/svgchessboard-MIT.txt
           grep -Fq "app-v7.js?v=44.0.0" kmate-trainer/index.html
