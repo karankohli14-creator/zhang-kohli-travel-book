@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - "kmate-trainer/svg-board-v44.js"
+      - "kmate-trainer/svg-board-v44-input.js"
       - "kmate-trainer/svg-board-v44.css"
+      - "kmate-trainer/svg-board-v44-interaction.css"
       - "kmate-trainer/licenses/svgchessboard-MIT.txt"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
@@ -14,7 +16,9 @@ on:
   pull_request:
     paths:
       - "kmate-trainer/svg-board-v44.js"
+      - "kmate-trainer/svg-board-v44-input.js"
       - "kmate-trainer/svg-board-v44.css"
+      - "kmate-trainer/svg-board-v44-interaction.css"
       - "kmate-trainer/licenses/svgchessboard-MIT.txt"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
@@ -41,8 +45,11 @@ jobs:
       - name: Validate source and attribution
         run: |
           node --check kmate-trainer/svg-board-v44.js
+          node --check kmate-trainer/svg-board-v44-input.js
           node --check kmate-trainer/tests/svg-board-v44.spec.mjs
           grep -Fq "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
+          grep -Fq "svg-board-v44-input.js?v=44.0.1" kmate-trainer/app-v7.js
+          grep -Fq "svg-board-v44-interaction.css" kmate-trainer/svg-board-v44-input.js
           grep -Fq "Copyright (c) 2014 Fuzzy" kmate-trainer/licenses/svgchessboard-MIT.txt
           grep -Fq "does not redistribute the ChessX piece or texture assets" kmate-trainer/licenses/svgchessboard-MIT.txt
           grep -Fq "app-v7.js?v=44.0.0" kmate-trainer/index.html
