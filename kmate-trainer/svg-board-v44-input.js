@@ -1,4 +1,4 @@
-const SVG44_INPUT_VERSION = '44.0.3';
+const SVG44_INPUT_VERSION = '44.0.4';
 const SVG44_OVERLAY_HIT_SELECTOR = '.svg44-overlay [data-svg-square]';
 const SVG44_SOURCE_SELECTOR = '#board.svg44-enabled > .sq,#km42PuzzleBoard.svg44-enabled > .sq';
 const SVG44_BOARD_SELECTOR = '#board.svg44-enabled,#km42PuzzleBoard.svg44-enabled';
@@ -47,17 +47,6 @@ function svg44InputSourceButton(board, square) {
   return svg44InputSourceButtons(board).find((element) => svg44InputSquareName(element) === square) || null;
 }
 
-function svg44InputVisibleBoardAtPoint(x, y) {
-  const boards = [...document.querySelectorAll(SVG44_BOARD_SELECTOR)].reverse();
-  return boards.find((board) => {
-    if (board.closest('[hidden]')) return false;
-    const style = getComputedStyle(board);
-    if (style.display === 'none' || style.visibility === 'hidden') return false;
-    const rect = board.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0 && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-  }) || null;
-}
-
 function svg44InputSquareAtPoint(board, x, y) {
   if (!board) return '';
   const rect = board.getBoundingClientRect();
@@ -72,7 +61,7 @@ function svg44InputEventBoardAndSquare(event) {
   if (source) return { board: source.parentElement, square: svg44InputSquareName(source), source };
   const overlay = svg44InputOverlayHit(event.target);
   if (overlay) return { board: svg44InputBoard(overlay), square: overlay.dataset.svgSquare || '', source: null };
-  const board = svg44InputVisibleBoardAtPoint(event.clientX, event.clientY);
+  const board = event.target instanceof Element ? event.target.closest(SVG44_BOARD_SELECTOR) : null;
   return { board, square: svg44InputSquareAtPoint(board, event.clientX, event.clientY), source: null };
 }
 
@@ -129,11 +118,9 @@ function svg44InputRecentDrag(board) {
   );
 }
 
-// The transparent, battle-tested K-Mate square buttons normally own pointer
-// input. Some embedded browsers nevertheless target the board container when
-// clicking a fully transparent grid item. Resolve those clicks geometrically
-// and forward them to the matching source square without duplicating native
-// button clicks.
+// The SVG hit rectangles are the visible board's authoritative interaction
+// layer. Proxy a completed tap to the original K-Mate square button so all
+// existing move, promotion, clock, sound, and puzzle logic remains unchanged.
 function svg44InputProxyOverlayClick(event) {
   if (event.button !== 0) return;
   const resolved = svg44InputEventBoardAndSquare(event);
@@ -144,9 +131,8 @@ function svg44InputProxyOverlayClick(event) {
   svg44InputSourceButton(resolved.board, resolved.square)?.click();
 }
 
-// Since the invisible source squares normally own pointer input, forward a
-// right click to the matching SVG hit rectangle. This also covers browsers
-// that target the board container instead of the transparent source square.
+// Right-click annotations remain owned by the SVG renderer. A source-square
+// context menu is forwarded for compatibility with programmatic activation.
 function svg44InputForwardContextMenu(event) {
   const resolved = svg44InputEventBoardAndSquare(event);
   if (!resolved.board || !resolved.square) return;
@@ -237,7 +223,7 @@ function svg44InputInitialize() {
     version: SVG44_INPUT_VERSION,
     state: () => ({
       ready: true,
-      interactionLayer: 'transparent K-Mate source squares above SVG presentation with geometric fallback',
+      interactionLayer: 'SVG hit rectangles proxying to the original K-Mate move logic',
       originalTapAndDrag: true,
       overlayKeyboardProxy: true,
       keyboardFocusRepair: true,
