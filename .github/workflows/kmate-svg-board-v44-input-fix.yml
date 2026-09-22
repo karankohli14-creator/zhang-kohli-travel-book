@@ -1,0 +1,83 @@
+name: Fix K-Mate v44 tap discrimination
+
+on:
+  push:
+    branches: [kmate-svg-board-v44]
+    paths:
+      - ".github/workflows/kmate-svg-board-v44-input-fix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-input:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kmate-svg-board-v44
+          fetch-depth: 0
+
+      - name: Preserve tap and square-highlight gestures when the pointer stays on one square
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('kmate-trainer/svg-board-v44.js')
+          text = path.read_text()
+
+          old_annotation = """  if (state.annotationPointer?.id === event.pointerId) {
+            const annotation = state.annotationPointer; state.annotationPointer = null; state.overlay?.releasePointerCapture?.(event.pointerId);
+            if (annotation.moved) { event.preventDefault(); const to = svg44PointToSquare(board, state, event.clientX, event.clientY); if (to && to !== annotation.from) { svg44ToggleArrow(state, annotation.from, to, annotation.color); svg44Render(board); } }
+            return;
+          }"""
+          new_annotation = """  if (state.annotationPointer?.id === event.pointerId) {
+            const annotation = state.annotationPointer; state.annotationPointer = null; state.overlay?.releasePointerCapture?.(event.pointerId);
+            if (annotation.moved) {
+              const to = svg44PointToSquare(board, state, event.clientX, event.clientY);
+              if (to && to !== annotation.from) {
+                event.preventDefault();
+                svg44ToggleArrow(state, annotation.from, to, annotation.color);
+                svg44Render(board);
+              }
+            }
+            return;
+          }"""
+
+          old_move = """  const pointer = state.pointer; state.overlay?.releasePointerCapture?.(event.pointerId);
+          if (pointer.moved) { event.preventDefault(); const to = svg44PointToSquare(board, state, event.clientX, event.clientY); state.suppressClickUntil = performance.now() + 650; svg44CleanupPointer(state); if (to && to !== pointer.from) svg44DispatchMove(board, pointer.from, to); return; }
+          svg44CleanupPointer(state);"""
+          new_move = """  const pointer = state.pointer; state.overlay?.releasePointerCapture?.(event.pointerId);
+          if (pointer.moved) {
+            const to = svg44PointToSquare(board, state, event.clientX, event.clientY);
+            if (to && to !== pointer.from) {
+              event.preventDefault();
+              state.suppressClickUntil = performance.now() + 650;
+              svg44CleanupPointer(state);
+              svg44DispatchMove(board, pointer.from, to);
+              return;
+            }
+          }
+          // Some browsers emit a tiny pointermove while completing a tap. If
+          // the release remains on the source square, allow the subsequent
+          // click event to perform the normal tap-to-select action.
+          svg44CleanupPointer(state);"""
+
+          if old_annotation not in text:
+              raise SystemExit('Annotation pointer block was not found.')
+          if old_move not in text:
+              raise SystemExit('Move pointer block was not found.')
+          text = text.replace(old_annotation, new_annotation, 1)
+          text = text.replace(old_move, new_move, 1)
+          path.write_text(text)
+          PY
+
+      - name: Commit input fix
+        run: |
+          git config user.name "K-Mate release bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add kmate-trainer/svg-board-v44.js
+          git commit -m "Distinguish SVG board taps from same-square pointer drift"
+          git pull --rebase origin kmate-svg-board-v44
+          git push origin HEAD:kmate-svg-board-v44
