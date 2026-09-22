@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const APP_URL = process.env.KMATE_APP_URL || 'http://127.0.0.1:4173/kmate-trainer/';
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 function chessModuleSource() {
   const candidate = path.resolve('node_modules/chess.js/dist/esm/chess.js');
@@ -39,6 +40,7 @@ async function prepare(page, viewport = { width: 1280, height: 900 }) {
       window.__KMATE_SVG_BOARD__?.state?.().ready
       && window.__KMATE_SVG_BOARD_INPUT__?.state?.().ready
       && window.__KMATE__?.test?.startLiveCoachPrincipleDemo
+      && window.__KMATE_V42__?.startPreparedWorkout
     ),
     undefined,
     { timeout: 90_000 },
@@ -205,51 +207,50 @@ test('annotations and keyboard controls remain available in the SVG interface', 
   await expect(page.locator('#board .svg44-user-square')).toHaveCount(0);
 });
 
-test('the same SVG presentation uses the puzzle board’s native taps on a phone viewport', async ({ page }) => {
+test('the same SVG presentation plays a real puzzle by tap on a phone viewport', async ({ page }) => {
   test.setTimeout(150_000);
   await prepare(page, { width: 390, height: 844 });
 
-  await page.evaluate(() => {
+  await page.evaluate(async (startFen) => {
     document.documentElement.style.setProperty('--kmate-safe-top', '47px');
     document.documentElement.style.setProperty('--kmate-safe-bottom', '34px');
-    const mode = document.querySelector('#km42PuzzleMode');
-    const board = document.querySelector('#km42PuzzleBoard');
-    if (!mode || !board) throw new Error('K-Mate puzzle board was not initialized.');
-    mode.hidden = false;
-    window.__svg44FixtureClicks = [];
-    board.innerHTML = '';
-    const files = 'abcdefgh';
-    const ranks = '87654321';
-    for (const rank of ranks) {
-      for (const file of files) {
-        const square = `${file}${rank}`;
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `sq ${((files.indexOf(file) + Number(rank)) % 2) ? 'light' : 'dark'}`;
-        button.dataset.km42Square = square;
-        button.setAttribute('aria-label', square);
-        if (square === 'e2') {
-          const piece = document.createElement('span');
-          piece.className = 'piece white';
-          piece.textContent = '♙';
-          button.append(piece);
-        }
-        button.addEventListener('click', () => window.__svg44FixtureClicks.push(square));
-        board.append(button);
-      }
-    }
-    document.querySelector('#km42PuzzlePlayerTurn').textContent = 'Your move';
-    document.querySelector('#km42PuzzlePlayerAvatar').textContent = '♙';
-    window.__KMATE_SVG_BOARD__.attach(board);
-  });
+    await window.__KMATE_V42__.startPreparedWorkout({
+      puzzles: [{
+        id: 'svg44-phone-puzzle',
+        practiceFen: startFen,
+        solutionUci: ['e2e4', 'e7e5', 'g1f3'],
+        rating: 1200,
+        popularity: 100,
+        plays: 1000,
+        themes: ['opening', 'calculation'],
+        openingTags: [],
+        sourceGame: 'https://lichess.org/training',
+        focus: 'calculation',
+      }],
+      recommendation: {
+        focus: { key: 'calculation', label: 'Calculation' },
+        puzzleRating: 1200,
+        puzzleBand: '1200-1399',
+        customization: { summary: 'Phone SVG input regression test.' },
+        puzzleSetSummary: 'Phone SVG input regression test.',
+        exactRetryAvailable: false,
+      },
+      source: 'svg44-test',
+      returnContext: 'learning',
+      kicker: 'SVG board test',
+    });
+  }, START_FEN);
 
-  await expect(page.locator('#km42PuzzleBoard.svg44-enabled .svg44-overlay')).toBeVisible();
+  await expect(page.locator('#km42PuzzleMode')).toBeVisible();
+  await expect(page.locator('#km42PuzzleBoard.svg44-enabled .svg44-overlay')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('#km42PuzzleBoard [data-svg-square]')).toHaveCount(64);
   await waitForInteractionBridge(page, '#km42PuzzleBoard');
+
   await clickVisibleSquare(page, '#km42PuzzleBoard', 'e2');
+  await expect(page.locator('#km42PuzzleBoard > .sq[data-km42-square="e2"]')).toHaveClass(/selected/);
   await clickVisibleSquare(page, '#km42PuzzleBoard', 'e4');
-  const clicks = await page.evaluate(() => window.__svg44FixtureClicks);
-  expect(clicks.slice(-2)).toEqual(['e2', 'e4']);
+  await expect(page.locator('#km42PuzzleStatusText')).toContainText(/Correct|Continue/, { timeout: 10_000 });
+  await expect(page.locator('#km42PuzzleBoard > .sq[data-km42-square="e4"] .piece')).toHaveCount(1);
 
   const safeLayout = await page.evaluate(() => {
     const mode = document.querySelector('#km42PuzzleMode').getBoundingClientRect();
