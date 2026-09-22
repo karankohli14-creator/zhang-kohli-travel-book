@@ -1,5 +1,6 @@
 const KMATE_MOVE_SOUND_VERSION = '45.1.0';
 const KMATE_MOVE_SOUND_STORE_KEY = 'kmate-position-v7';
+const KMATE_MOVE_SOUND_ENABLED_KEY = 'kmate-move-sound-v45-enabled';
 const KMATE_MOVE_SOUND_MIGRATION_PENDING_KEY = 'kmate-move-sound-v45-migration-pending';
 const KMATE_MOVE_SOUND_PATH = '/sounds/live-v28/kmate-reference-move-v28.wav';
 const KMATE_MOVE_SOUND_URL = new URL(`./sounds/live-v28/kmate-reference-move-v28.wav?v=${KMATE_MOVE_SOUND_VERSION}`, import.meta.url).href;
@@ -17,6 +18,7 @@ let kmateMoveSoundLastReason = '';
 let kmateMoveSoundInterceptCount = 0;
 let kmateMoveSoundObserver = null;
 let kmateMoveSoundMigrationAttempts = 0;
+let kmateMoveSoundMigrationStartedAt = performance.now();
 const kmateMoveSoundSnapshots = new WeakMap();
 const kmateMoveSoundTimers = new WeakMap();
 
@@ -32,6 +34,25 @@ function kmateMoveSoundSetMigrationPending(value) {
   } catch {}
 }
 
+function kmateMoveSoundSetEnabled(value) {
+  try { localStorage.setItem(KMATE_MOVE_SOUND_ENABLED_KEY, value ? '1' : '0'); }
+  catch {}
+}
+
+function kmateMoveSoundOwnEnabled() {
+  try {
+    const value = localStorage.getItem(KMATE_MOVE_SOUND_ENABLED_KEY);
+    if (value === null) {
+      localStorage.setItem(KMATE_MOVE_SOUND_ENABLED_KEY, '1');
+      kmateMoveSoundSetMigrationPending(true);
+      return true;
+    }
+    return value !== '0';
+  } catch {
+    return true;
+  }
+}
+
 function kmateMoveSoundMigrateSettings({ reinforce = false } = {}) {
   try {
     const parsed = JSON.parse(localStorage.getItem(KMATE_MOVE_SOUND_STORE_KEY) || 'null');
@@ -41,7 +62,7 @@ function kmateMoveSoundMigrateSettings({ reinforce = false } = {}) {
     const pending = kmateMoveSoundMigrationPending();
     if (!firstMigration && !pending && !reinforce) return false;
 
-    parsed.settings.sound = true;
+    if (kmateMoveSoundOwnEnabled()) parsed.settings.sound = true;
     parsed.settings.soundTheme = 'reference-crisp';
     parsed.settings.referenceCrispMigrationDone = true;
     parsed.settings.uploadedMoveSoundV45 = KMATE_MOVE_SOUND_VERSION;
@@ -108,16 +129,10 @@ window.fetch = function kmateMoveSoundFetch(input, init) {
   return kmateMoveSoundNativeFetch(input, init);
 };
 
+kmateMoveSoundOwnEnabled();
 // Run once before the core app reads its settings. A second startup pass below
 // protects against older deferred scripts that may write a stale copy later.
 kmateMoveSoundMigrateSettings();
-
-const kmateMoveSoundPreload = document.createElement('link');
-kmateMoveSoundPreload.rel = 'preload';
-kmateMoveSoundPreload.as = 'audio';
-kmateMoveSoundPreload.type = 'audio/wav';
-kmateMoveSoundPreload.href = KMATE_MOVE_SOUND_URL;
-document.head.append(kmateMoveSoundPreload);
 
 const kmateMoveSoundPool = Array.from({ length: 4 }, () => {
   const audio = new Audio(KMATE_MOVE_SOUND_URL);
@@ -171,10 +186,7 @@ async function kmateMoveSoundDecode() {
 }
 
 function kmateMoveSoundEnabled() {
-  const toggle = document.querySelector('#soundToggle');
-  if (toggle?.textContent?.includes('🔇')) return false;
-  const stored = kmateMoveSoundStoredSettings();
-  return stored?.sound !== false;
+  return kmateMoveSoundOwnEnabled();
 }
 
 async function kmateMoveSoundPrime() {
@@ -332,14 +344,17 @@ function kmateMoveSoundFinishMigration() {
   if (!kmateMoveSoundMigrationPending()) return true;
   kmateMoveSoundMigrateSettings({ reinforce: true });
   const toggle = document.querySelector('#soundToggle');
-  if (toggle instanceof HTMLButtonElement && toggle.textContent?.includes('🔇')) toggle.click();
+  if (kmateMoveSoundOwnEnabled() && toggle instanceof HTMLButtonElement && toggle.textContent?.includes('🔇')) toggle.click();
   kmateMoveSoundUpdateInterface();
 
   const stored = kmateMoveSoundStoredSettings();
-  const soundOn = stored?.sound === true && !toggle?.textContent?.includes('🔇');
+  const soundOn = kmateMoveSoundOwnEnabled() && !toggle?.textContent?.includes('🔇');
   const profileReady = stored?.soundTheme === 'reference-crisp'
     && stored?.uploadedMoveSoundV45 === KMATE_MOVE_SOUND_VERSION;
-  if (soundOn && profileReady && document.querySelector('#soundStyleSelect')?.disabled) {
+  // Keep reinforcing through the app shell's startup writes. Only then mark
+  // the one-time migration complete so future manual mute choices are kept.
+  const startupSettled = performance.now() - kmateMoveSoundMigrationStartedAt >= 3500;
+  if (soundOn && profileReady && document.querySelector('#soundStyleSelect')?.disabled && startupSettled) {
     kmateMoveSoundSetMigrationPending(false);
     return true;
   }
@@ -347,9 +362,9 @@ function kmateMoveSoundFinishMigration() {
 }
 
 function kmateMoveSoundInitialize() {
-  // Deferred app-shell code may have written an older settings snapshot after
-  // the early migration. Reapply once now, then only while this first-run
-  // migration remains explicitly pending. Later user mute choices are kept.
+  kmateMoveSoundMigrationStartedAt = performance.now();
+  // Deferred app-shell code may write an older settings snapshot after the
+  // early migration. Reapply during the short first-run settling window.
   kmateMoveSoundMigrateSettings({ reinforce: kmateMoveSoundMigrationPending() });
   kmateMoveSoundObserveBoards();
   void kmateMoveSoundBytes();
@@ -368,13 +383,18 @@ function kmateMoveSoundInitialize() {
     if (target?.closest('#previewSoundButton')) {
       event.preventDefault();
       event.stopImmediatePropagation();
+      kmateMoveSoundSetEnabled(true);
+      const toggle = document.querySelector('#soundToggle');
+      if (toggle instanceof HTMLButtonElement && toggle.textContent?.includes('🔇')) toggle.click();
       void kmateMoveSoundPrime().then(() => kmateMoveSoundPlay('preview'));
       return;
     }
     const toggle = target?.closest('#soundToggle');
-    if (toggle && (!toggle.classList.contains('audio-ready') || toggle.textContent?.includes('🔇'))) {
+    if (toggle) {
       window.setTimeout(() => {
-        void kmateMoveSoundPrime().then(() => kmateMoveSoundPlay('speaker-test'));
+        const muted = toggle.textContent?.includes('🔇');
+        kmateMoveSoundSetEnabled(!muted);
+        if (!muted) void kmateMoveSoundPrime().then(() => kmateMoveSoundPlay('speaker-test'));
       }, 0);
     }
   }, true);
@@ -387,6 +407,7 @@ function kmateMoveSoundInitialize() {
     state: () => ({
       ready: true,
       version: KMATE_MOVE_SOUND_VERSION,
+      enabled: kmateMoveSoundOwnEnabled(),
       primed: kmateMoveSoundPrimed,
       bufferReady: Boolean(kmateMoveSoundBuffer),
       contextState: kmateMoveSoundContext?.state || 'not-created',
