@@ -103,11 +103,12 @@ jobs:
           grep -q "personalization-v42.js?v=43.0.0" kmate-trainer/app-v7.js
           grep -q "training-plans-v43.js?v=43.0.0" kmate-trainer/app-v7.js
           grep -q "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
-          grep -q "svg-board-v44-input.js?v=44.0.3" kmate-trainer/app-v7.js
+          grep -q "svg-board-v44-input.js?v=44.0.4" kmate-trainer/app-v7.js
           grep -q "SVG44_VERSION = '44.0.0'" kmate-trainer/svg-board-v44.js
-          grep -q "SVG44_INPUT_VERSION = '44.0.3'" kmate-trainer/svg-board-v44-input.js
+          grep -q "SVG44_INPUT_VERSION = '44.0.4'" kmate-trainer/svg-board-v44-input.js
           grep -q "keyboardFocusRepair: true" kmate-trainer/svg-board-v44-input.js
           grep -q "geometricTapFallback: true" kmate-trainer/svg-board-v44-input.js
+          grep -q "pointer-events: auto !important" kmate-trainer/svg-board-v44-interaction.css
           grep -q "KM42_PERSONALIZATION_VERSION = '42.0.0'" kmate-trainer/app-v7-part12.txt
           grep -q "trainingIntent" kmate-trainer/app-v7-part12.txt
           grep -q "customizationFingerprint" kmate-trainer/app-v7-part13.txt
