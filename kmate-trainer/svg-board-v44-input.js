@@ -118,10 +118,22 @@ function svg44InputRecentDrag(board) {
   );
 }
 
+function svg44InputPlayOrdinaryMove(board, destinationSquare) {
+  const squares = svg44InputSourceButtons(board);
+  const source = squares.find((element) => element.classList.contains('selected'));
+  const destination = svg44InputSourceButton(board, destinationSquare);
+  if (!source || !destination) return false;
+  if (!destination.classList.contains('legal') || destination.classList.contains('capture')) return false;
+  const from = svg44InputSquareName(source);
+  if (!from || from === destinationSquare) return false;
+  return Boolean(window.__KMATE_MOVE_SOUND_V45__?.play?.(
+    board.id === 'km42PuzzleBoard' ? 'puzzle-tap-move' : 'game-tap-move',
+  ));
+}
+
 // The SVG hit rectangles are the visible board's authoritative interaction
-// layer. Snap the visible piece first, then proxy the tap to the original
-// K-Mate square button so move legality, clocks, sounds, and puzzles remain
-// authoritative while the board responds immediately.
+// layer. Play and snap first, then proxy the tap to the original K-Mate square
+// so move legality, clocks, captures, checks, and puzzles remain authoritative.
 function svg44InputProxyOverlayClick(event) {
   if (event.button !== 0) return;
   const resolved = svg44InputEventBoardAndSquare(event);
@@ -129,6 +141,7 @@ function svg44InputProxyOverlayClick(event) {
   event.preventDefault();
   event.stopImmediatePropagation();
   if (svg44InputRecentDrag(resolved.board)) return;
+  svg44InputPlayOrdinaryMove(resolved.board, resolved.square);
   window.__KMATE_SVG_BOARD_PERFORMANCE__?.snapTap?.(resolved.board, resolved.square);
   svg44InputSourceButton(resolved.board, resolved.square)?.click();
 }
@@ -232,6 +245,7 @@ function svg44InputInitialize() {
       annotationContextBridge: true,
       geometricTapFallback: true,
       synchronousOptimisticTap: Boolean(window.__KMATE_SVG_BOARD_PERFORMANCE__?.snapTap),
+      uploadedTapSound: Boolean(window.__KMATE_MOVE_SOUND_V45__?.play),
       activePointer: Boolean(svg44InputPointer),
       lastPointer: svg44InputLastPointer ? {
         button: svg44InputLastPointer.button,
