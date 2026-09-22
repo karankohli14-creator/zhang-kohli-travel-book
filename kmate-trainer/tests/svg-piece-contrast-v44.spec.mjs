@@ -83,6 +83,7 @@ test('white and black SVG pieces retain unmistakably different palettes', async 
       black,
       luminanceGap: Math.abs(luminance(white.stopColor) - luminance(black.stopColor)),
       state: window.__KMATE_SVG_PIECE_CONTRAST__.state(),
+      performance: window.__KMATE_SVG_BOARD_PERFORMANCE__?.state?.() || null,
     };
   });
 
@@ -91,7 +92,13 @@ test('white and black SVG pieces retain unmistakably different palettes', async 
   expect(contrast.black.svgClass).toMatch(/staunton-piece/);
   expect(contrast.black.svgClass).toMatch(/black/);
   expect(contrast.white.stopColor).not.toBe(contrast.black.stopColor);
-  expect(contrast.white.filter).not.toBe(contrast.black.filter);
+  // v45 deliberately removes both expensive SVG filters. Before v45, the
+  // filters may differ; either state is valid as long as color contrast stays.
+  expect(
+    (contrast.white.filter === 'none' && contrast.black.filter === 'none')
+    || contrast.white.filter !== contrast.black.filter,
+  ).toBe(true);
   expect(contrast.luminanceGap).toBeGreaterThan(0.45);
   expect(contrast.state.version).toBe('44.0.1');
+  if (contrast.performance) expect(contrast.performance.decorativeFiltersDisabled).toBe(true);
 });
