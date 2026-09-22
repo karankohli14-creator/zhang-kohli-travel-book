@@ -130,8 +130,8 @@ try {
     try {
       await import('./svg-board-v44-contrast.js?v=44.1.0');
     } catch (error) {
-      // This layer preserves the original vector artwork while applying
-      // unmistakably different ivory and charcoal palettes to the two sides.
+      // This layer preserves the vector shapes while painting the two armies
+      // with a deliberately wide ivory-versus-charcoal luminance gap.
       console.warn('Optional v44 SVG piece contrast layer could not load.', error);
     }
   } catch (error) {
