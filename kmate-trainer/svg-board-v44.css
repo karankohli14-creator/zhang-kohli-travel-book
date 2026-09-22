@@ -1,0 +1,160 @@
+/*
+ * K-Mate SVG Board v44
+ * Modern full-SVG board interface inspired by ilhooq/svgchessboard (MIT).
+ * K-Mate retains its own piece artwork and does not include ChessX theme assets.
+ */
+
+#board.svg44-enabled,
+#km42PuzzleBoard.svg44-enabled {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #17110d;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#board.svg44-enabled > .sq,
+#km42PuzzleBoard.svg44-enabled > .sq,
+#board.svg44-enabled > .live-coach-board-arrows,
+#km42PuzzleBoard.svg44-enabled > .live-coach-board-arrows {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.svg44-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  touch-action: none;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.svg44-overlay.svg44-dragging { cursor: grabbing; }
+.svg44-square-base { shape-rendering: geometricPrecision; }
+.svg44-frame { vector-effect: non-scaling-stroke; filter: drop-shadow(0 8px 11px rgb(0 0 0 / 32%)); }
+.svg44-piece { pointer-events: none; transform-box: fill-box; transform-origin: center; }
+.svg44-piece-art { overflow: visible; pointer-events: none; }
+
+.svg44-unicode-piece {
+  pointer-events: none;
+  font-family: "Arial Unicode MS", "Apple Symbols", "Noto Sans Symbols 2", Georgia, serif;
+  font-size: 78px;
+  font-weight: 900;
+  paint-order: stroke fill;
+  stroke-width: 1.7px;
+}
+.svg44-unicode-piece.white { fill: #fff9e8; stroke: #423b31; }
+.svg44-unicode-piece.black { fill: #202720; stroke: #e3eadf; }
+
+.svg44-hit { outline: none; cursor: pointer; }
+.svg44-hit[data-movable="true"] { cursor: grab; }
+.svg44-hit:focus-visible { stroke: #fff; stroke-width: 8; stroke-dasharray: 17 8; fill: rgb(255 255 255 / 8%); }
+
+.svg44-coordinate {
+  pointer-events: none;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+.svg44-coordinate.on-light { fill: rgb(47 38 28 / 72%); }
+.svg44-coordinate.on-dark { fill: rgb(255 248 226 / 77%); }
+
+.svg44-legal-dot,
+.svg44-capture-ring,
+.svg44-selected-overlay,
+.svg44-last-overlay,
+.svg44-check-overlay,
+.svg44-quality-overlay,
+.svg44-user-square { pointer-events: none; }
+
+.svg44-legal-dot,
+.svg44-capture-ring { filter: drop-shadow(0 2px 4px rgb(0 0 0 / 28%)); }
+.svg44-arrow { pointer-events: none; filter: drop-shadow(0 3px 4px rgb(0 0 0 / 35%)); }
+.svg44-arrow.user { stroke-dasharray: 1 0; }
+.svg44-drag-ghost { pointer-events: none; opacity: .93; filter: drop-shadow(0 12px 10px rgb(0 0 0 / 42%)); }
+
+.svg44-dialog {
+  width: min(700px, calc(100% - 24px));
+  max-width: none;
+  max-height: min(820px, calc(100dvh - 24px));
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 13%);
+  border-radius: 24px;
+  background: #0c130e;
+  color: var(--text, #f5f7f5);
+  box-shadow: 0 28px 90px rgb(0 0 0 / 58%);
+}
+.svg44-dialog::backdrop { background: rgb(2 7 4 / 72%); backdrop-filter: blur(8px); }
+.svg44-dialog-shell {
+  max-height: min(820px, calc(100dvh - 24px));
+  overflow: auto;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 100% 0, rgb(244 204 112 / 12%), transparent 23rem),
+    radial-gradient(circle at 0 100%, rgb(128 216 164 / 10%), transparent 25rem),
+    linear-gradient(145deg, #152019, #0b120d);
+}
+.svg44-dialog-shell > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.svg44-dialog-shell h2 { margin: 4px 0 0; font-size: clamp(25px, 5vw, 36px); line-height: 1; letter-spacing: -.035em; }
+.svg44-close {
+  display: grid; place-items: center; flex: 0 0 auto; width: 42px; height: 42px;
+  border: 1px solid rgb(255 255 255 / 14%); border-radius: 13px;
+  background: rgb(255 255 255 / 6%); color: inherit; font-size: 22px; cursor: pointer;
+}
+.svg44-dialog-intro { max-width: 600px; margin: 13px 0 20px; color: var(--muted, #aab5ac); font-size: 13px; line-height: 1.55; }
+.svg44-setting-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  margin: 12px 0; padding: 14px 15px; border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 16px; background: rgb(255 255 255 / 4%);
+}
+.svg44-setting-row span,
+.svg44-setting-row b,
+.svg44-setting-row small { display: block; }
+.svg44-setting-row b { font-size: 13px; }
+.svg44-setting-row small { margin-top: 3px; color: var(--muted, #aab5ac); font-size: 10px; line-height: 1.4; }
+.svg44-setting-row input { width: 20px; height: 20px; accent-color: #b9f474; }
+
+.svg44-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 21px 2px 9px; }
+.svg44-section-title b { font-size: 13px; }
+.svg44-section-title span { color: var(--muted, #aab5ac); font-size: 9px; }
+.svg44-theme-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.svg44-theme-choice {
+  min-width: 0; padding: 9px; border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 15px; background: rgb(255 255 255 / 4%); color: inherit; cursor: pointer; text-align: left;
+}
+.svg44-theme-choice:hover { background: rgb(255 255 255 / 7%); }
+.svg44-theme-choice.active { border-color: rgb(185 244 116 / 68%); background: rgb(185 244 116 / 10%); box-shadow: inset 0 0 0 1px rgb(185 244 116 / 18%); }
+.svg44-theme-choice b { display: block; margin-top: 7px; font-size: 10px; }
+.svg44-theme-preview { display: grid; grid-template-columns: 1fr 1fr; width: 100%; aspect-ratio: 2 / 1; overflow: hidden; border-radius: 8px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 24%); }
+.svg44-theme-preview i:nth-child(1), .svg44-theme-preview i:nth-child(4) { background: var(--l); }
+.svg44-theme-preview i:nth-child(2), .svg44-theme-preview i:nth-child(3) { background: var(--d); }
+
+.svg44-dialog-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+.svg44-dialog-actions a { text-decoration: none; }
+.svg44-license-note { display: block; margin-top: 13px; color: var(--muted, #aab5ac); font-size: 9px; line-height: 1.45; }
+.svg44-style-button { font-size: 20px; line-height: 1; }
+#km42PuzzleMode .km42-puzzle-topbar { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+
+@media (max-width: 620px) {
+  .svg44-dialog { width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; }
+  .svg44-dialog-shell { min-height: 100dvh; max-height: 100dvh; padding: max(16px, env(safe-area-inset-top)) 15px max(18px, env(safe-area-inset-bottom)); }
+  .svg44-theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .svg44-dialog-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .svg44-dialog-actions .primary { grid-column: 1 / -1; }
+  .svg44-dialog-actions .btn { min-height: 44px; text-align: center; }
+  .svg44-coordinate { font-size: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .svg44-theme-choice,
+  .svg44-close { transition: none !important; }
+}

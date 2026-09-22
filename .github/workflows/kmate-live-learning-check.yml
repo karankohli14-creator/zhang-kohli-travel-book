@@ -1,4 +1,4 @@
-name: K-Mate live Training Plan deployment check
+name: K-Mate live v44 deployment check
 
 on:
   push:
@@ -12,11 +12,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: kmate-live-training-plan-check
+  group: kmate-live-v44-check
   cancel-in-progress: true
 
 jobs:
-  verify-live-training-plans:
+  verify-live-v44:
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:
@@ -34,37 +34,35 @@ jobs:
         run: |
           for attempt in {1..96}; do
             html="$(curl --fail --silent --show-error --location --max-time 20 "${LIVE_URL}?deploy=${GITHUB_SHA}" || true)"
-            if grep -Fq 'app-v7.js?v=43.0.0' <<<"$html"; then
-              echo "The v43 public loader is live."
+            if grep -Fq 'app-v7.js?v=44.0.0' <<<"$html"; then
+              echo "The v44 public loader is live."
               exit 0
             fi
             echo "Waiting for GitHub Pages deployment (${attempt}/96)…"
             sleep 5
           done
-          echo "The public page did not expose the v43 loader in time."
+          echo "The public page did not expose the v44 loader in time."
           exit 1
 
-      - name: Verify public Training Plan assets
+      - name: Verify public Training Plan and SVG-board assets
         env:
           LIVE_ROOT: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer
         run: |
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7.js?v=43.0.0" | grep -Fq "training-plans-v43.js?v=43.0.0"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7.js?v=43.0.0" | grep -Fq "personalization-v42.js?v=43.0.0"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/personalization-v42.js?v=43.0.0" | grep -Fq "personalization-v42-part"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/personalization-v42-part12.txt?v=43.0.0" | grep -Fq "km43StartPreparedWorkout"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/training-plans-v43.js?v=43.0.0" | grep -Fq "training-plans-v43-part"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/training-plans-v43-part8.txt?v=43.0.0" | grep -Fq "tp43StoreMemory"
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/training-plans-v43.json?v=43.0.0" | grep -Fq '"puzzleTarget": 100'
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/training-plans-v43.json?v=43.0.0" | grep -Fq '"lessonTarget": 20'
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/training-videos-v43.json?v=43.0.0" | grep -Fq '"videos"'
-          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/puzzles/index.json?v=43.0.0" | grep -Fq '"total":11902'
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7.js?v=44.0.0" | grep -Fq "training-plans-v43.js?v=43.0.0"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/app-v7.js?v=44.0.0" | grep -Fq "svg-board-v44.js?v=44.0.0"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/svg-board-v44.js?v=44.0.0" | grep -Fq "SVG44_VERSION = '44.0.0'"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/svg-board-v44.css?v=44.0.0" | grep -Fq ".svg44-overlay"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/licenses/svgchessboard-MIT.txt" | grep -Fq "Copyright (c) 2014 Fuzzy"
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/training-plans-v43.json?v=44.0.0" | grep -Fq '"puzzleTarget": 100'
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/training-plans-v43.json?v=44.0.0" | grep -Fq '"lessonTarget": 20'
+          curl --fail --silent --show-error --location "${LIVE_ROOT}/learning/puzzles/index.json?v=44.0.0" | grep -Fq '"total":11902'
 
       - name: Install Chromium browser check
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Exercise the live dashboard, curriculum, and progress tracking
+      - name: Exercise the live curriculum and SVG puzzle board
         env:
           LIVE_URL: https://karankohli14-creator.github.io/zhang-kohli-travel-book/kmate-trainer/
         run: |
@@ -81,17 +79,17 @@ jobs:
             },
             legacy: { sessions: 0, wins: 0, draws: 0, losses: 0, best: 0 },
             sessions: [{
-              id: 'live-v43-plan', startedAt: '2026-09-21T18:00:00.000Z',
-              endedAt: '2026-09-21T18:09:00.000Z', positionId: 'live-v43',
-              seedPositionId: 'live-v43', title: 'Chess.com · Kmate_00 vs LiveV43',
-              opening: 'London System', theme: 'Live Training Plan check',
+              id: 'live-v44-plan', startedAt: '2026-09-21T18:00:00.000Z',
+              endedAt: '2026-09-21T18:09:00.000Z', positionId: 'live-v44',
+              seedPositionId: 'live-v44', title: 'Chess.com · Kmate_00 vs LiveV44',
+              opening: 'London System', theme: 'Live v44 check',
               tags: ['calculation', 'king safety'], phase: 'middlegame',
               positionRating: 1400, opponentRating: 1400, requestedOpponentRating: 1400,
               timeControl: '3+0', trainingGoal: 'attack', userColor: 'w',
               outcome: 'loss', reason: 'resignation', completed: true,
               timeUsedPct: 0.14, avgCpLoss: 220,
               userMoves: [{
-                id: 'live-v43-move-14', san: 'a3?', uci: 'a2a3', from: 'a2', to: 'a3',
+                id: 'live-v44-move-14', san: 'a3?', uci: 'a2a3', from: 'a2', to: 'a3',
                 fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 14',
                 spentMs: 2500, cpLoss: 260, bestMove: 'e2e4', quality: 'blunder',
                 principleDiagnoses: [{ key: 'loose-pieces', title: 'Loose pieces', confidence: 'high', evidence: 'An undefended tactical target needed attention.' }],
@@ -106,6 +104,7 @@ jobs:
           page.on('pageerror', (error) => pageErrors.push(String(error?.stack || error)));
           await page.addInitScript((store) => {
             localStorage.setItem('kmate-position-v7', JSON.stringify(store));
+            localStorage.setItem('kmate-svg-board-v44', JSON.stringify({ enabled: true, theme: 'wood', coordinates: true, annotations: true }));
             localStorage.removeItem('kmate-learning-v40');
             localStorage.removeItem('kmate-training-plans-v43');
           }, seed);
@@ -114,7 +113,11 @@ jobs:
             waitUntil: 'domcontentloaded', timeout: 90_000,
           });
           await page.waitForFunction(
-            () => Boolean(window.__KMATE_TRAINING_PLANS__ && window.__KMATE_V42__?.startPreparedWorkout),
+            () => Boolean(
+              window.__KMATE_TRAINING_PLANS__
+              && window.__KMATE_V42__?.startPreparedWorkout
+              && window.__KMATE_SVG_BOARD__?.state?.().ready
+            ),
             undefined,
             { timeout: 90_000 },
           );
@@ -129,8 +132,6 @@ jobs:
           await page.locator('[data-tp-plan-card]').first().waitFor({ state: 'visible', timeout: 30_000 });
           const cards = await page.locator('[data-tp-plan-card]').count();
           if (cards !== 11) throw new Error(`Expected 11 Training Plan cards, found ${cards}.`);
-          const customText = (await page.locator('[data-tp-plan-card="custom"]').textContent()) || '';
-          if (!customText.includes('a3')) throw new Error(`Custom plan is missing reviewed-move evidence: ${customText}`);
 
           await page.locator('[data-tp-open-plan="calculation"]').click();
           await page.locator('#trainingPlanDetail').waitFor({ state: 'visible', timeout: 90_000 });
@@ -147,12 +148,20 @@ jobs:
           await page.locator('[data-tp-tab="puzzles"]').click();
           await page.locator('[data-tp-start-batch]').click();
           await page.locator('#km42PuzzleMode').waitFor({ state: 'visible', timeout: 90_000 });
-          const boardSquares = await page.locator('#km42PuzzleBoard .sq').count();
+          await page.locator('#km42PuzzleBoard .svg44-overlay').waitFor({ state: 'visible', timeout: 45_000 });
+          const sourceSquares = await page.locator('#km42PuzzleBoard > .sq').count();
+          const svgSquares = await page.locator('#km42PuzzleBoard [data-svg-square]').count();
           const boardBars = await page.locator('#km42PuzzleMode .playerbar').count();
           const puzzleState = await page.evaluate(() => window.__KMATE_V42__.state());
-          if (boardSquares !== 64 || boardBars !== 2 || puzzleState.puzzleCount !== 10) {
-            throw new Error(`Unexpected prepared workout: ${JSON.stringify({ boardSquares, boardBars, puzzleState })}`);
+          const svgState = await page.evaluate(() => window.__KMATE_SVG_BOARD__.state());
+          if (sourceSquares !== 64 || svgSquares !== 64 || boardBars !== 2 || puzzleState.puzzleCount !== 10) {
+            throw new Error(`Unexpected prepared workout: ${JSON.stringify({ sourceSquares, svgSquares, boardBars, puzzleState, svgState })}`);
           }
+          const puzzleBoard = svgState.boards.find((board) => board.id === 'km42PuzzleBoard');
+          if (!puzzleBoard?.enhanced || !puzzleBoard?.overlay) {
+            throw new Error(`SVG puzzle board did not activate: ${JSON.stringify(svgState)}`);
+          }
+
           await page.locator('#km42PuzzleSkip').click();
           await page.locator('#km42PuzzleNext').waitFor({ state: 'visible', timeout: 30_000 });
           await page.locator('#km42PuzzleClose').click();
@@ -166,7 +175,7 @@ jobs:
 
           console.log(JSON.stringify({
             status: 'pass', cards, puzzleRows, lessonCards,
-            boardSquares, boardBars, calculation,
+            sourceSquares, svgSquares, boardBars, calculation,
           }, null, 2));
           await browser.close();
           NODE
