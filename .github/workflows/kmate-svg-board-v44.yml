@@ -1,4 +1,4 @@
-name: K-Mate v44 SVG board QA
+name: K-Mate SVG board and move-audio QA
 
 on:
   push:
@@ -9,11 +9,16 @@ on:
       - "kmate-trainer/svg-board-v44-contrast.js"
       - "kmate-trainer/svg-board-v44.css"
       - "kmate-trainer/svg-board-v44-interaction.css"
+      - "kmate-trainer/svg-board-v45-performance.js"
+      - "kmate-trainer/svg-board-v45-performance.css"
+      - "kmate-trainer/move-sound-v45.js"
+      - "kmate-trainer/sounds/live-v28/kmate-reference-move-v28.wav"
       - "kmate-trainer/licenses/svgchessboard-MIT.txt"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/svg-board-v44.spec.mjs"
       - "kmate-trainer/tests/svg-piece-contrast-v44.spec.mjs"
+      - "kmate-trainer/tests/audio-latency-v45.spec.mjs"
       - ".github/workflows/kmate-svg-board-v44.yml"
   pull_request:
     paths:
@@ -22,11 +27,16 @@ on:
       - "kmate-trainer/svg-board-v44-contrast.js"
       - "kmate-trainer/svg-board-v44.css"
       - "kmate-trainer/svg-board-v44-interaction.css"
+      - "kmate-trainer/svg-board-v45-performance.js"
+      - "kmate-trainer/svg-board-v45-performance.css"
+      - "kmate-trainer/move-sound-v45.js"
+      - "kmate-trainer/sounds/live-v28/kmate-reference-move-v28.wav"
       - "kmate-trainer/licenses/svgchessboard-MIT.txt"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/svg-board-v44.spec.mjs"
       - "kmate-trainer/tests/svg-piece-contrast-v44.spec.mjs"
+      - "kmate-trainer/tests/audio-latency-v45.spec.mjs"
       - ".github/workflows/kmate-svg-board-v44.yml"
   workflow_dispatch:
 
@@ -36,7 +46,7 @@ permissions:
 jobs:
   svg-board-browser-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 22
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -46,21 +56,30 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate source and attribution
+      - name: Validate source, audio, and attribution
         run: |
           node --check kmate-trainer/svg-board-v44.js
           node --check kmate-trainer/svg-board-v44-input.js
           node --check kmate-trainer/svg-board-v44-contrast.js
+          node --check kmate-trainer/svg-board-v45-performance.js
+          node --check kmate-trainer/move-sound-v45.js
           node --check kmate-trainer/tests/svg-board-v44.spec.mjs
           node --check kmate-trainer/tests/svg-piece-contrast-v44.spec.mjs
+          node --check kmate-trainer/tests/audio-latency-v45.spec.mjs
+          grep -Fq "move-sound-v45.js?v=45.1.0" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44-input.js?v=44.0.4" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44-contrast.js?v=44.0.1" kmate-trainer/app-v7.js
+          grep -Fq "svg-board-v45-performance.js?v=45.1.0" kmate-trainer/app-v7.js
+          grep -Fq "KMATE_MOVE_SOUND_VERSION = '45.1.0'" kmate-trainer/move-sound-v45.js
+          grep -Fq "SVG45_PERFORMANCE_VERSION = '45.1.0'" kmate-trainer/svg-board-v45-performance.js
           grep -Fq "SVG44_CONTRAST_VERSION = '44.0.1'" kmate-trainer/svg-board-v44-contrast.js
           grep -Fq "svg-board-v44-interaction.css" kmate-trainer/svg-board-v44-input.js
           grep -Fq "keyboardFocusRepair: true" kmate-trainer/svg-board-v44-input.js
           grep -Fq "geometricTapFallback: true" kmate-trainer/svg-board-v44-input.js
           grep -Fq "pointer-events: auto !important" kmate-trainer/svg-board-v44-interaction.css
+          grep -Fq "transform: none !important" kmate-trainer/svg-board-v45-performance.css
+          test "$(stat -c%s kmate-trainer/sounds/live-v28/kmate-reference-move-v28.wav)" -gt 8000
           grep -Fq "Copyright (c) 2014 Fuzzy" kmate-trainer/licenses/svgchessboard-MIT.txt
           grep -Fq "does not redistribute the ChessX piece or texture assets" kmate-trainer/licenses/svgchessboard-MIT.txt
           grep -Fq "app-v7.js?v=44.0.0" kmate-trainer/index.html
@@ -83,13 +102,14 @@ jobs:
           cat /tmp/kmate-svg44-http.log
           exit 1
 
-      - name: Test full-SVG play, contrast, drag, annotations, themes, and puzzle proxying
+      - name: Test SVG play, piece contrast, move audio, and low-latency input
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
         run: >-
           npx playwright test
           kmate-trainer/tests/svg-board-v44.spec.mjs
           kmate-trainer/tests/svg-piece-contrast-v44.spec.mjs
+          kmate-trainer/tests/audio-latency-v45.spec.mjs
           --workers=1
           --reporter=line
 
@@ -97,7 +117,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: kmate-svg-board-v44-failure
+          name: kmate-svg-board-audio-failure
           path: |
             test-results
             /tmp/kmate-svg44-http.log
