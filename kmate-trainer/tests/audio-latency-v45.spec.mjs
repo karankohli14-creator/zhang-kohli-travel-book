@@ -65,17 +65,27 @@ test('uploaded move sound is active and ordinary SVG moves snap immediately', as
   test.setTimeout(150_000);
   await prepare(page);
 
-  const migrated = await page.evaluate(() => JSON.parse(localStorage.getItem('kmate-position-v7'))?.settings);
-  expect(migrated.sound).toBe(true);
-  expect(migrated.soundTheme).toBe('reference-crisp');
-  expect(migrated.uploadedMoveSoundV45).toBe('45.1.0');
+  await expect.poll(
+    () => page.evaluate(() => JSON.parse(localStorage.getItem('kmate-position-v7'))?.settings?.sound),
+    { timeout: 15_000 },
+  ).toBe(true);
+  await expect.poll(
+    () => page.evaluate(() => JSON.parse(localStorage.getItem('kmate-position-v7'))?.settings?.soundTheme),
+    { timeout: 15_000 },
+  ).toBe('reference-crisp');
+  await expect.poll(
+    () => page.evaluate(() => JSON.parse(localStorage.getItem('kmate-position-v7'))?.settings?.uploadedMoveSoundV45),
+    { timeout: 15_000 },
+  ).toBe('45.1.0');
 
   await expect(page.locator('#soundStyleSelect')).toBeDisabled({ timeout: 20_000 });
   await expect(page.locator('#soundStyleDescription')).toContainText('uploaded wooden impact');
-  const soundUrl = await page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().version);
-  expect(soundUrl).toBe('45.1.0');
+  const soundState = await page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state());
+  expect(soundState.version).toBe('45.1.0');
+  expect(soundState.storedSound).toBe(true);
+  expect(soundState.storedTheme).toBe('reference-crisp');
 
-  const initialPlays = await page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().plays);
+  const initialPlays = soundState.plays;
   await page.locator('#previewSoundButton').click();
   await expect.poll(
     () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().plays),
