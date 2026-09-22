@@ -139,5 +139,5 @@ test('uploaded move sound is active and ordinary SVG moves respond without the o
   const performanceState = await page.evaluate(() => window.__KMATE_SVG_BOARD_PERFORMANCE__.state());
   expect(performanceState.arrivalAnimationsDisabled).toBe(true);
   expect(performanceState.decorativeFiltersDisabled).toBe(true);
-  expect(typeof await page.evaluate(() => window.__KMATE_SVG_BOARD_PERFORMANCE__.snapTap)).toBe('function');
+  expect(await page.evaluate(() => typeof window.__KMATE_SVG_BOARD_PERFORMANCE__.snapTap)).toBe('function');
 });
