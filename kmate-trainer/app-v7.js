@@ -121,7 +121,7 @@ try {
   try {
     await import('./svg-board-v44.js?v=44.0.0');
     try {
-      await import('./svg-board-v44-input.js?v=44.0.3');
+      await import('./svg-board-v44-input.js?v=44.0.4');
     } catch (error) {
       // This compatibility layer keeps taps, drags, right-click annotations,
       // and keyboard focus deterministic across embedded and mobile browsers.
