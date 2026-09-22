@@ -31,6 +31,13 @@ async function startImportedPractice(page) {
   await page.locator('#confirmPositionImport').click();
   await expect(page.locator('#gameView')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('#positionTitle')).toContainText('Restart regression position');
+  await expect(page.locator('#board.svg44-enabled [data-svg-square]')).toHaveCount(64, { timeout: 30_000 });
+}
+
+async function clickVisibleBoardSquare(page, square) {
+  const svgSquare = page.locator(`#board [data-svg-square="${square}"]`);
+  await expect(svgSquare).toBeVisible({ timeout: 30_000 });
+  await svgSquare.click();
 }
 
 async function kmateState(page) {
@@ -51,7 +58,11 @@ test('restart restores the same position, challenge, and fresh clocks', async ({
   await routeChessJs(page);
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await page.waitForFunction(
-    () => Boolean(window.__KMATE_POSITION_IMPORTERS__ && window.__KMATE_RESTART__?.state?.().ready),
+    () => Boolean(
+      window.__KMATE_POSITION_IMPORTERS__
+      && window.__KMATE_RESTART__?.state?.().ready
+      && window.__KMATE_SVG_BOARD__?.state?.().ready
+    ),
     undefined,
     { timeout: 45_000 },
   );
@@ -70,8 +81,8 @@ test('restart restores the same position, challenge, and fresh clocks', async ({
   const initialSessionId = initial.restart.currentSessionId;
   const initialOpponent = initial.restart.opponentRating;
 
-  await page.locator('#board .sq[data-square="a1"]').click();
-  await page.locator('#board .sq[data-square="a2"]').click();
+  await clickVisibleBoardSquare(page, 'a1');
+  await clickVisibleBoardSquare(page, 'a2');
   await expect.poll(async () => (await kmateState(page)).fen, { timeout: 15_000 }).not.toBe(PRACTICE_FEN);
 
   await page.locator('#restartPracticeButton').click();
