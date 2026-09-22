@@ -117,6 +117,14 @@ try {
     // interface module cannot load.
     console.warn('Optional adaptive learning system could not load.', error);
   }
+
+  try {
+    await import('./svg-board-v44.js?v=44.0.0');
+  } catch (error) {
+    // The full-SVG board is a visual and interaction enhancement. The original
+    // K-Mate board remains the automatic fallback if this module cannot load.
+    console.warn('Optional v44 SVG board interface could not load.', error);
+  }
 } finally {
   URL.revokeObjectURL(moduleUrl);
 }
