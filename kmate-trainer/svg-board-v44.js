@@ -447,7 +447,16 @@ function svg44Discover() { svg44EnsureControls(); for (const selector of SVG44_B
 
 function svg44Initialize() {
   svg44EnsureStyles(); svg44EnsureDialog(); svg44Discover();
-  svg44GlobalObserver = new MutationObserver(() => { window.clearTimeout(svg44ControlTimer); svg44ControlTimer = window.setTimeout(svg44Discover, 20); });
+  svg44GlobalObserver = new MutationObserver((mutations) => {
+  const selector = '#board,#km42PuzzleBoard,.play-actions,.km42-puzzle-topbar';
+  const relevant = mutations.some((mutation) => [...mutation.addedNodes].some((node) => (
+    node instanceof Element
+    && (node.matches(selector) || Boolean(node.querySelector(selector)))
+  )));
+  if (!relevant) return;
+  window.clearTimeout(svg44ControlTimer);
+  svg44ControlTimer = window.setTimeout(svg44Discover, 20);
+});
   svg44GlobalObserver.observe(document.body, { childList: true, subtree: true });
   window.__KMATE_SVG_BOARD__ = {
     version: SVG44_VERSION,
