@@ -6,23 +6,27 @@ on:
     paths:
       - "kmate-trainer/svg-board-v44.js"
       - "kmate-trainer/svg-board-v44-input.js"
+      - "kmate-trainer/svg-board-v44-contrast.js"
       - "kmate-trainer/svg-board-v44.css"
       - "kmate-trainer/svg-board-v44-interaction.css"
       - "kmate-trainer/licenses/svgchessboard-MIT.txt"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/svg-board-v44.spec.mjs"
+      - "kmate-trainer/tests/svg-piece-contrast-v44.spec.mjs"
       - ".github/workflows/kmate-svg-board-v44.yml"
   pull_request:
     paths:
       - "kmate-trainer/svg-board-v44.js"
       - "kmate-trainer/svg-board-v44-input.js"
+      - "kmate-trainer/svg-board-v44-contrast.js"
       - "kmate-trainer/svg-board-v44.css"
       - "kmate-trainer/svg-board-v44-interaction.css"
       - "kmate-trainer/licenses/svgchessboard-MIT.txt"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/svg-board-v44.spec.mjs"
+      - "kmate-trainer/tests/svg-piece-contrast-v44.spec.mjs"
       - ".github/workflows/kmate-svg-board-v44.yml"
   workflow_dispatch:
 
@@ -46,9 +50,13 @@ jobs:
         run: |
           node --check kmate-trainer/svg-board-v44.js
           node --check kmate-trainer/svg-board-v44-input.js
+          node --check kmate-trainer/svg-board-v44-contrast.js
           node --check kmate-trainer/tests/svg-board-v44.spec.mjs
+          node --check kmate-trainer/tests/svg-piece-contrast-v44.spec.mjs
           grep -Fq "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44-input.js?v=44.0.4" kmate-trainer/app-v7.js
+          grep -Fq "svg-board-v44-contrast.js?v=44.0.1" kmate-trainer/app-v7.js
+          grep -Fq "SVG44_CONTRAST_VERSION = '44.0.1'" kmate-trainer/svg-board-v44-contrast.js
           grep -Fq "svg-board-v44-interaction.css" kmate-trainer/svg-board-v44-input.js
           grep -Fq "keyboardFocusRepair: true" kmate-trainer/svg-board-v44-input.js
           grep -Fq "geometricTapFallback: true" kmate-trainer/svg-board-v44-input.js
@@ -75,12 +83,13 @@ jobs:
           cat /tmp/kmate-svg44-http.log
           exit 1
 
-      - name: Test full-SVG play, drag, annotations, themes, and puzzle proxying
+      - name: Test full-SVG play, contrast, drag, annotations, themes, and puzzle proxying
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
         run: >-
           npx playwright test
           kmate-trainer/tests/svg-board-v44.spec.mjs
+          kmate-trainer/tests/svg-piece-contrast-v44.spec.mjs
           --workers=1
           --reporter=line
 
