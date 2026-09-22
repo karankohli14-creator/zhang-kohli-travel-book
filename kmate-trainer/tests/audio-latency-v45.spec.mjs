@@ -36,6 +36,7 @@ async function prepare(page) {
         liveCoach: false, principleReview: false, coachVoice: false,
       },
     }));
+    localStorage.removeItem('kmate-move-sound-v45-enabled');
     localStorage.setItem('kmate-svg-board-v44', JSON.stringify({
       enabled: true, theme: 'wood', coordinates: true, annotations: true,
     }));
@@ -66,7 +67,7 @@ test('uploaded move sound is active and ordinary SVG moves snap immediately', as
   await prepare(page);
 
   await expect.poll(
-    () => page.evaluate(() => JSON.parse(localStorage.getItem('kmate-position-v7'))?.settings?.sound),
+    () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().enabled),
     { timeout: 15_000 },
   ).toBe(true);
   await expect.poll(
@@ -77,12 +78,16 @@ test('uploaded move sound is active and ordinary SVG moves snap immediately', as
     () => page.evaluate(() => JSON.parse(localStorage.getItem('kmate-position-v7'))?.settings?.uploadedMoveSoundV45),
     { timeout: 15_000 },
   ).toBe('45.1.0');
+  await expect.poll(
+    () => page.locator('#soundToggle').textContent(),
+    { timeout: 15_000 },
+  ).toContain('🔊');
 
   await expect(page.locator('#soundStyleSelect')).toBeDisabled({ timeout: 20_000 });
   await expect(page.locator('#soundStyleDescription')).toContainText('uploaded wooden impact');
   const soundState = await page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state());
   expect(soundState.version).toBe('45.1.0');
-  expect(soundState.storedSound).toBe(true);
+  expect(soundState.enabled).toBe(true);
   expect(soundState.storedTheme).toBe('reference-crisp');
 
   const initialPlays = soundState.plays;
