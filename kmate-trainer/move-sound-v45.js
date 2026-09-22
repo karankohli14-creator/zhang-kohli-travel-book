@@ -179,16 +179,25 @@ function kmateMoveSoundEnabled() {
 
 async function kmateMoveSoundPrime() {
   const context = kmateMoveSoundAudioContext();
-  try { await context?.resume?.(); } catch {}
   void kmateMoveSoundDecode();
-  if (kmateMoveSoundPrimed) return true;
+  if (kmateMoveSoundPrimed) {
+    try { await context?.resume?.(); } catch {}
+    return true;
+  }
+
   const audio = kmateMoveSoundPool[0];
+  let playPromise = null;
+  let resumePromise = null;
   try {
     audio.pause();
     audio.currentTime = 0;
     audio.volume = 0.001;
-    const promise = audio.play();
-    if (promise?.then) await promise;
+    // Call both playback APIs before the first await so Safari and embedded
+    // iPhone browsers still treat them as part of the user's tap gesture.
+    playPromise = audio.play();
+    resumePromise = context?.resume?.();
+    if (playPromise?.then) await playPromise;
+    if (resumePromise?.then) await resumePromise;
     window.setTimeout(() => {
       audio.pause();
       audio.currentTime = 0;
@@ -197,8 +206,10 @@ async function kmateMoveSoundPrime() {
     kmateMoveSoundPrimed = true;
     return true;
   } catch {
+    try { if (resumePromise?.then) await resumePromise; } catch {}
     audio.volume = 1;
-    return Boolean(context && context.state === 'running');
+    kmateMoveSoundPrimed = Boolean(context && context.state === 'running');
+    return kmateMoveSoundPrimed;
   }
 }
 
