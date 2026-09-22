@@ -1,0 +1,42 @@
+/*
+ * Interaction bridge for K-Mate SVG Board v44.
+ *
+ * The SVG remains the visible presentation layer. The app's existing square
+ * buttons stay aligned above it as a transparent interaction surface, so
+ * normal play and puzzle practice continue to use their already-tested tap,
+ * drag, promotion, clock, and accessibility logic.
+ */
+
+#board.svg44-enabled > .sq,
+#km42PuzzleBoard.svg44-enabled > .sq {
+  position: relative;
+  z-index: 30;
+  opacity: 0 !important;
+  pointer-events: auto !important;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#board.svg44-enabled > .sq .piece,
+#km42PuzzleBoard.svg44-enabled > .sq .piece {
+  pointer-events: auto !important;
+}
+
+#board.svg44-enabled > .svg44-overlay,
+#km42PuzzleBoard.svg44-enabled > .svg44-overlay {
+  z-index: 20;
+  pointer-events: none !important;
+}
+
+#board.svg44-enabled > .svg44-overlay *,
+#km42PuzzleBoard.svg44-enabled > .svg44-overlay * {
+  pointer-events: none !important;
+}
+
+/* Keep browser focus visible on the SVG even though the transparent source
+   button owns the input event. */
+#board.svg44-enabled > .sq:focus-visible + .svg44-overlay,
+#km42PuzzleBoard.svg44-enabled > .sq:focus-visible + .svg44-overlay {
+  outline: 3px solid #fff;
+  outline-offset: -5px;
+}
