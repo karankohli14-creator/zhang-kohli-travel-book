@@ -1,5 +1,6 @@
 const KMATE_MOVE_SOUND_VERSION = '45.1.0';
 const KMATE_MOVE_SOUND_STORE_KEY = 'kmate-position-v7';
+const KMATE_MOVE_SOUND_MIGRATION_PENDING_KEY = 'kmate-move-sound-v45-migration-pending';
 const KMATE_MOVE_SOUND_PATH = '/sounds/live-v28/kmate-reference-move-v28.wav';
 const KMATE_MOVE_SOUND_URL = new URL(`./sounds/live-v28/kmate-reference-move-v28.wav?v=${KMATE_MOVE_SOUND_VERSION}`, import.meta.url).href;
 const kmateMoveSoundNativeFetch = window.fetch.bind(window);
@@ -15,24 +16,50 @@ let kmateMoveSoundLastPlayedAt = 0;
 let kmateMoveSoundLastReason = '';
 let kmateMoveSoundInterceptCount = 0;
 let kmateMoveSoundObserver = null;
+let kmateMoveSoundMigrationAttempts = 0;
 const kmateMoveSoundSnapshots = new WeakMap();
 const kmateMoveSoundTimers = new WeakMap();
 
-function kmateMoveSoundMigrateSettings() {
+function kmateMoveSoundMigrationPending() {
+  try { return sessionStorage.getItem(KMATE_MOVE_SOUND_MIGRATION_PENDING_KEY) === '1'; }
+  catch { return false; }
+}
+
+function kmateMoveSoundSetMigrationPending(value) {
+  try {
+    if (value) sessionStorage.setItem(KMATE_MOVE_SOUND_MIGRATION_PENDING_KEY, '1');
+    else sessionStorage.removeItem(KMATE_MOVE_SOUND_MIGRATION_PENDING_KEY);
+  } catch {}
+}
+
+function kmateMoveSoundMigrateSettings({ reinforce = false } = {}) {
   try {
     const parsed = JSON.parse(localStorage.getItem(KMATE_MOVE_SOUND_STORE_KEY) || 'null');
     if (!parsed || typeof parsed !== 'object') return false;
     parsed.settings = parsed.settings && typeof parsed.settings === 'object' ? parsed.settings : {};
-    if (parsed.settings.uploadedMoveSoundV45 === KMATE_MOVE_SOUND_VERSION) return false;
+    const firstMigration = parsed.settings.uploadedMoveSoundV45 !== KMATE_MOVE_SOUND_VERSION;
+    const pending = kmateMoveSoundMigrationPending();
+    if (!firstMigration && !pending && !reinforce) return false;
+
     parsed.settings.sound = true;
     parsed.settings.soundTheme = 'reference-crisp';
     parsed.settings.referenceCrispMigrationDone = true;
     parsed.settings.uploadedMoveSoundV45 = KMATE_MOVE_SOUND_VERSION;
     localStorage.setItem(KMATE_MOVE_SOUND_STORE_KEY, JSON.stringify(parsed));
+    if (firstMigration) kmateMoveSoundSetMigrationPending(true);
+    kmateMoveSoundMigrationAttempts += 1;
     return true;
   } catch (error) {
     console.warn('K-Mate could not migrate the uploaded move-sound preference.', error);
     return false;
+  }
+}
+
+function kmateMoveSoundStoredSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(KMATE_MOVE_SOUND_STORE_KEY) || 'null')?.settings || null;
+  } catch {
+    return null;
   }
 }
 
@@ -81,6 +108,8 @@ window.fetch = function kmateMoveSoundFetch(input, init) {
   return kmateMoveSoundNativeFetch(input, init);
 };
 
+// Run once before the core app reads its settings. A second startup pass below
+// protects against older deferred scripts that may write a stale copy later.
 kmateMoveSoundMigrateSettings();
 
 const kmateMoveSoundPreload = document.createElement('link');
@@ -144,12 +173,8 @@ async function kmateMoveSoundDecode() {
 function kmateMoveSoundEnabled() {
   const toggle = document.querySelector('#soundToggle');
   if (toggle?.textContent?.includes('🔇')) return false;
-  try {
-    const parsed = JSON.parse(localStorage.getItem(KMATE_MOVE_SOUND_STORE_KEY) || 'null');
-    return parsed?.settings?.sound !== false;
-  } catch {
-    return true;
-  }
+  const stored = kmateMoveSoundStoredSettings();
+  return stored?.sound !== false;
 }
 
 async function kmateMoveSoundPrime() {
@@ -292,12 +317,36 @@ function kmateMoveSoundUpdateInterface() {
   return true;
 }
 
+function kmateMoveSoundFinishMigration() {
+  if (!kmateMoveSoundMigrationPending()) return true;
+  kmateMoveSoundMigrateSettings({ reinforce: true });
+  const toggle = document.querySelector('#soundToggle');
+  if (toggle instanceof HTMLButtonElement && toggle.textContent?.includes('🔇')) toggle.click();
+  kmateMoveSoundUpdateInterface();
+
+  const stored = kmateMoveSoundStoredSettings();
+  const soundOn = stored?.sound === true && !toggle?.textContent?.includes('🔇');
+  const profileReady = stored?.soundTheme === 'reference-crisp'
+    && stored?.uploadedMoveSoundV45 === KMATE_MOVE_SOUND_VERSION;
+  if (soundOn && profileReady && document.querySelector('#soundStyleSelect')?.disabled) {
+    kmateMoveSoundSetMigrationPending(false);
+    return true;
+  }
+  return false;
+}
+
 function kmateMoveSoundInitialize() {
+  // Deferred app-shell code may have written an older settings snapshot after
+  // the early migration. Reapply once now, then only while this first-run
+  // migration remains explicitly pending. Later user mute choices are kept.
+  kmateMoveSoundMigrateSettings({ reinforce: kmateMoveSoundMigrationPending() });
   kmateMoveSoundObserveBoards();
   void kmateMoveSoundBytes();
   const updateTimer = window.setInterval(() => {
-    if (kmateMoveSoundUpdateInterface()) window.clearInterval(updateTimer);
+    kmateMoveSoundUpdateInterface();
+    if (kmateMoveSoundFinishMigration()) window.clearInterval(updateTimer);
   }, 120);
+  kmateMoveSoundFinishMigration();
   window.setTimeout(() => window.clearInterval(updateTimer), 15000);
 
   window.addEventListener('pointerdown', () => { void kmateMoveSoundPrime(); }, { capture: true, passive: true });
@@ -335,6 +384,10 @@ function kmateMoveSoundInitialize() {
       lastReason: kmateMoveSoundLastReason,
       interceptedLegacyRequests: kmateMoveSoundInterceptCount,
       profileLocked: document.querySelector('#soundStyleSelect')?.disabled === true,
+      migrationPending: kmateMoveSoundMigrationPending(),
+      migrationAttempts: kmateMoveSoundMigrationAttempts,
+      storedSound: kmateMoveSoundStoredSettings()?.sound,
+      storedTheme: kmateMoveSoundStoredSettings()?.soundTheme || null,
     }),
   };
 }
