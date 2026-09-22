@@ -1,9 +1,12 @@
-const SVG44_INPUT_VERSION = '44.0.2';
+const SVG44_INPUT_VERSION = '44.0.3';
 const SVG44_OVERLAY_HIT_SELECTOR = '.svg44-overlay [data-svg-square]';
 const SVG44_SOURCE_SELECTOR = '#board.svg44-enabled > .sq,#km42PuzzleBoard.svg44-enabled > .sq';
+const SVG44_BOARD_SELECTOR = '#board.svg44-enabled,#km42PuzzleBoard.svg44-enabled';
 
 let svg44InputPointer = null;
 let svg44InputLastPointer = null;
+let svg44InputFocusObserver = null;
+const svg44InputFocusSquares = new WeakMap();
 
 function svg44InputEnsureStyles() {
   if (document.querySelector('#svgBoardV44InteractionStyles')) return;
@@ -30,24 +33,60 @@ function svg44InputSquareName(source) {
   return source?.dataset?.square || source?.dataset?.km42Square || '';
 }
 
-function svg44InputSourceButton(board, square) {
-  if (!board || !square) return null;
-  return [...board.children].find((element) => (
+function svg44InputSourceButtons(board) {
+  if (!board) return [];
+  return [...board.children].filter((element) => (
     element instanceof HTMLElement
     && element.classList.contains('sq')
-    && svg44InputSquareName(element) === square
-  )) || null;
+    && Boolean(svg44InputSquareName(element))
+  ));
+}
+
+function svg44InputSourceButton(board, square) {
+  if (!board || !square) return null;
+  return svg44InputSourceButtons(board).find((element) => svg44InputSquareName(element) === square) || null;
+}
+
+function svg44InputVisibleBoardAtPoint(x, y) {
+  const boards = [...document.querySelectorAll(SVG44_BOARD_SELECTOR)].reverse();
+  return boards.find((board) => {
+    if (board.closest('[hidden]')) return false;
+    const style = getComputedStyle(board);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    const rect = board.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }) || null;
+}
+
+function svg44InputSquareAtPoint(board, x, y) {
+  if (!board) return '';
+  const rect = board.getBoundingClientRect();
+  if (!rect.width || !rect.height) return '';
+  const column = Math.max(0, Math.min(7, Math.floor((x - rect.left) / rect.width * 8)));
+  const row = Math.max(0, Math.min(7, Math.floor((y - rect.top) / rect.height * 8)));
+  return svg44InputSquareName(svg44InputSourceButtons(board)[row * 8 + column]);
+}
+
+function svg44InputEventBoardAndSquare(event) {
+  const source = svg44InputSourceHit(event.target);
+  if (source) return { board: source.parentElement, square: svg44InputSquareName(source), source };
+  const overlay = svg44InputOverlayHit(event.target);
+  if (overlay) return { board: svg44InputBoard(overlay), square: overlay.dataset.svgSquare || '', source: null };
+  const board = svg44InputVisibleBoardAtPoint(event.clientX, event.clientY);
+  return { board, square: svg44InputSquareAtPoint(board, event.clientX, event.clientY), source: null };
 }
 
 function svg44InputRememberOverlayPointer(event) {
-  const hit = svg44InputOverlayHit(event.target);
-  if (!hit) return;
-  const board = svg44InputBoard(hit);
-  if (!board) return;
+  const resolved = svg44InputEventBoardAndSquare(event);
+  if (!resolved.board || !resolved.square) {
+    for (const board of document.querySelectorAll(SVG44_BOARD_SELECTOR)) svg44InputFocusSquares.delete(board);
+    return;
+  }
   svg44InputPointer = {
     id: event.pointerId,
     button: event.button,
-    from: hit.dataset.svgSquare,
+    board: resolved.board,
+    from: resolved.square,
     startX: event.clientX,
     startY: event.clientY,
     maxDistance: 0,
@@ -68,6 +107,7 @@ function svg44InputFinishOverlayPointer(event) {
   svg44InputTrackOverlayPointer(event);
   svg44InputLastPointer = {
     button: svg44InputPointer.button,
+    board: svg44InputPointer.board,
     from: svg44InputPointer.from,
     moved: svg44InputPointer.maxDistance > 7,
     at: performance.now(),
@@ -79,36 +119,39 @@ function svg44InputCancelPointer(event) {
   if (svg44InputPointer?.id === event.pointerId) svg44InputPointer = null;
 }
 
-// Programmatic or keyboard activation of an SVG hit rectangle still proxies
-// to the original K-Mate square. Normal pointer input lands directly on the
-// transparent source square through the interaction stylesheet.
-function svg44InputProxyOverlayClick(event) {
-  const hit = svg44InputOverlayHit(event.target);
-  if (!hit || event.button !== 0) return;
-  const board = svg44InputBoard(hit);
-  if (!board) return;
-  const recentDrag = Boolean(
+function svg44InputRecentDrag(board) {
+  return Boolean(
     svg44InputLastPointer
     && performance.now() - svg44InputLastPointer.at < 900
     && svg44InputLastPointer.button === 0
     && svg44InputLastPointer.moved
+    && (!board || svg44InputLastPointer.board === board)
   );
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  if (recentDrag) return;
-  svg44InputSourceButton(board, hit.dataset.svgSquare)?.click();
 }
 
-// Since the invisible, battle-tested square buttons now own pointer input,
-// forward a right click to the matching SVG hit rectangle. The base SVG module
-// then owns annotation state and redraws the highlight with the board.
+// The transparent, battle-tested K-Mate square buttons normally own pointer
+// input. Some embedded browsers nevertheless target the board container when
+// clicking a fully transparent grid item. Resolve those clicks geometrically
+// and forward them to the matching source square without duplicating native
+// button clicks.
+function svg44InputProxyOverlayClick(event) {
+  if (event.button !== 0) return;
+  const resolved = svg44InputEventBoardAndSquare(event);
+  if (!resolved.board || !resolved.square || resolved.source) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (svg44InputRecentDrag(resolved.board)) return;
+  svg44InputSourceButton(resolved.board, resolved.square)?.click();
+}
+
+// Since the invisible source squares normally own pointer input, forward a
+// right click to the matching SVG hit rectangle. This also covers browsers
+// that target the board container instead of the transparent source square.
 function svg44InputForwardContextMenu(event) {
-  const source = svg44InputSourceHit(event.target);
-  if (!source) return;
-  const board = source.parentElement;
-  const square = svg44InputSquareName(source);
-  const target = board?.querySelector(`.svg44-overlay [data-svg-square="${square}"]`);
-  if (!target) return;
+  const resolved = svg44InputEventBoardAndSquare(event);
+  if (!resolved.board || !resolved.square) return;
+  const target = resolved.board.querySelector(`.svg44-overlay [data-svg-square="${resolved.square}"]`);
+  if (!target || target === event.target || target.contains(event.target)) return;
   event.preventDefault();
   target.dispatchEvent(new MouseEvent('contextmenu', {
     bubbles: true,
@@ -124,6 +167,54 @@ function svg44InputForwardContextMenu(event) {
   }));
 }
 
+function svg44InputTrackKeyboardFocus(event) {
+  const hit = svg44InputOverlayHit(event.target);
+  const board = svg44InputBoard(hit);
+  if (!hit || !board) return;
+  const current = hit.dataset.svgSquare || '';
+  if (!current) return;
+  if (event.key === 'Enter' || event.key === ' ') {
+    svg44InputFocusSquares.set(board, current);
+    return;
+  }
+  const delta = ({ ArrowLeft: -1, ArrowRight: 1, ArrowUp: -8, ArrowDown: 8 })[event.key];
+  if (!delta) return;
+  const hits = [...board.querySelectorAll('.svg44-overlay [data-svg-square]')];
+  const index = hits.indexOf(hit);
+  const next = hits[index + delta];
+  if (next?.dataset.svgSquare) svg44InputFocusSquares.set(board, next.dataset.svgSquare);
+}
+
+function svg44InputRestoreKeyboardFocus(board) {
+  const square = svg44InputFocusSquares.get(board);
+  if (!square || !board?.classList.contains('svg44-enabled')) return;
+  const active = document.activeElement;
+  if (active instanceof Element && board.contains(active) && active.matches('[data-svg-square]')) {
+    svg44InputFocusSquares.set(board, active.dataset.svgSquare || square);
+    return;
+  }
+  if (active && active !== document.body && active !== document.documentElement && document.documentElement.contains(active)) return;
+  const target = board.querySelector(`.svg44-overlay [data-svg-square="${square}"]`);
+  target?.focus?.({ preventScroll: true });
+}
+
+function svg44InputObserveFocusRepair() {
+  if (svg44InputFocusObserver) return;
+  svg44InputFocusObserver = new MutationObserver((mutations) => {
+    const boards = new Set();
+    for (const mutation of mutations) {
+      const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
+      const board = target?.closest?.('#board,#km42PuzzleBoard');
+      if (board && svg44InputFocusSquares.has(board)) boards.add(board);
+    }
+    if (!boards.size) return;
+    queueMicrotask(() => {
+      for (const board of boards) svg44InputRestoreKeyboardFocus(board);
+    });
+  });
+  svg44InputFocusObserver.observe(document.body, { childList: true, subtree: true });
+}
+
 function svg44InputUpdateDialogCopy() {
   const note = [...document.querySelectorAll('#svgBoardDialog .svg44-setting-row small')]
     .find((element) => element.textContent?.includes('Right-click'));
@@ -136,20 +227,29 @@ function svg44InputInitialize() {
   document.addEventListener('pointermove', svg44InputTrackOverlayPointer, true);
   document.addEventListener('pointerup', svg44InputFinishOverlayPointer, true);
   document.addEventListener('pointercancel', svg44InputCancelPointer, true);
+  document.addEventListener('keydown', svg44InputTrackKeyboardFocus, true);
   document.addEventListener('click', svg44InputProxyOverlayClick, true);
   document.addEventListener('contextmenu', svg44InputForwardContextMenu, true);
+  svg44InputObserveFocusRepair();
   svg44InputUpdateDialogCopy();
 
   window.__KMATE_SVG_BOARD_INPUT__ = {
     version: SVG44_INPUT_VERSION,
     state: () => ({
       ready: true,
-      interactionLayer: 'transparent K-Mate source squares above SVG presentation',
+      interactionLayer: 'transparent K-Mate source squares above SVG presentation with geometric fallback',
       originalTapAndDrag: true,
       overlayKeyboardProxy: true,
+      keyboardFocusRepair: true,
       annotationContextBridge: true,
+      geometricTapFallback: true,
       activePointer: Boolean(svg44InputPointer),
-      lastPointer: svg44InputLastPointer ? { ...svg44InputLastPointer } : null,
+      lastPointer: svg44InputLastPointer ? {
+        button: svg44InputLastPointer.button,
+        from: svg44InputLastPointer.from,
+        moved: svg44InputLastPointer.moved,
+        at: svg44InputLastPointer.at,
+      } : null,
     }),
   };
 }
