@@ -41,6 +41,7 @@ jobs:
           node --check kmate-trainer/learning-relevance-v41-stability.js
           node --check kmate-trainer/personalization-v42.js
           node --check kmate-trainer/training-plans-v43.js
+          node --check kmate-trainer/svg-board-v44.js
           cat kmate-trainer/app-v7-part{1..14}.txt > /tmp/kmate-app-v43.js
           node --check /tmp/kmate-app-v43.js
           cat kmate-trainer/learning-v40-part{1..5}.txt > /tmp/kmate-learning-v40.js
@@ -58,6 +59,7 @@ jobs:
           node --check kmate-trainer/tests/personalization-v42.spec.mjs
           node --check kmate-trainer/tests/personalization-v42-release.spec.mjs
           node --check kmate-trainer/tests/training-plans-v43.spec.mjs
+          node --check kmate-trainer/tests/svg-board-v44.spec.mjs
           node --check kmate-trainer/tests/chesscom-live-contract.mjs
 
       - name: Validate learning catalogs
@@ -96,9 +98,11 @@ jobs:
           grep -Fq "const partUrls = [1, 2, 3, 4, 5]" kmate-trainer/learning-v40.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]" kmate-trainer/personalization-v42.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8]" kmate-trainer/training-plans-v43.js
-          grep -q "app-v7.js?v=43.0.0" kmate-trainer/index.html
+          grep -q "app-v7.js?v=44.0.0" kmate-trainer/index.html
           grep -q "personalization-v42.js?v=43.0.0" kmate-trainer/app-v7.js
           grep -q "training-plans-v43.js?v=43.0.0" kmate-trainer/app-v7.js
+          grep -q "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
+          grep -q "SVG44_VERSION = '44.0.0'" kmate-trainer/svg-board-v44.js
           grep -q "KM42_PERSONALIZATION_VERSION = '42.0.0'" kmate-trainer/app-v7-part12.txt
           grep -q "trainingIntent" kmate-trainer/app-v7-part12.txt
           grep -q "customizationFingerprint" kmate-trainer/app-v7-part13.txt
@@ -121,3 +125,4 @@ jobs:
           grep -q "position-importers-hardening-v37.js?v=37.0.0" kmate-trainer/app-v7.js
           grep -q "position-importers-chess-v38.js?v=38.0.0" kmate-trainer/app-v7.js
           grep -q "fenshot-MIT" <(find kmate-trainer/licenses -maxdepth 1 -type f -printf '%f\n')
+          grep -q "svgchessboard-MIT" <(find kmate-trainer/licenses -maxdepth 1 -type f -printf '%f\n')
