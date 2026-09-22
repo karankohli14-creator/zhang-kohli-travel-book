@@ -1,0 +1,51 @@
+/* K-Mate SVG board v45.1 — prioritize immediate movement over decorative effects. */
+#board.svg44-enabled,
+#km42PuzzleBoard.svg44-enabled {
+  contain: layout paint;
+}
+
+#board.svg44-enabled .svg44-piece,
+#km42PuzzleBoard.svg44-enabled .svg44-piece {
+  filter: none !important;
+  transform: none !important;
+}
+
+#board.svg44-enabled .svg44-piece-art,
+#km42PuzzleBoard.svg44-enabled .svg44-piece-art,
+#board.svg44-enabled .svg44-piece-art .piece-art,
+#km42PuzzleBoard.svg44-enabled .svg44-piece-art .piece-art {
+  filter: none !important;
+}
+
+#board.svg44-enabled .svg44-frame,
+#km42PuzzleBoard.svg44-enabled .svg44-frame,
+#board.svg44-enabled .svg44-legal-dot,
+#km42PuzzleBoard.svg44-enabled .svg44-legal-dot,
+#board.svg44-enabled .svg44-capture-ring,
+#km42PuzzleBoard.svg44-enabled .svg44-capture-ring {
+  filter: none !important;
+}
+
+#board.svg44-enabled .svg44-grain,
+#km42PuzzleBoard.svg44-enabled .svg44-grain {
+  display: none;
+}
+
+#board.svg44-enabled .svg44-overlay,
+#km42PuzzleBoard.svg44-enabled .svg44-overlay {
+  text-rendering: optimizeSpeed;
+}
+
+#board.svg44-enabled.svg45-optimistic .svg44-piece,
+#km42PuzzleBoard.svg44-enabled.svg45-optimistic .svg44-piece {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #board.svg44-enabled .svg44-selected-overlay,
+  #km42PuzzleBoard.svg44-enabled .svg44-selected-overlay,
+  #board.svg44-enabled .svg44-legal-dot,
+  #km42PuzzleBoard.svg44-enabled .svg44-legal-dot {
+    transition: opacity 55ms linear;
+  }
+}
