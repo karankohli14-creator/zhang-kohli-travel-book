@@ -44,7 +44,7 @@ jobs:
           node --check kmate-trainer/tests/svg-board-v44.spec.mjs
           grep -Fq "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
           grep -Fq "Copyright (c) 2014 Fuzzy" kmate-trainer/licenses/svgchessboard-MIT.txt
-          grep -Fq "does not include the ChessX piece or texture assets" kmate-trainer/licenses/svgchessboard-MIT.txt
+          grep -Fq "does not redistribute the ChessX piece or texture assets" kmate-trainer/licenses/svgchessboard-MIT.txt
           grep -Fq "app-v7.js?v=44.0.0" kmate-trainer/index.html
 
       - name: Install browser dependencies
