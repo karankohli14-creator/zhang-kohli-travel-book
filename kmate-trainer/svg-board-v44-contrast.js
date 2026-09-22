@@ -88,7 +88,6 @@ function svg44ContrastPaintVectorArt(art, color) {
 
   art.classList.remove('white', 'black');
   art.classList.add('staunton-piece', color, 'svg44-high-contrast-piece');
-  art.dataset.svgPieceColor = color;
   art.style.overflow = 'visible';
 
   for (const [property, value] of Object.entries(palette.variables)) {
@@ -107,7 +106,6 @@ function svg44ContrastPaintUnicodeArt(art, color) {
   if (!art || !palette) return;
   art.classList.remove('white', 'black');
   art.classList.add(color);
-  art.dataset.svgPieceColor = color;
   art.style.fill = palette.unicodeFill;
   art.style.stroke = palette.unicodeStroke;
   art.style.strokeWidth = '2.2px';
@@ -177,8 +175,8 @@ function svg44ContrastState() {
     .map((board) => ({
       id: board.id,
       version: board.dataset.svg44PieceContrast || null,
-      white: board.querySelectorAll(':scope > .svg44-overlay [data-svg-piece-color="white"]').length,
-      black: board.querySelectorAll(':scope > .svg44-overlay [data-svg-piece-color="black"]').length,
+      white: board.querySelectorAll(':scope > .svg44-overlay [data-svg-piece][data-svg-piece-color="white"]').length,
+      black: board.querySelectorAll(':scope > .svg44-overlay [data-svg-piece][data-svg-piece-color="black"]').length,
     }));
   return {
     ready: true,
