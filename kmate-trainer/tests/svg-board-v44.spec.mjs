@@ -53,8 +53,8 @@ async function waitForInteractionBridge(page, boardSelector) {
     return Boolean(
       square
       && overlay
-      && getComputedStyle(square).pointerEvents === 'auto'
-      && getComputedStyle(overlay).pointerEvents === 'none'
+      && getComputedStyle(square).pointerEvents === 'none'
+      && getComputedStyle(overlay).pointerEvents === 'auto'
     );
   }, boardSelector, { timeout: 30_000 });
 }
