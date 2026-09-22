@@ -39,6 +39,7 @@ async function prepare(page, viewport = { width: 1280, height: 900 }) {
     () => Boolean(
       window.__KMATE_SVG_BOARD__?.state?.().ready
       && window.__KMATE_SVG_BOARD_INPUT__?.state?.().ready
+      && window.__KMATE_SVG_PIECE_CONTRAST__?.state?.().ready
       && window.__KMATE__?.test?.startLiveCoachPrincipleDemo
       && window.__KMATE_V42__?.startPreparedWorkout
     ),
@@ -69,6 +70,11 @@ async function startDeterministicGame(page) {
   await expect(page.locator('#board [data-svg-square]')).toHaveCount(64);
   await expect(page.locator('#board [data-svg-piece]')).toHaveCount(32);
   await waitForInteractionBridge(page, '#board');
+  await page.waitForFunction(() => {
+    const board = window.__KMATE_SVG_PIECE_CONTRAST__?.state?.().boards
+      ?.find((item) => item.id === 'board');
+    return board?.white === 16 && board?.black === 16;
+  }, undefined, { timeout: 30_000 });
 }
 
 async function visibleSquareCenter(page, boardSelector, square) {
@@ -131,6 +137,38 @@ test('normal K-Mate play uses one responsive SVG board with working tap moves an
   expect(Math.abs(boardGeometry.board.width - boardGeometry.overlay.width)).toBeLessThan(1.5);
   expect(Math.abs(boardGeometry.board.height - boardGeometry.overlay.height)).toBeLessThan(1.5);
 
+  const contrast = await page.evaluate(() => {
+    const whiteArt = document.querySelector('#board [data-svg-piece-color="white"] .svg44-piece-art');
+    const blackArt = document.querySelector('#board [data-svg-piece-color="black"] .svg44-piece-art');
+    const whiteStop = whiteArt?.querySelector('.piece-grad-body-mid');
+    const blackStop = blackArt?.querySelector('.piece-grad-body-mid');
+    const color = (node) => node ? getComputedStyle(node).stopColor : '';
+    const rgb = (value) => (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+    const luminance = (value) => {
+      const [red = 0, green = 0, blue = 0] = rgb(value).map((channel) => channel / 255);
+      return (0.2126 * red) + (0.7152 * green) + (0.0722 * blue);
+    };
+    const whiteMid = color(whiteStop);
+    const blackMid = color(blackStop);
+    return {
+      version: window.__KMATE_SVG_PIECE_CONTRAST__?.version,
+      whiteClass: whiteArt?.getAttribute('class') || '',
+      blackClass: blackArt?.getAttribute('class') || '',
+      whiteMid,
+      blackMid,
+      luminanceGap: luminance(whiteMid) - luminance(blackMid),
+      whitePieces: document.querySelectorAll('#board [data-svg-piece-color="white"]').length,
+      blackPieces: document.querySelectorAll('#board [data-svg-piece-color="black"]').length,
+    };
+  });
+  expect(contrast.version).toBe('44.1.0');
+  expect(contrast.whitePieces).toBe(16);
+  expect(contrast.blackPieces).toBe(16);
+  expect(contrast.whiteClass).toMatch(/\bwhite\b/);
+  expect(contrast.blackClass).toMatch(/\bblack\b/);
+  expect(contrast.whiteMid).not.toBe(contrast.blackMid);
+  expect(contrast.luminanceGap).toBeGreaterThan(0.55);
+
   await moveByTap(page, 'e2', 'e4');
   await expect(page.locator('#board [data-svg-square="e4"]')).toBeVisible();
 
@@ -146,11 +184,13 @@ test('normal K-Mate play uses one responsive SVG board with working tap moves an
   const state = await page.evaluate(() => ({
     svg: window.__KMATE_SVG_BOARD__.state(),
     input: window.__KMATE_SVG_BOARD_INPUT__.state(),
+    contrast: window.__KMATE_SVG_PIECE_CONTRAST__.state(),
   }));
   expect(state.svg.enabled).toBe(true);
   expect(state.svg.theme).toBe('slate');
   expect(state.input.originalTapAndDrag).toBe(true);
   expect(state.input.geometricTapFallback).toBe(true);
+  expect(state.contrast.version).toBe('44.1.0');
   expect(state.svg.boards.find((board) => board.id === 'board')).toMatchObject({
     enhanced: true,
     squares: 64,
@@ -245,6 +285,11 @@ test('the same SVG presentation plays a real puzzle by tap on a phone viewport',
   await expect(page.locator('#km42PuzzleBoard.svg44-enabled .svg44-overlay')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('#km42PuzzleBoard [data-svg-square]')).toHaveCount(64);
   await waitForInteractionBridge(page, '#km42PuzzleBoard');
+  await page.waitForFunction(() => {
+    const board = window.__KMATE_SVG_PIECE_CONTRAST__?.state?.().boards
+      ?.find((item) => item.id === 'km42PuzzleBoard');
+    return Boolean(board && board.white > 0 && board.black > 0);
+  }, undefined, { timeout: 30_000 });
 
   await clickVisibleSquare(page, '#km42PuzzleBoard', 'e2');
   await expect(page.locator('#km42PuzzleBoard > .sq[data-km42-square="e2"]')).toHaveClass(/selected/);
