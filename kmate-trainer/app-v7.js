@@ -34,6 +34,14 @@ const narrowLayoutFix = document.createElement('style');
 narrowLayoutFix.textContent = `.card,.table-card,.recent-card,.tables-grid,.table-scroll,.recent-row>span{min-width:0}.table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}@media(max-width:700px){.table-card{overflow:hidden}.recent-row{max-width:100%;overflow:hidden}.recent-row>span:nth-child(2){overflow-wrap:anywhere}}`;
 document.head.append(narrowLayoutFix);
 
+try {
+  // This bootstrap runs before the core sound system so the uploaded wooden
+  // impact is preloaded, cache-busted, and unlocked from the first gesture.
+  await import('./move-sound-v45.js?v=45.1.0');
+} catch (error) {
+  console.warn('Optional v45 uploaded move-sound bootstrap could not load.', error);
+}
+
 const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((number) => `./app-v7-part${number}.txt?v=42.0.0`);
 const responses = await Promise.all(partUrls.map(async (url) => {
   const response = await fetch(url, { cache: 'no-store' });
@@ -133,6 +141,13 @@ try {
       // Preserve unmistakable white/black piece colors even if a browser does
       // not carry the source-piece CSS classes into the SVG presentation.
       console.warn('Optional v44 SVG piece contrast layer could not load.', error);
+    }
+    try {
+      await import('./svg-board-v45-performance.js?v=45.1.0');
+    } catch (error) {
+      // Low-latency mode removes the delayed arrival animation and expensive
+      // filters while retaining the same board, pieces, and move logic.
+      console.warn('Optional v45 low-latency SVG layer could not load.', error);
     }
   } catch (error) {
     // The full-SVG board is a visual and interaction enhancement. The original
