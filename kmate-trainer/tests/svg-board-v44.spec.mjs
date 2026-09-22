@@ -37,11 +37,26 @@ async function prepare(page, viewport = { width: 1280, height: 900 }) {
   await page.waitForFunction(
     () => Boolean(
       window.__KMATE_SVG_BOARD__?.state?.().ready
+      && window.__KMATE_SVG_BOARD_INPUT__?.state?.().ready
       && window.__KMATE__?.test?.startLiveCoachPrincipleDemo
     ),
     undefined,
     { timeout: 90_000 },
   );
+}
+
+async function waitForInteractionBridge(page, boardSelector) {
+  await page.waitForFunction((selector) => {
+    const board = document.querySelector(selector);
+    const square = board?.querySelector(':scope > .sq');
+    const overlay = board?.querySelector(':scope > .svg44-overlay');
+    return Boolean(
+      square
+      && overlay
+      && getComputedStyle(square).pointerEvents === 'auto'
+      && getComputedStyle(overlay).pointerEvents === 'none'
+    );
+  }, boardSelector, { timeout: 30_000 });
 }
 
 async function startDeterministicGame(page) {
@@ -51,12 +66,24 @@ async function startDeterministicGame(page) {
   await expect(page.locator('#board .svg44-overlay')).toBeVisible();
   await expect(page.locator('#board [data-svg-square]')).toHaveCount(64);
   await expect(page.locator('#board [data-svg-piece]')).toHaveCount(32);
+  await waitForInteractionBridge(page, '#board');
+}
+
+async function visibleSquareCenter(page, boardSelector, square) {
+  const box = await page.locator(`${boardSelector} [data-svg-square="${square}"]`).boundingBox();
+  if (!box) throw new Error(`SVG square ${square} was not measurable.`);
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2, box };
+}
+
+async function clickVisibleSquare(page, boardSelector, square, button = 'left') {
+  const point = await visibleSquareCenter(page, boardSelector, square);
+  await page.mouse.click(point.x, point.y, { button });
 }
 
 async function moveByTap(page, from, to) {
-  await page.locator(`#board [data-svg-square="${from}"]`).click();
+  await clickVisibleSquare(page, '#board', from);
   await expect(page.locator(`#board > .sq[data-square="${from}"]`)).toHaveClass(/selected/);
-  await page.locator(`#board [data-svg-square="${to}"]`).click();
+  await clickVisibleSquare(page, '#board', to);
   await page.waitForFunction(
     ({ target }) => Boolean(document.querySelector(`#board > .sq[data-square="${target}"] .piece`)),
     { target: to },
@@ -65,17 +92,16 @@ async function moveByTap(page, from, to) {
 }
 
 async function moveByPointerDrag(page, from, to) {
-  const source = await page.locator(`#board [data-svg-square="${from}"]`).boundingBox();
-  const target = await page.locator(`#board [data-svg-square="${to}"]`).boundingBox();
-  if (!source || !target) throw new Error('SVG drag squares were not measurable.');
-  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  const source = await visibleSquareCenter(page, '#board', from);
+  const target = await visibleSquareCenter(page, '#board', to);
+  await page.mouse.move(source.x, source.y);
   await page.mouse.down();
   await page.mouse.move(
-    source.x + source.width * 0.72,
-    source.y + source.height * 0.72,
+    source.box.x + source.box.width * 0.72,
+    source.box.y + source.box.height * 0.72,
     { steps: 3 },
   );
-  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 12 });
+  await page.mouse.move(target.x, target.y, { steps: 12 });
   await page.mouse.up();
   await page.waitForFunction(
     ({ targetSquare }) => Boolean(document.querySelector(`#board > .sq[data-square="${targetSquare}"] .piece`)),
@@ -114,10 +140,14 @@ test('normal K-Mate play uses one responsive SVG board with working tap moves an
   await page.locator('#svg44Done').click();
   await expect(page.locator('#board')).toHaveAttribute('data-svg44-theme', 'slate');
 
-  const state = await page.evaluate(() => window.__KMATE_SVG_BOARD__.state());
-  expect(state.enabled).toBe(true);
-  expect(state.theme).toBe('slate');
-  expect(state.boards.find((board) => board.id === 'board')).toMatchObject({
+  const state = await page.evaluate(() => ({
+    svg: window.__KMATE_SVG_BOARD__.state(),
+    input: window.__KMATE_SVG_BOARD_INPUT__.state(),
+  }));
+  expect(state.svg.enabled).toBe(true);
+  expect(state.svg.theme).toBe('slate');
+  expect(state.input.originalTapAndDrag).toBe(true);
+  expect(state.svg.boards.find((board) => board.id === 'board')).toMatchObject({
     enhanced: true,
     squares: 64,
     overlay: true,
@@ -138,6 +168,7 @@ test('SVG board supports true pointer dragging and restores the original board o
   await expect(page.locator('#board > .sq')).toHaveCount(64);
   await page.locator('#svg44Enabled').check();
   await expect(page.locator('#board.svg44-enabled .svg44-overlay')).toBeVisible();
+  await waitForInteractionBridge(page, '#board');
   await page.locator('#svg44Done').click();
 });
 
@@ -146,7 +177,7 @@ test('annotations and keyboard controls remain available in the SVG interface', 
   await prepare(page);
   await startDeterministicGame(page);
 
-  await page.locator('#board [data-svg-square="d4"]').click({ button: 'right' });
+  await clickVisibleSquare(page, '#board', 'd4', 'right');
   await expect(page.locator('#board .svg44-user-square')).toHaveCount(1);
 
   const e2 = page.locator('#board [data-svg-square="e2"]');
@@ -169,7 +200,7 @@ test('annotations and keyboard controls remain available in the SVG interface', 
   await expect(page.locator('#board .svg44-user-square')).toHaveCount(0);
 });
 
-test('the same SVG interaction layer can proxy puzzle-board taps on a phone viewport', async ({ page }) => {
+test('the same SVG presentation uses the puzzle board’s native taps on a phone viewport', async ({ page }) => {
   test.setTimeout(150_000);
   await prepare(page, { width: 390, height: 844 });
 
@@ -209,8 +240,9 @@ test('the same SVG interaction layer can proxy puzzle-board taps on a phone view
 
   await expect(page.locator('#km42PuzzleBoard.svg44-enabled .svg44-overlay')).toBeVisible();
   await expect(page.locator('#km42PuzzleBoard [data-svg-square]')).toHaveCount(64);
-  await page.locator('#km42PuzzleBoard [data-svg-square="e2"]').click();
-  await page.locator('#km42PuzzleBoard [data-svg-square="e4"]').click();
+  await waitForInteractionBridge(page, '#km42PuzzleBoard');
+  await clickVisibleSquare(page, '#km42PuzzleBoard', 'e2');
+  await clickVisibleSquare(page, '#km42PuzzleBoard', 'e4');
   const clicks = await page.evaluate(() => window.__svg44FixtureClicks);
   expect(clicks.slice(-2)).toEqual(['e2', 'e4']);
 
