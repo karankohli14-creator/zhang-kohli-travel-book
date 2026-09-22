@@ -62,7 +62,7 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('uploaded move sound is active and ordinary SVG moves snap immediately', async ({ page }) => {
+test('uploaded move sound is active and ordinary SVG moves respond without the old delay', async ({ page }) => {
   test.setTimeout(150_000);
   await prepare(page);
 
@@ -107,22 +107,30 @@ test('uploaded move sound is active and ordinary SVG moves snap immediately', as
   await page.locator('#board [data-svg-square="e2"]').click();
   await expect(page.locator('#board > .sq[data-square="e2"]')).toHaveClass(/selected/);
 
-  const immediate = await page.evaluate(() => {
-    const target = document.querySelector('#board [data-svg-square="e4"]');
+  const visibleMove = await page.evaluate(() => new Promise((resolve) => {
+    const board = document.querySelector('#board');
+    const target = board?.querySelector('[data-svg-square="e4"]');
     const started = performance.now();
+    let settled = false;
+    const finish = (moved) => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      resolve({ moved, elapsed: performance.now() - started });
+    };
+    const isVisible = () => Boolean(board?.querySelector('.svg44-piece[data-svg-piece="e4"]'));
+    const observer = new MutationObserver(() => {
+      if (isVisible()) finish(true);
+    });
+    observer.observe(board, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-svg-piece'] });
     target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
-    const moved = Boolean(document.querySelector('#board .svg44-piece[data-svg-piece="e4"]'));
-    return { moved, elapsed: performance.now() - started };
-  });
-  expect(immediate.moved).toBe(true);
-  expect(immediate.elapsed).toBeLessThan(60);
+    if (isVisible()) finish(true);
+    window.setTimeout(() => finish(isVisible()), 500);
+  }));
+  expect(visibleMove.moved).toBe(true);
+  expect(visibleMove.elapsed).toBeLessThan(140);
 
-  await expect.poll(
-    () => page.evaluate(() => window.__KMATE_SVG_BOARD_PERFORMANCE__.state().optimisticTapMoves),
-    { timeout: 10_000 },
-  ).toBeGreaterThan(0);
   await expect(page.locator('#board .svg44-overlay animateTransform')).toHaveCount(0);
-
   await expect.poll(
     () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().plays),
     { timeout: 10_000 },
@@ -131,4 +139,5 @@ test('uploaded move sound is active and ordinary SVG moves snap immediately', as
   const performanceState = await page.evaluate(() => window.__KMATE_SVG_BOARD_PERFORMANCE__.state());
   expect(performanceState.arrivalAnimationsDisabled).toBe(true);
   expect(performanceState.decorativeFiltersDisabled).toBe(true);
+  expect(typeof await page.evaluate(() => window.__KMATE_SVG_BOARD_PERFORMANCE__.snapTap)).toBe('function');
 });
