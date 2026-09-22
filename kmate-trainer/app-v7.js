@@ -127,6 +127,13 @@ try {
       // and keyboard focus deterministic across embedded and mobile browsers.
       console.warn('Optional v44 SVG board input compatibility layer could not load.', error);
     }
+    try {
+      await import('./svg-board-v44-contrast.js?v=44.1.0');
+    } catch (error) {
+      // This layer preserves the original vector artwork while applying
+      // unmistakably different ivory and charcoal palettes to the two sides.
+      console.warn('Optional v44 SVG piece contrast layer could not load.', error);
+    }
   } catch (error) {
     // The full-SVG board is a visual and interaction enhancement. The original
     // K-Mate board remains the automatic fallback if this module cannot load.
