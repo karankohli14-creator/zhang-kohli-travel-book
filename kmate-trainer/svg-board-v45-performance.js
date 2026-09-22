@@ -74,24 +74,26 @@ function svg45MoveRenderedPiece(board, from, to, targetHit) {
   return true;
 }
 
-// Window capture runs before the v44 document-level proxy. On the second tap,
-// snap a legal non-capture move to its destination immediately; the underlying
-// K-Mate move logic then confirms and rebuilds the authoritative board.
+function svg45SnapTap(board, destinationSquare) {
+  if (!board?.classList.contains('svg44-enabled') || !destinationSquare) return false;
+  const source = svg45SourceSquares(board).find((element) => element.classList.contains('selected'));
+  if (!source) return false;
+  const destination = svg45SourceSquare(board, destinationSquare);
+  if (!destination || !destination.classList.contains('legal') || destination.classList.contains('capture')) return false;
+  const from = svg45SquareName(source);
+  if (!from || from === destinationSquare) return false;
+  const hit = board.querySelector(`:scope > .svg44-overlay [data-svg-square="${destinationSquare}"]`);
+  return svg45MoveRenderedPiece(board, from, destinationSquare, hit);
+}
+
+// Window capture is a fallback. The v44 input bridge also calls snapTap
+// directly before it proxies the destination click to the original board.
 function svg45OptimisticTap(event) {
   if (event.button !== 0) return;
   const target = event.target instanceof Element ? event.target : null;
   const hit = target?.closest?.('.svg44-overlay [data-svg-square]');
   if (!hit) return;
-  const board = svg45BoardForHit(hit);
-  if (!board?.classList.contains('svg44-enabled')) return;
-  const destinationSquare = hit.dataset.svgSquare || '';
-  const source = svg45SourceSquares(board).find((element) => element.classList.contains('selected'));
-  if (!source) return;
-  const destination = svg45SourceSquare(board, destinationSquare);
-  if (!destination || !destination.classList.contains('legal') || destination.classList.contains('capture')) return;
-  const from = svg45SquareName(source);
-  if (!from || from === destinationSquare) return;
-  svg45MoveRenderedPiece(board, from, destinationSquare, hit);
+  svg45SnapTap(svg45BoardForHit(hit), hit.dataset.svgSquare || '');
 }
 
 function svg45ObserveOverlays() {
@@ -118,6 +120,7 @@ function svg45Initialize() {
   window.__KMATE_SVG_BOARD_PERFORMANCE__ = {
     version: SVG45_PERFORMANCE_VERSION,
     optimize: svg45RemoveArrivalAnimations,
+    snapTap: svg45SnapTap,
     state: () => ({
       ready: true,
       version: SVG45_PERFORMANCE_VERSION,
