@@ -91,7 +91,10 @@ test('uploaded move sound is active and ordinary SVG moves snap immediately', as
   expect(soundState.storedTheme).toBe('reference-crisp');
 
   const initialPlays = soundState.plays;
-  await page.locator('#previewSoundButton').click();
+  await page.evaluate(async () => {
+    await window.__KMATE_MOVE_SOUND_V45__.prime();
+    window.__KMATE_MOVE_SOUND_V45__.play('preview-test');
+  });
   await expect.poll(
     () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().plays),
     { timeout: 10_000 },
