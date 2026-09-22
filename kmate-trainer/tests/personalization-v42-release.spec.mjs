@@ -159,6 +159,8 @@ async function prepare(page) {
       window.__KMATE_V42__?.state?.().ready
       && window.__KMATE_V42_AUTHORITY__?.state?.().ready
       && window.__KMATE_PERSONALIZATION__
+      && window.__KMATE_SVG_BOARD__?.state?.().ready
+      && window.__KMATE_SVG_BOARD_INPUT__?.state?.().ready
     ),
     undefined,
     { timeout: 60_000 },
@@ -188,12 +190,25 @@ async function openPuzzle(page) {
   await page.locator('#learningStartPuzzles').click();
   await expect(page.locator('#km42PuzzleMode')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('#km42PuzzleBoard .sq')).toHaveCount(64, { timeout: 60_000 });
+  await expect(page.locator('#km42PuzzleBoard.svg44-enabled [data-svg-square]')).toHaveCount(64, { timeout: 60_000 });
   await page.waitForFunction(
     () => Boolean(window.__KMATE_V42__?.state?.().puzzle?.expectedMove),
     undefined,
     { timeout: 60_000 },
   );
   return page.evaluate(() => window.__KMATE_V42__.state().puzzle);
+}
+
+async function clickVisiblePuzzleSquare(page, square) {
+  const hit = page.locator(`#km42PuzzleBoard [data-svg-square="${square}"]`);
+  await expect(hit).toBeVisible({ timeout: 30_000 });
+  await hit.click();
+}
+
+async function visiblePuzzleSquareBox(page, square) {
+  const hit = page.locator(`#km42PuzzleBoard [data-svg-square="${square}"]`);
+  await expect(hit).toBeVisible({ timeout: 30_000 });
+  return hit.boundingBox();
 }
 
 test.use({
@@ -273,7 +288,7 @@ test('v42 phone puzzle board supports tap–tap movement and protects safe areas
   expect(initial.dragEnabled).toBe(true);
   const from = initial.expectedMove.slice(0, 2);
   const to = initial.expectedMove.slice(2, 4);
-  await page.locator(`[data-km42-square="${from}"]`).click();
+  await clickVisiblePuzzleSquare(page, from);
   await expect(page.locator(`[data-km42-square="${from}"]`)).toHaveClass(/selected/);
   const targetClass = await page.locator(`[data-km42-square="${to}"]`).getAttribute('class');
   expect(targetClass).toMatch(/legal|capture/);
@@ -281,7 +296,7 @@ test('v42 phone puzzle board supports tap–tap movement and protects safe areas
   expect(selectedState.selected).toBe(from);
   expect(selectedState.legalTargets).toContain(to);
 
-  await page.locator(`[data-km42-square="${to}"]`).click();
+  await clickVisiblePuzzleSquare(page, to);
   await page.waitForFunction(
     (fen) => window.__KMATE_V42__.state().puzzle.fen !== fen,
     initial.fen,
@@ -297,7 +312,7 @@ test('v42 phone puzzle board supports tap–tap movement and protects safe areas
   expect(layout.mode.bottom).toBeLessThanOrEqual(layout.viewportHeight - 33);
   expect(layout.board.width).toBeGreaterThanOrEqual(350);
   expect(Math.abs(layout.board.width - layout.board.height)).toBeLessThan(2);
-  expect(await page.locator('#km42PuzzleBoard .vector-piece').count()).toBeGreaterThan(1);
+  expect(await page.locator('#km42PuzzleBoard .svg44-piece').count()).toBeGreaterThan(1);
 });
 
 test('v42 puzzle pieces can be dragged with pointer input', async ({ page }) => {
@@ -308,14 +323,14 @@ test('v42 puzzle pieces can be dragged with pointer input', async ({ page }) => 
   const initial = await openPuzzle(page);
   const fromSquare = initial.expectedMove.slice(0, 2);
   const toSquare = initial.expectedMove.slice(2, 4);
-  const from = await page.locator(`[data-km42-square="${fromSquare}"]`).boundingBox();
-  const to = await page.locator(`[data-km42-square="${toSquare}"]`).boundingBox();
+  const from = await visiblePuzzleSquareBox(page, fromSquare);
+  const to = await visiblePuzzleSquareBox(page, toSquare);
   if (!from || !to) throw new Error('Expected puzzle squares were not visible.');
 
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
   await page.mouse.move((from.x + to.x) / 2 + from.width / 2, (from.y + to.y) / 2 + from.height / 2, { steps: 5 });
-  await expect(page.locator('.km42-drag-ghost')).toBeVisible();
+  await expect(page.locator('.svg44-drag-ghost')).toBeVisible();
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
   await page.mouse.up();
   await page.waitForFunction(
@@ -323,7 +338,7 @@ test('v42 puzzle pieces can be dragged with pointer input', async ({ page }) => 
     initial.fen,
     { timeout: 15_000 },
   );
-  const authority = await page.evaluate(() => window.__KMATE_V42_AUTHORITY__.state());
-  expect(authority.tapHandlerCount).toBe(1);
-  expect(authority.dragOwner).toBe('board-pointer-events');
+  const input = await page.evaluate(() => window.__KMATE_SVG_BOARD_INPUT__.state());
+  expect(input.originalTapAndDrag).toBe(true);
+  expect(input.interactionLayer).toContain('SVG');
 });
