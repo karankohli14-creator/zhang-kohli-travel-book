@@ -56,6 +56,13 @@ try {
   // fullscreen fallback, restores coach narration through the browser's native
   // speech method, and attenuates the wooden movement cue again.
   await import('./mobile-board-focus-v49.js?v=49.0.0');
+  try {
+    // This tiny, later style layer deliberately outranks v48's phone rule so the
+    // explicit coach-audio button remains available beside fullscreen.
+    await import('./mobile-board-focus-v49-overrides.js?v=49.0.1');
+  } catch (error) {
+    console.warn('Optional v49 compact-control specificity fix could not load.', error);
+  }
 } catch (error) {
   console.warn('Optional v49 board-focus and coach-voice repair could not load.', error);
 }
