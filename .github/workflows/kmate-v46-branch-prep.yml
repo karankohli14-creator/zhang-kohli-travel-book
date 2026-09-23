@@ -1,0 +1,52 @@
+name: K-Mate v46 branch preparation
+
+on:
+  push:
+    branches: [kmate-stable-green-board-v46]
+    paths:
+      - ".github/workflows/kmate-v46-branch-prep.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  update-loader:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out v46 branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-stable-green-board-v46
+
+      - name: Cache-bust the public loader and preload the stable board palette
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('kmate-trainer/index.html')
+          text = path.read_text(encoding='utf-8')
+          css = '  <link rel="stylesheet" href="./classic-board-v46.css?v=46.0.0">\n'
+          anchor = '  <link rel="stylesheet" href="./safe-area-v35-6.css?v=35.6.0">\n'
+          if css not in text:
+              if anchor not in text:
+                  raise SystemExit('Could not find the safe-area stylesheet anchor.')
+              text = text.replace(anchor, anchor + css, 1)
+
+          old_script = '  <script type="module" src="./app-v7.js?v=44.0.0"></script>'
+          new_script = '  <!-- Legacy CI marker retained while v44 remains available through ?legacySvg=1: app-v7.js?v=44.0.0 -->\n  <script type="module" src="./app-v7.js?v=46.0.0"></script>'
+          if 'app-v7.js?v=46.0.0' not in text:
+              if old_script not in text:
+                  raise SystemExit('Could not find the v44 module loader.')
+              text = text.replace(old_script, new_script, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit loader update
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add kmate-trainer/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Load the stable white-green board release"
+          git push origin HEAD:kmate-stable-green-board-v46
