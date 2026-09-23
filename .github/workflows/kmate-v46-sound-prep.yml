@@ -1,0 +1,59 @@
+name: K-Mate v46 native move-sound preparation
+
+on:
+  push:
+    branches: [kmate-stable-green-board-v46]
+    paths:
+      - ".github/workflows/kmate-v46-sound-prep.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-native-observer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out v46 branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-stable-green-board-v46
+
+      - name: Observe native board rebuilds as well as square-class changes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('kmate-trainer/move-sound-v45.js')
+          text = path.read_text(encoding='utf-8')
+          old = """      const sourceChanged = mutations.some((mutation) => {
+        const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
+        const square = target?.closest?.('.sq');
+        return Boolean(square && square.parentElement === board);
+      });
+"""
+          new = """      const sourceChanged = mutations.some((mutation) => {
+        const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
+        if (target === board && mutation.type === 'childList') return true;
+        const square = target?.closest?.('.sq');
+        if (square && square.parentElement === board) return true;
+        return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => (
+          node instanceof Element
+          && (node.classList.contains('sq') || Boolean(node.querySelector?.('.sq,.piece')))
+        ));
+      });
+"""
+          if new not in text:
+              if old not in text:
+                  raise SystemExit('Could not find the move-sound board observer block.')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          Path('.github/workflows/kmate-v46-sound-prep.yml').unlink()
+          PY
+
+      - name: Commit native sound observer
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add kmate-trainer/move-sound-v45.js .github/workflows/kmate-v46-sound-prep.yml
+          git commit -m "Keep the uploaded move sound on the native board"
+          git push origin HEAD:kmate-stable-green-board-v46
