@@ -68,7 +68,9 @@ test('white and black SVG pieces retain unmistakably different palettes', async 
     const inspect = (color) => {
       const wrapper = document.querySelector(`#board .svg44-piece[data-svg-piece-color="${color}"]`);
       const svg = wrapper?.querySelector('.svg44-piece-art');
-      const stop = svg?.querySelector('.piece-grad-body-mid');
+      // v44 pieces use piece-grad-body-mid. The v47 sculpted replacement
+      // keeps its own stop class while retaining the same white/black contract.
+      const stop = svg?.querySelector('.piece-grad-body-mid, .sculpted-stop-body-mid');
       return {
         wrapperClass: wrapper?.getAttribute('class') || '',
         svgClass: svg?.getAttribute('class') || '',
