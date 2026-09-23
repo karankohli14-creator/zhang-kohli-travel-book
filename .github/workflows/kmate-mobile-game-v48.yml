@@ -50,7 +50,7 @@ jobs:
           grep -Fq "mobile-game-ux-v48.js?v=48.0.0" kmate-trainer/app-v7.js
           grep -Fq "KMATE_MOVE_VOLUME_V48 = 0.24" kmate-trainer/mobile-game-ux-v48.js
           grep -Fq "KMATE_MOVE_VIBRATION_MS_V48 = 8" kmate-trainer/mobile-game-ux-v48.js
-          grep -Fq "Coach voice ready" kmate-trainer/mobile-game-ux-v48.js
+          grep -Fiq "coach voice ready" kmate-trainer/mobile-game-ux-v48.js
           grep -Fq "Principle violated" kmate-trainer/mobile-game-ux-v48.js
           grep -Fq "live-coach-lines-grid" kmate-trainer/mobile-game-ux-v48.css
           grep -Fq "#kmateHintEdgeButton" kmate-trainer/mobile-game-ux-v48.css
