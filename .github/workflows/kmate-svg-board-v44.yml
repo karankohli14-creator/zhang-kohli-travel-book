@@ -66,12 +66,17 @@ jobs:
           node --check kmate-trainer/tests/svg-board-v44.spec.mjs
           node --check kmate-trainer/tests/svg-piece-contrast-v44.spec.mjs
           node --check kmate-trainer/tests/audio-latency-v45.spec.mjs
-          grep -Fq "move-sound-v45.js?v=45.1.0" kmate-trainer/app-v7.js
+          grep -Fq "move-sound-v45.js?v=45.2.0" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44-input.js?v=44.0.4" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44-contrast.js?v=44.0.1" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v45-performance.js?v=45.1.0" kmate-trainer/app-v7.js
-          grep -Fq "KMATE_MOVE_SOUND_VERSION = '45.1.0'" kmate-trainer/move-sound-v45.js
+          grep -Fq "KMATE_MOVE_SOUND_VERSION = '45.2.0'" kmate-trainer/move-sound-v45.js
+          grep -Fq "KMATE_MOVE_SOUND_VOLUME = 0.48" kmate-trainer/move-sound-v45.js
+          grep -Fq "kmate-reference-capture-v28.wav" kmate-trainer/move-sound-v45.js
+          grep -Fq "kmate-reference-check-v28.wav" kmate-trainer/move-sound-v45.js
+          grep -Fq "uniformBoardSound: true" kmate-trainer/move-sound-v45.js
+          grep -Fq "puzzle-capture-check" kmate-trainer/move-sound-v45.js
           grep -Fq "SVG45_PERFORMANCE_VERSION = '45.1.0'" kmate-trainer/svg-board-v45-performance.js
           grep -Fq "SVG44_CONTRAST_VERSION = '44.0.1'" kmate-trainer/svg-board-v44-contrast.js
           grep -Fq "svg-board-v44-interaction.css" kmate-trainer/svg-board-v44-input.js
@@ -102,7 +107,7 @@ jobs:
           cat /tmp/kmate-svg44-http.log
           exit 1
 
-      - name: Test opt-in legacy SVG play, contrast, audio, and input
+      - name: Test opt-in legacy SVG play, uniform wood audio, and input
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?legacySvg=1
         run: >-
