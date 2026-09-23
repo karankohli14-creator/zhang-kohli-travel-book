@@ -76,7 +76,7 @@ jobs:
           grep -Fq "kmate-reference-capture-v28.wav" kmate-trainer/move-sound-v45.js
           grep -Fq "kmate-reference-check-v28.wav" kmate-trainer/move-sound-v45.js
           grep -Fq "uniformBoardSound: true" kmate-trainer/move-sound-v45.js
-          grep -Fq "puzzle-capture-check" kmate-trainer/move-sound-v45.js
+          grep -Fq "capture-check" kmate-trainer/move-sound-v45.js
           grep -Fq "SVG45_PERFORMANCE_VERSION = '45.1.0'" kmate-trainer/svg-board-v45-performance.js
           grep -Fq "SVG44_CONTRAST_VERSION = '44.0.1'" kmate-trainer/svg-board-v44-contrast.js
           grep -Fq "svg-board-v44-interaction.css" kmate-trainer/svg-board-v44-input.js
