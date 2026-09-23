@@ -22,26 +22,10 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           path = Path('kmate-trainer/move-sound-v45.js')
           text = path.read_text(encoding='utf-8')
-          old = """      const sourceChanged = mutations.some((mutation) => {
-        const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
-        const square = target?.closest?.('.sq');
-        return Boolean(square && square.parentElement === board);
-      });
-"""
-          new = """      const sourceChanged = mutations.some((mutation) => {
-        const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
-        if (target === board && mutation.type === 'childList') return true;
-        const square = target?.closest?.('.sq');
-        if (square && square.parentElement === board) return true;
-        return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => (
-          node instanceof Element
-          && (node.classList.contains('sq') || Boolean(node.querySelector?.('.sq,.piece')))
-        ));
-      });
-"""
+          old = "      const sourceChanged = mutations.some((mutation) => {\n        const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;\n        const square = target?.closest?.('.sq');\n        return Boolean(square && square.parentElement === board);\n      });\n"
+          new = "      const sourceChanged = mutations.some((mutation) => {\n        const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;\n        if (target === board && mutation.type === 'childList') return true;\n        const square = target?.closest?.('.sq');\n        if (square && square.parentElement === board) return true;\n        return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => (\n          node instanceof Element\n          && (node.classList.contains('sq') || Boolean(node.querySelector?.('.sq,.piece')))\n        ));\n      });\n"
           if new not in text:
               if old not in text:
                   raise SystemExit('Could not find the move-sound board observer block.')
