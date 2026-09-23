@@ -64,6 +64,15 @@ if (responses[0].endsWith('\n  }') && responses[1].startsWith(' }\n')) {
 const moduleUrl = URL.createObjectURL(new Blob([responses.join('')], { type: 'text/javascript' }));
 try {
   await import(moduleUrl);
+
+  try {
+    // v47 replaces only the piece artwork. It keeps the stable white/green
+    // board and all existing input, chess, puzzle, clock, and audio behavior.
+    await import('./sculpted-pieces-v47.js?v=47.0.0');
+  } catch (error) {
+    console.warn('Optional v47 sculpted chess-piece artwork could not load.', error);
+  }
+
   try {
     await import('./position-importers-v1.js?v=36.0.0');
     try {
