@@ -44,9 +44,9 @@ try {
 }
 
 try {
-  // This bootstrap runs before the core sound system so the uploaded wooden
-  // impact is preloaded, cache-busted, and unlocked from the first gesture.
-  await import('./move-sound-v45.js?v=45.1.0');
+  // This bootstrap runs before the core sound system so one quieter wooden
+  // impact owns every board move while the legacy move/capture/check cues stay silent.
+  await import('./move-sound-v45.js?v=45.2.0');
 } catch (error) {
   console.warn('Optional v45 uploaded move-sound bootstrap could not load.', error);
 }
