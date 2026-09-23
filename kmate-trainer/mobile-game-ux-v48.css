@@ -1,0 +1,394 @@
+/* K-Mate v48 — board-first mobile play, concise coaching, and stronger contrast */
+
+html.kmate-game-ux-v48 .piece.kmate-sculpted-piece-v47 .sculpted-art{
+  stroke-width:2.85!important;
+}
+html.kmate-game-ux-v48 .piece.kmate-sculpted-piece-v47.white{
+  --kmate-sculpted-body-hi:#fffdf6;
+  --kmate-sculpted-body-mid:#f0c98f;
+  --kmate-sculpted-body-low:#96501f;
+  --kmate-sculpted-base-hi:#f8dbad;
+  --kmate-sculpted-base-low:#703716;
+  --kmate-sculpted-band-hi:#e6ae68;
+  --kmate-sculpted-band-low:#54240d;
+  --kmate-sculpted-shadow-hi:#a45e29;
+  --kmate-sculpted-shadow-low:#321306;
+  --kmate-sculpted-crown-hi:#ffe3ae;
+  --kmate-sculpted-crown-low:#7f3c17;
+  --kmate-sculpted-edge:#2b1307;
+  --kmate-sculpted-grain:#6b3212;
+  --kmate-sculpted-highlight:#ffffff;
+  --kmate-sculpted-ground:#1e0d05;
+}
+html.kmate-game-ux-v48 .piece.kmate-sculpted-piece-v47.black{
+  --kmate-sculpted-body-hi:#92989e;
+  --kmate-sculpted-body-mid:#24282c;
+  --kmate-sculpted-body-low:#000102;
+  --kmate-sculpted-base-hi:#545a60;
+  --kmate-sculpted-base-low:#000000;
+  --kmate-sculpted-band-hi:#6d7379;
+  --kmate-sculpted-band-low:#07090a;
+  --kmate-sculpted-shadow-hi:#282d31;
+  --kmate-sculpted-shadow-low:#000000;
+  --kmate-sculpted-crown-hi:#a3a9ae;
+  --kmate-sculpted-crown-low:#111417;
+  --kmate-sculpted-edge:#e8eee9;
+  --kmate-sculpted-grain:#d0d7d2;
+  --kmate-sculpted-highlight:#ffffff;
+  --kmate-sculpted-ground:#000000;
+}
+html.kmate-game-ux-v48 .piece.kmate-sculpted-piece-v47.black .sculpted-art{
+  stroke-width:2.45!important;
+}
+html.kmate-game-ux-v48 .piece.kmate-sculpted-piece-v47 .highlight{opacity:.7!important}
+html.kmate-game-ux-v48 .piece.kmate-sculpted-piece-v47 .ground{opacity:.34!important}
+
+/* Consistent tactile controls: the sound layer supplies a soft button tap. */
+html.kmate-game-ux-v48 .roundbtn,
+html.kmate-game-ux-v48 .hint-action,
+html.kmate-game-ux-v48 .live-coach-actions .btn,
+html.kmate-game-ux-v48 #kmateHintEdgeButton{
+  border:1px solid #ffffff2b!important;
+  background:linear-gradient(180deg,#2b3b2f 0%,#17241b 68%,#101912 100%)!important;
+  color:#f6faf5!important;
+  box-shadow:inset 0 1px 0 #ffffff30,0 3px 0 #071009,0 7px 15px #0008!important;
+  transition:transform .08s ease,filter .08s ease,box-shadow .08s ease!important;
+}
+html.kmate-game-ux-v48 .roundbtn:active,
+html.kmate-game-ux-v48 .hint-action:active,
+html.kmate-game-ux-v48 .live-coach-actions .btn:active,
+html.kmate-game-ux-v48 #kmateHintEdgeButton:active{
+  transform:translateY(2px)!important;
+  filter:brightness(1.08);
+  box-shadow:inset 0 1px 0 #ffffff20,0 1px 0 #071009,0 3px 8px #0008!important;
+}
+html.kmate-game-ux-v48 #fullscreenButton{
+  border-color:#b9f47480!important;
+  background:linear-gradient(180deg,#c9fa8c 0%,#87c94f 72%,#568b2e 100%)!important;
+  color:#10200d!important;
+  box-shadow:inset 0 1px 0 #ffffff90,0 3px 0 #315b1d,0 8px 18px #0008!important;
+  font-weight:950;
+}
+html.kmate-game-ux-v48 #fullscreenButton.active{
+  outline:2px solid #d9ffab;
+  outline-offset:1px;
+}
+
+/* The automatic readiness line is not useful. Errors remain visible. */
+html.kmate-game-ux-v48 #coachVoiceSetupStatus[data-state="ready"],
+html.kmate-game-ux-v48 #coachVoiceSetupStatus[data-state="prepared"],
+html.kmate-game-ux-v48 #coachVoiceSetupStatus[data-state="speaking"],
+html.kmate-game-ux-v48 #coachVoiceSetupStatus[data-state="starting"]{
+  display:none!important;
+}
+html.kmate-game-ux-v48 .wizard-audio-check:has(#coachVoiceSetupStatus[data-state="ready"]),
+html.kmate-game-ux-v48 .wizard-audio-check:has(#coachVoiceSetupStatus[data-state="prepared"]),
+html.kmate-game-ux-v48 .wizard-audio-check:has(#coachVoiceSetupStatus[data-state="speaking"]){
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+}
+
+/* One compact teaching card: why, principle, and stronger idea. */
+html.kmate-game-ux-v48 .live-coach-board-legend,
+html.kmate-game-ux-v48 .live-coach-lines-grid,
+html.kmate-game-ux-v48 .live-coach-summary,
+html.kmate-game-ux-v48 .live-coach-audio-status,
+html.kmate-game-ux-v48 .live-coach-pause-banner,
+html.kmate-game-ux-v48 .live-coach-principles,
+html.kmate-game-ux-v48 #liveCoachReplayHighlightsButton,
+html.kmate-game-ux-v48 #liveCoachTitle,
+html.kmate-game-ux-v48 .live-coach-head .eyebrow{
+  display:none!important;
+}
+html.kmate-game-ux-v48 .live-coach-board-panel{
+  padding:12px!important;
+  gap:8px!important;
+  overflow:auto!important;
+}
+html.kmate-game-ux-v48 .live-coach-head{
+  min-height:32px;
+  justify-content:flex-end!important;
+  margin:0!important;
+}
+html.kmate-game-ux-v48 .live-coach-head-tools{
+  width:100%;
+  justify-content:space-between!important;
+}
+html.kmate-game-ux-v48 .live-coach-comparison{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:8px!important;
+  margin:0!important;
+}
+html.kmate-game-ux-v48 .live-coach-comparison article{
+  min-width:0;
+  padding:11px 12px!important;
+  border-radius:12px!important;
+}
+html.kmate-game-ux-v48 .live-coach-comparison small{
+  display:block;
+  color:#c6d2c8!important;
+  font-size:11px!important;
+  font-weight:950!important;
+  letter-spacing:.06em!important;
+  text-transform:uppercase;
+}
+html.kmate-game-ux-v48 .live-coach-comparison b{
+  margin-top:4px!important;
+  font-size:17px!important;
+  line-height:1.15!important;
+}
+html.kmate-game-ux-v48 .live-coach-comparison p{
+  margin:6px 0 0!important;
+  max-height:none!important;
+  overflow:visible!important;
+  color:#f2f6f1!important;
+  font-size:15px!important;
+  line-height:1.42!important;
+}
+html.kmate-game-ux-v48 #liveCoachYourMove{display:none!important}
+html.kmate-game-ux-v48 .km48-principle{
+  margin-top:10px;
+  padding:9px 10px;
+  border-left:4px solid #f4cc70;
+  border-radius:9px;
+  background:#f4cc7013;
+}
+html.kmate-game-ux-v48 .km48-principle small{
+  color:#f9d987!important;
+  font-size:10px!important;
+}
+html.kmate-game-ux-v48 .km48-principle b{
+  display:block;
+  margin-top:3px!important;
+  color:#fff5cf!important;
+  font-size:14px!important;
+  line-height:1.32!important;
+}
+html.kmate-game-ux-v48 .live-coach-actions{
+  position:static!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr)!important;
+  gap:8px!important;
+  margin:0!important;
+  padding:2px 0 0!important;
+  background:none!important;
+  box-shadow:none!important;
+}
+html.kmate-game-ux-v48 .live-coach-actions .btn{
+  min-height:42px!important;
+  padding:0 10px!important;
+  font-size:12px!important;
+}
+html.kmate-game-ux-v48 #liveCoachContinueButton{
+  border-color:#b9f47488!important;
+  background:linear-gradient(180deg,#c9fa8c,#7fbf48)!important;
+  color:#10200d!important;
+  box-shadow:inset 0 1px #ffffff90,0 3px 0 #315b1d,0 8px 16px #0007!important;
+}
+
+/* Keep coach arrows proportional to the now-larger mobile board. */
+html.kmate-game-ux-v48 .live-coach-board-arrows{
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+}
+html.kmate-game-ux-v48 .live-coach-board-arrows .played-arrow{
+  stroke-width:2.45!important;
+  stroke-dasharray:4.2 2.2!important;
+}
+html.kmate-game-ux-v48 .live-coach-board-arrows .best-arrow{stroke-width:2.75!important}
+
+#kmateHintEdgeButton{display:none}
+
+@media(max-width:760px){
+  html.kmate-game-ux-v48 body.game-mode #gameView{
+    gap:3px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .playtop{
+    min-height:43px!important;
+    margin:0 0 3px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .playtop .left>div{
+    display:none!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .playtop .left{gap:4px!important}
+  html.kmate-game-ux-v48 body.game-mode .play-actions{
+    margin-left:auto;
+    gap:7px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .roundbtn{
+    width:40px!important;
+    height:40px!important;
+    border-radius:12px!important;
+    font-size:17px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode #fullscreenButton{
+    width:47px!important;
+    font-size:20px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode #gameCoachAudioButton{display:none!important}
+
+  html.kmate-game-ux-v48 body.game-mode .boardcol{
+    grid-template-rows:auto minmax(0,1fr) auto!important;
+    gap:2px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .playerbar{
+    min-height:40px!important;
+    padding:3px 6px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .avatar{
+    width:28px!important;
+    height:28px!important;
+    font-size:18px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .identity b{font-size:11px!important}
+  html.kmate-game-ux-v48 body.game-mode .clock{
+    min-width:65px!important;
+    padding:3px 6px!important;
+    font-size:17px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .materialpill{font-size:8px!important}
+  html.kmate-game-ux-v48 body.game-mode .status{display:none!important}
+
+  html.kmate-game-ux-v48 body.game-mode #hintCard{
+    display:none!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode.km48-hint-open #hintCard{
+    position:fixed!important;
+    z-index:94!important;
+    top:calc(var(--kmate-safe-top,12px) + 51px)!important;
+    left:calc(var(--kmate-safe-left,0px) + 48px)!important;
+    display:block!important;
+    width:min(310px,calc(100vw - var(--kmate-safe-left,0px) - var(--kmate-safe-right,0px) - 60px))!important;
+    max-height:220px!important;
+    margin:0!important;
+    padding:10px!important;
+    overflow:auto!important;
+    border:1px solid #b9f47466!important;
+    border-radius:14px!important;
+    background:linear-gradient(155deg,#1b2b20,#0b140e)!important;
+    box-shadow:0 18px 50px #000d!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode.km48-hint-open #hintCard p{
+    display:block!important;
+    margin:6px 0!important;
+    font-size:12px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode #kmateHintEdgeButton{
+    position:fixed;
+    z-index:93;
+    top:calc(var(--kmate-safe-top,12px) + 53px);
+    left:var(--kmate-safe-left,0px);
+    display:grid;
+    place-items:center;
+    width:42px;
+    height:48px;
+    padding:0 4px 0 1px;
+    border-left:0!important;
+    border-radius:0 14px 14px 0!important;
+    font-size:21px;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active #kmateHintEdgeButton{display:none!important}
+
+  html.kmate-game-ux-v48 body.game-mode .board-coach-stage{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    place-items:center!important;
+    min-width:0!important;
+    min-height:0!important;
+    padding:1px!important;
+    border-radius:9px!important;
+    overflow:visible!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-boardwrap{
+    width:min(100%,calc(100dvh - var(--kmate-safe-top,12px) - var(--kmate-safe-bottom,8px) - 146px))!important;
+    max-width:100%!important;
+    height:auto!important;
+    aspect-ratio:1!important;
+    margin:0 auto!important;
+    padding:2px!important;
+    align-self:center!important;
+    justify-self:center!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-boardwrap #board{
+    width:100%!important;
+    height:100%!important;
+    aspect-ratio:1!important;
+  }
+
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .boardcol{
+    grid-template-rows:auto minmax(0,1fr) auto!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .board-coach-stage{
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:auto minmax(150px,28dvh)!important;
+    align-content:start!important;
+    gap:5px!important;
+    padding:2px!important;
+    overflow:hidden!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-boardwrap{
+    width:min(100%,max(292px,42dvh))!important;
+    max-height:none!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-coach-board-panel{
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    max-height:28dvh!important;
+    padding:8px!important;
+    border-radius:11px!important;
+    overflow:auto!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-coach-head{
+    min-height:26px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-coach-voice-toggle{
+    min-height:28px!important;
+    padding:0 8px!important;
+    font-size:10px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .move-quality-badge{
+    font-size:10px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-coach-comparison{
+    gap:6px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-coach-comparison article{
+    padding:8px 9px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-coach-comparison p{
+    font-size:13.5px!important;
+    line-height:1.32!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-coach-comparison b{
+    font-size:15px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .km48-principle{
+    margin-top:7px!important;
+    padding:7px 8px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .km48-principle b{
+    font-size:13px!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-coach-actions .btn{
+    min-height:36px!important;
+    font-size:11px!important;
+  }
+}
+
+@media(max-width:430px) and (max-height:720px){
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .board-coach-stage{
+    grid-template-rows:auto minmax(142px,27dvh)!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-boardwrap{
+    width:min(100%,max(282px,41dvh))!important;
+  }
+  html.kmate-game-ux-v48 body.game-mode .live-coach-active .live-coach-board-panel{
+    max-height:27dvh!important;
+  }
+}
+
+/* End K-Mate v48 */
