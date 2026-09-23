@@ -1,0 +1,510 @@
+/* K-Mate v50 — full-page board, genuinely on-demand hints, brighter board,
+   stronger piece contrast, and a compact pointed pawn silhouette. */
+
+html.kmate-mobile-full-page-v50,
+html.kmate-mobile-full-page-v50 body {
+  width: 100%;
+  min-height: 100%;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode {
+  margin: 0 !important;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  background: #050a06 !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .appbar {
+  display: none !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .shell {
+  position: fixed !important;
+  z-index: 20 !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  width: 100dvw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding:
+    max(2px, env(safe-area-inset-top, 0px))
+    max(2px, env(safe-area-inset-right, 0px))
+    max(2px, env(safe-area-inset-bottom, 0px))
+    max(2px, env(safe-area-inset-left, 0px)) !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(69, 112, 72, .17), transparent 60%),
+    #050a06 !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode #gameView {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* The top controls float above the clock instead of taking a layout row. */
+html.kmate-mobile-full-page-v50 body.game-mode .playtop {
+  position: fixed !important;
+  z-index: 150 !important;
+  top: max(4px, env(safe-area-inset-top, 0px)) !important;
+  left: max(4px, env(safe-area-inset-left, 0px)) !important;
+  right: max(4px, env(safe-area-inset-right, 0px)) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: auto !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .playtop .left,
+html.kmate-mobile-full-page-v50 body.game-mode .play-actions {
+  pointer-events: auto !important;
+}
+
+/* Never reserve space for “Rook against Knight pressure · Variation …”. */
+html.kmate-mobile-full-page-v50 body.game-mode .playtop .left > div,
+html.kmate-mobile-full-page-v50 body.game-mode #gameMeta,
+html.kmate-mobile-full-page-v50 body.game-mode #positionTitle {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .playtop .left {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  gap: 0 !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .play-actions {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 5px !important;
+  margin-left: auto !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .roundbtn {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(255, 255, 255, .22) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, rgba(49, 70, 53, .96), rgba(14, 25, 17, .97)) !important;
+  color: #f8fff6 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .25),
+    0 2px 0 #050b06,
+    0 5px 14px rgba(0, 0, 0, .55) !important;
+  font-size: 17px !important;
+  line-height: 1 !important;
+  backdrop-filter: blur(5px);
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode #fullscreenButton {
+  width: 45px !important;
+  min-width: 45px !important;
+  border-color: rgba(202, 255, 142, .68) !important;
+  background: linear-gradient(180deg, #d5ffa0, #79be46) !important;
+  color: #10200d !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .82),
+    0 2px 0 #315b1d,
+    0 6px 16px rgba(0, 0, 0, .58) !important;
+  font-size: 21px !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .roundbtn:active {
+  transform: translateY(2px) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .16),
+    0 1px 0 #050b06,
+    0 3px 8px rgba(0, 0, 0, .55) !important;
+}
+
+/* The play grid, clocks, and board now use the entire viewport. */
+html.kmate-mobile-full-page-v50 body.game-mode .playgrid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .boardcol {
+  display: grid !important;
+  grid-template-rows: 43px minmax(0, 1fr) 43px !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  gap: 2px !important;
+  overflow: hidden !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .playerbar {
+  position: relative !important;
+  z-index: 30 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 43px !important;
+  min-height: 43px !important;
+  margin: 0 !important;
+  padding: 2px 52px !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: linear-gradient(180deg, rgba(24, 39, 28, .90), rgba(8, 15, 10, .92)) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07) !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .playerbar .identity,
+html.kmate-mobile-full-page-v50 body.game-mode .playerbar .materialpill,
+html.kmate-mobile-full-page-v50 body.game-mode .playerbar .turnpill {
+  display: none !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .clock-wrap {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .clock {
+  min-width: 82px !important;
+  padding: 4px 10px !important;
+  border-radius: 9px !important;
+  font-size: 19px !important;
+  letter-spacing: .02em !important;
+  text-align: center !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .status {
+  display: none !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .board-coach-stage {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  place-items: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  overflow: hidden !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .live-boardwrap {
+  width: min(
+    calc(100dvw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 4px),
+    calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 92px)
+  ) !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  aspect-ratio: 1 !important;
+  align-self: center !important;
+  justify-self: center !important;
+  margin: 0 !important;
+  padding: 2px !important;
+  border: 1px solid rgba(218, 255, 190, .31) !important;
+  border-radius: 7px !important;
+  background: #edf2d7 !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, .11),
+    0 0 20px rgba(148, 211, 102, .18),
+    0 12px 32px rgba(0, 0, 0, .48) !important;
+  box-sizing: border-box !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .live-boardwrap #board {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+/* Brighter green-and-ivory squares with a static, inexpensive soft glow. */
+html.kmate-mobile-full-page-v50 body.game-mode #board > .sq.light {
+  background-color: #f8f8e8 !important;
+  background-image: radial-gradient(circle at 42% 35%, rgba(255,255,255,.54), rgba(255,255,255,.08) 58%, rgba(216,226,186,.12) 100%) !important;
+  box-shadow: inset 0 0 9px rgba(255, 255, 255, .38) !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode #board > .sq.dark {
+  background-color: #8bb768 !important;
+  background-image: radial-gradient(circle at 42% 35%, rgba(226,255,199,.22), rgba(139,183,104,.04) 60%, rgba(53,94,42,.13) 100%) !important;
+  box-shadow: inset 0 0 9px rgba(230, 255, 205, .16) !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode #board > .sq.selected {
+  box-shadow:
+    inset 0 0 0 4px rgba(255, 225, 74, .82),
+    inset 0 0 15px rgba(255, 243, 128, .45) !important;
+}
+
+/* Stronger separation without animated filters or board redraws. */
+html.kmate-mobile-full-page-v50 .piece.kmate-sculpted-piece-v47.white {
+  --kmate-sculpted-body-hi: #fffef8;
+  --kmate-sculpted-body-mid: #f3ca8d;
+  --kmate-sculpted-body-low: #874015;
+  --kmate-sculpted-base-hi: #ffe0ad;
+  --kmate-sculpted-base-low: #672b0c;
+  --kmate-sculpted-band-hi: #efb76e;
+  --kmate-sculpted-band-low: #471a05;
+  --kmate-sculpted-shadow-hi: #9f5520;
+  --kmate-sculpted-shadow-low: #260b02;
+  --kmate-sculpted-crown-hi: #ffe7b4;
+  --kmate-sculpted-crown-low: #71300d;
+  --kmate-sculpted-edge: #1d0902;
+  --kmate-sculpted-grain: #5b2509;
+  --kmate-sculpted-highlight: #ffffff;
+  --kmate-sculpted-ground: #170701;
+}
+
+html.kmate-mobile-full-page-v50 .piece.kmate-sculpted-piece-v47.black {
+  --kmate-sculpted-body-hi: #c1c8cc;
+  --kmate-sculpted-body-mid: #30353a;
+  --kmate-sculpted-body-low: #000000;
+  --kmate-sculpted-base-hi: #697077;
+  --kmate-sculpted-base-low: #000000;
+  --kmate-sculpted-band-hi: #858c92;
+  --kmate-sculpted-band-low: #060708;
+  --kmate-sculpted-shadow-hi: #33383c;
+  --kmate-sculpted-shadow-low: #000000;
+  --kmate-sculpted-crown-hi: #d0d5d8;
+  --kmate-sculpted-crown-low: #141719;
+  --kmate-sculpted-edge: #f1f6ef;
+  --kmate-sculpted-grain: #dce3dd;
+  --kmate-sculpted-highlight: #ffffff;
+  --kmate-sculpted-ground: #000000;
+}
+
+html.kmate-mobile-full-page-v50 .piece.kmate-sculpted-piece-v47.white .sculpted-art {
+  stroke-width: 3.15 !important;
+}
+
+html.kmate-mobile-full-page-v50 .piece.kmate-sculpted-piece-v47.black .sculpted-art {
+  stroke-width: 2.75 !important;
+}
+
+html.kmate-mobile-full-page-v50 .piece.kmate-sculpted-piece-v47 .highlight {
+  opacity: .76 !important;
+}
+
+html.kmate-mobile-full-page-v50 .piece.kmate-sculpted-piece-v47 .grain {
+  opacity: .48 !important;
+}
+
+/* The normal hint card can never take board space. It is hidden until the
+   light-bulb control explicitly opens it. */
+html.kmate-mobile-full-page-v50 body.game-mode #hintCard,
+html.kmate-mobile-full-page-v50 body.game-mode #hintCard[hidden] {
+  display: none !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode.km50-hint-open #hintCard:not([hidden]) {
+  position: fixed !important;
+  z-index: 170 !important;
+  left: 50% !important;
+  bottom: calc(max(5px, env(safe-area-inset-bottom, 0px)) + 49px) !important;
+  display: block !important;
+  width: min(330px, calc(100dvw - 20px)) !important;
+  max-width: calc(100dvw - 20px) !important;
+  max-height: min(260px, 38dvh) !important;
+  margin: 0 !important;
+  padding: 11px !important;
+  transform: translateX(-50%) !important;
+  overflow: auto !important;
+  border: 1px solid rgba(197, 246, 134, .62) !important;
+  border-radius: 15px !important;
+  background: linear-gradient(155deg, rgba(30, 48, 34, .98), rgba(7, 15, 9, .99)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .12),
+    0 18px 60px rgba(0, 0, 0, .78) !important;
+  box-sizing: border-box !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode.km50-hint-open #hintCard .hint-head {
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode.km50-hint-open #hintCard p {
+  display: block !important;
+  margin: 8px 0 5px !important;
+  font-size: 13px !important;
+  line-height: 1.42 !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode.km50-hint-open #showHintButton {
+  min-width: 116px !important;
+  min-height: 36px !important;
+  border-radius: 11px !important;
+  font-weight: 900 !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode #kmateHintEdgeButton {
+  position: fixed !important;
+  z-index: 165 !important;
+  top: 50% !important;
+  left: max(0px, env(safe-area-inset-left, 0px)) !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 42px !important;
+  height: 52px !important;
+  margin: 0 !important;
+  padding: 0 4px 0 1px !important;
+  transform: translateY(-50%) !important;
+  border: 1px solid rgba(202, 255, 143, .62) !important;
+  border-left: 0 !important;
+  border-radius: 0 15px 15px 0 !important;
+  background: linear-gradient(180deg, #d8ffa2, #76b845) !important;
+  color: #12200e !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .72),
+    0 3px 0 #315b1d,
+    0 9px 22px rgba(0, 0, 0, .55) !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode #kmateHintEdgeButton[aria-expanded="true"] {
+  background: linear-gradient(180deg, #fff2a0, #e1b83f) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .78),
+    0 3px 0 #8d6c17,
+    0 0 20px rgba(255, 222, 92, .36) !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .live-coach-active #kmateHintEdgeButton,
+html.kmate-mobile-full-page-v50 body.game-mode.km50-immersive #kmateHintEdgeButton {
+  display: none !important;
+}
+
+/* Position details remain available through ☰ as a non-layout overlay. */
+html.kmate-mobile-full-page-v50 body.game-mode .sidepanel {
+  display: none !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode.game-panel-open .sidepanel {
+  position: fixed !important;
+  z-index: 180 !important;
+  top: calc(max(4px, env(safe-area-inset-top, 0px)) + 46px) !important;
+  right: max(5px, env(safe-area-inset-right, 0px)) !important;
+  bottom: max(5px, env(safe-area-inset-bottom, 0px)) !important;
+  display: flex !important;
+  width: min(360px, calc(100dvw - 12px)) !important;
+  height: auto !important;
+  overflow: auto !important;
+  transform: none !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .82) !important;
+}
+
+/* Bad-move coaching stays readable without shrinking the board. */
+html.kmate-mobile-full-page-v50 body.game-mode .live-coach-active .board-coach-stage {
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .live-coach-active .live-boardwrap {
+  width: min(
+    calc(100dvw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 4px),
+    calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 92px)
+  ) !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .live-coach-active .live-coach-board-panel {
+  position: fixed !important;
+  z-index: 190 !important;
+  left: max(5px, env(safe-area-inset-left, 0px)) !important;
+  right: max(5px, env(safe-area-inset-right, 0px)) !important;
+  bottom: max(5px, env(safe-area-inset-bottom, 0px)) !important;
+  display: block !important;
+  width: auto !important;
+  max-width: 720px !important;
+  max-height: min(430px, 48dvh) !important;
+  margin: 0 auto !important;
+  overflow: auto !important;
+  border-radius: 15px !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .84) !important;
+}
+
+/* Immersive mode is a dependable CSS fallback when mobile Safari does not
+   expose the native Fullscreen API. */
+html.kmate-mobile-full-page-v50 body.game-mode.km50-immersive .playtop .left,
+html.kmate-mobile-full-page-v50 body.game-mode.km50-immersive #gameCoachAudioButton,
+html.kmate-mobile-full-page-v50 body.game-mode.km50-immersive #panelToggleButton,
+html.kmate-mobile-full-page-v50 body.game-mode.km50-immersive #flipButton {
+  display: none !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode.km50-immersive .playtop {
+  justify-content: flex-end !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode.km50-immersive .playerbar {
+  background: rgba(4, 10, 6, .84) !important;
+}
+
+@media (max-width: 520px) {
+  html.kmate-mobile-full-page-v50 body.game-mode #flipButton {
+    display: none !important;
+  }
+
+  html.kmate-mobile-full-page-v50 body.game-mode .play-actions {
+    gap: 4px !important;
+  }
+
+  html.kmate-mobile-full-page-v50 body.game-mode .roundbtn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+  }
+
+  html.kmate-mobile-full-page-v50 body.game-mode #fullscreenButton {
+    width: 43px !important;
+    min-width: 43px !important;
+  }
+}
+
+/* End K-Mate v50 */
