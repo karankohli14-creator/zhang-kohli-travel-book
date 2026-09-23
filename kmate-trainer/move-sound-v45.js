@@ -1,9 +1,17 @@
-const KMATE_MOVE_SOUND_VERSION = '45.1.0';
+const KMATE_MOVE_SOUND_VERSION = '45.2.0';
 const KMATE_MOVE_SOUND_STORE_KEY = 'kmate-position-v7';
 const KMATE_MOVE_SOUND_ENABLED_KEY = 'kmate-move-sound-v45-enabled';
 const KMATE_MOVE_SOUND_MIGRATION_PENDING_KEY = 'kmate-move-sound-v45-migration-pending';
-const KMATE_MOVE_SOUND_PATH = '/sounds/live-v28/kmate-reference-move-v28.wav';
-const KMATE_MOVE_SOUND_URL = new URL(`./sounds/live-v28/kmate-reference-move-v28.wav?v=${KMATE_MOVE_SOUND_VERSION}`, import.meta.url).href;
+const KMATE_MOVE_SOUND_VOLUME = 0.48;
+const KMATE_MOVE_SOUND_URL = new URL(
+  `./sounds/live-v28/kmate-reference-move-v28.wav?v=${KMATE_MOVE_SOUND_VERSION}`,
+  import.meta.url,
+).href;
+const KMATE_CORE_BOARD_CUES = Object.freeze([
+  Object.freeze({ kind: 'move', suffix: '/sounds/live-v28/kmate-reference-move-v28.wav' }),
+  Object.freeze({ kind: 'capture', suffix: '/sounds/live-v28/kmate-reference-capture-v28.wav' }),
+  Object.freeze({ kind: 'check', suffix: '/sounds/live-v28/kmate-reference-check-v28.wav' }),
+]);
 const kmateMoveSoundNativeFetch = window.fetch.bind(window);
 
 let kmateMoveSoundContext = null;
@@ -19,6 +27,7 @@ let kmateMoveSoundInterceptCount = 0;
 let kmateMoveSoundObserver = null;
 let kmateMoveSoundMigrationAttempts = 0;
 let kmateMoveSoundMigrationStartedAt = performance.now();
+const kmateMoveSoundInterceptKinds = new Set();
 const kmateMoveSoundSnapshots = new WeakMap();
 const kmateMoveSoundTimers = new WeakMap();
 
@@ -66,12 +75,14 @@ function kmateMoveSoundMigrateSettings({ reinforce = false } = {}) {
     parsed.settings.soundTheme = 'reference-crisp';
     parsed.settings.referenceCrispMigrationDone = true;
     parsed.settings.uploadedMoveSoundV45 = KMATE_MOVE_SOUND_VERSION;
+    parsed.settings.uniformWoodMoveSound = true;
+    parsed.settings.woodMoveSoundVolume = KMATE_MOVE_SOUND_VOLUME;
     localStorage.setItem(KMATE_MOVE_SOUND_STORE_KEY, JSON.stringify(parsed));
     if (firstMigration) kmateMoveSoundSetMigrationPending(true);
     kmateMoveSoundMigrationAttempts += 1;
     return true;
   } catch (error) {
-    console.warn('K-Mate could not migrate the uploaded move-sound preference.', error);
+    console.warn('K-Mate could not migrate the wood move-sound preference.', error);
     return false;
   }
 }
@@ -92,12 +103,19 @@ function kmateMoveSoundUrl(input) {
   return null;
 }
 
+function kmateMoveSoundCoreCueKind(url) {
+  if (!url) return null;
+  return KMATE_CORE_BOARD_CUES.find((cue) => url.pathname.endsWith(cue.suffix))?.kind || null;
+}
+
 function kmateMoveSoundSilentWav() {
   const sampleRate = 8000;
   const samples = 80;
   const bytes = new ArrayBuffer(44 + samples * 2);
   const view = new DataView(bytes);
-  const write = (offset, value) => [...value].forEach((character, index) => view.setUint8(offset + index, character.charCodeAt(0)));
+  const write = (offset, value) => [...value].forEach((character, index) => {
+    view.setUint8(offset + index, character.charCodeAt(0));
+  });
   write(0, 'RIFF');
   view.setUint32(4, 36 + samples * 2, true);
   write(8, 'WAVE');
@@ -114,13 +132,15 @@ function kmateMoveSoundSilentWav() {
   return bytes;
 }
 
-// The core v28 profile still asks for its original URL. Suppress that ordinary
-// move sample only; this module owns the uploaded move sound. Capture and check
-// requests continue through unchanged.
+// The core app still requests separate move, capture, and check samples. Silence
+// all three legacy board cues so only this module's single wood sample is heard.
+// Outcome sounds such as win, loss, draw, and timeout remain untouched.
 window.fetch = function kmateMoveSoundFetch(input, init) {
   const url = kmateMoveSoundUrl(input);
-  if (url?.pathname.endsWith(KMATE_MOVE_SOUND_PATH) && url.searchParams.get('v') !== KMATE_MOVE_SOUND_VERSION) {
+  const cueKind = kmateMoveSoundCoreCueKind(url);
+  if (cueKind && url.searchParams.get('v') !== KMATE_MOVE_SOUND_VERSION) {
     kmateMoveSoundInterceptCount += 1;
+    kmateMoveSoundInterceptKinds.add(cueKind);
     return Promise.resolve(new Response(kmateMoveSoundSilentWav(), {
       status: 200,
       headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'no-store' },
@@ -130,18 +150,21 @@ window.fetch = function kmateMoveSoundFetch(input, init) {
 };
 
 kmateMoveSoundOwnEnabled();
-// Run once before the core app reads its settings. A second startup pass below
-// protects against older deferred scripts that may write a stale copy later.
+// Run before the core app reads its settings. A settling pass below protects
+// against older deferred scripts that may briefly write a stale copy later.
 kmateMoveSoundMigrateSettings();
 
-const kmateMoveSoundPool = Array.from({ length: 4 }, () => {
+function kmateMoveSoundCreateAudio() {
   const audio = new Audio(KMATE_MOVE_SOUND_URL);
   audio.preload = 'auto';
   audio.playsInline = true;
-  audio.volume = 1;
+  audio.volume = KMATE_MOVE_SOUND_VOLUME;
   try { audio.load(); } catch {}
   return audio;
-});
+}
+
+const kmateMoveSoundPrimer = kmateMoveSoundCreateAudio();
+const kmateMoveSoundPool = Array.from({ length: 4 }, kmateMoveSoundCreateAudio);
 
 function kmateMoveSoundBytes() {
   if (!kmateMoveSoundBytesPromise) {
@@ -178,7 +201,7 @@ async function kmateMoveSoundDecode() {
       return buffer;
     })
     .catch((error) => {
-      console.warn('K-Mate uploaded move sound could not be decoded.', error);
+      console.warn('K-Mate wood move sound could not be decoded.', error);
       return null;
     })
     .finally(() => { kmateMoveSoundDecodePromise = null; });
@@ -197,29 +220,28 @@ async function kmateMoveSoundPrime() {
     return true;
   }
 
-  const audio = kmateMoveSoundPool[0];
   let playPromise = null;
   let resumePromise = null;
   try {
-    audio.pause();
-    audio.currentTime = 0;
-    audio.volume = 0.001;
-    // Call both playback APIs before the first await so Safari and embedded
-    // iPhone browsers still treat them as part of the user's tap gesture.
-    playPromise = audio.play();
+    kmateMoveSoundPrimer.pause();
+    kmateMoveSoundPrimer.currentTime = 0;
+    kmateMoveSoundPrimer.volume = 0.001;
+    // Start both APIs before awaiting so Safari and embedded iPhone browsers
+    // still treat the unlock as part of the user's gesture.
+    playPromise = kmateMoveSoundPrimer.play();
     resumePromise = context?.resume?.();
     if (playPromise?.then) await playPromise;
     if (resumePromise?.then) await resumePromise;
     window.setTimeout(() => {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.volume = 1;
+      kmateMoveSoundPrimer.pause();
+      kmateMoveSoundPrimer.currentTime = 0;
+      kmateMoveSoundPrimer.volume = KMATE_MOVE_SOUND_VOLUME;
     }, 28);
     kmateMoveSoundPrimed = true;
     return true;
   } catch {
     try { if (resumePromise?.then) await resumePromise; } catch {}
-    audio.volume = 1;
+    kmateMoveSoundPrimer.volume = KMATE_MOVE_SOUND_VOLUME;
     kmateMoveSoundPrimed = Boolean(context && context.state === 'running');
     return kmateMoveSoundPrimed;
   }
@@ -230,9 +252,9 @@ function kmateMoveSoundHtmlFallback() {
   try {
     audio.pause();
     audio.currentTime = 0;
-    audio.volume = 1;
+    audio.volume = KMATE_MOVE_SOUND_VOLUME;
     const promise = audio.play();
-    if (promise?.catch) promise.catch((error) => console.warn('K-Mate move sound was blocked.', error));
+    if (promise?.catch) promise.catch((error) => console.warn('K-Mate wood move sound was blocked.', error));
     return true;
   } catch {
     return false;
@@ -249,17 +271,10 @@ function kmateMoveSoundPlay(reason = 'move') {
     try {
       const source = context.createBufferSource();
       const gain = context.createGain();
-      const compressor = context.createDynamicsCompressor();
       source.buffer = kmateMoveSoundBuffer;
-      gain.gain.setValueAtTime(1.28, context.currentTime);
-      compressor.threshold.setValueAtTime(-8, context.currentTime);
-      compressor.knee.setValueAtTime(8, context.currentTime);
-      compressor.ratio.setValueAtTime(4, context.currentTime);
-      compressor.attack.setValueAtTime(0.002, context.currentTime);
-      compressor.release.setValueAtTime(0.08, context.currentTime);
+      gain.gain.setValueAtTime(KMATE_MOVE_SOUND_VOLUME, context.currentTime);
       source.connect(gain);
-      gain.connect(compressor);
-      compressor.connect(context.destination);
+      gain.connect(context.destination);
       source.start(context.currentTime + 0.001);
       return true;
     } catch (error) {
@@ -284,6 +299,18 @@ function kmateMoveSoundPieceSnapshot(board) {
   return { signature: pieces.join('|'), count: pieces.length };
 }
 
+function kmateMoveSoundReason(board, previous, next) {
+  const scope = board.id === 'km42PuzzleBoard' ? 'puzzle' : 'game';
+  const capture = next.count < previous.count;
+  const check = [...board.children].some((element) => (
+    element.classList?.contains('sq') && element.classList.contains('check')
+  ));
+  if (capture && check) return `${scope}-capture-check`;
+  if (capture) return `${scope}-capture`;
+  if (check) return `${scope}-check`;
+  return `${scope}-move`;
+}
+
 function kmateMoveSoundCheckBoard(board) {
   const previous = kmateMoveSoundSnapshots.get(board);
   const next = kmateMoveSoundPieceSnapshot(board);
@@ -294,10 +321,10 @@ function kmateMoveSoundCheckBoard(board) {
   const nextMap = new Set(next.signature.split('|'));
   const changed = [...previousMap].filter((item) => !nextMap.has(item)).length
     + [...nextMap].filter((item) => !previousMap.has(item)).length;
-  if (changed < 2 || changed > 8) return;
-  if (next.count < previous.count) return; // Capture cue remains separate.
-  if ([...board.children].some((element) => element.classList?.contains('sq') && element.classList.contains('check'))) return;
-  kmateMoveSoundPlay(board.id === 'km42PuzzleBoard' ? 'puzzle-move' : 'game-move');
+  // Normal moves, captures, checks, castling, en passant, and promotions all
+  // stay within this range. Larger changes are board setup/re-render events.
+  if (changed < 2 || changed > 10) return;
+  kmateMoveSoundPlay(kmateMoveSoundReason(board, previous, next));
 }
 
 function kmateMoveSoundScheduleBoard(board) {
@@ -328,7 +355,9 @@ function kmateMoveSoundObserveBoards() {
     observer.observe(board, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   };
   document.querySelectorAll('#board,#km42PuzzleBoard').forEach(attach);
-  kmateMoveSoundObserver = new MutationObserver(() => document.querySelectorAll('#board,#km42PuzzleBoard').forEach(attach));
+  kmateMoveSoundObserver = new MutationObserver(() => {
+    document.querySelectorAll('#board,#km42PuzzleBoard').forEach(attach);
+  });
   kmateMoveSoundObserver.observe(document.body, { childList: true, subtree: true });
 }
 
@@ -337,11 +366,15 @@ function kmateMoveSoundUpdateInterface() {
   if (!select) return false;
   select.value = 'reference-crisp';
   select.disabled = true;
-  select.setAttribute('aria-label', 'Uploaded K-Mate move sound');
+  select.setAttribute('aria-label', 'K-Mate quieter wood move sound');
   const label = document.querySelector('label[for="soundStyleSelect"]');
-  if (label) label.textContent = 'Uploaded piece-move sound';
+  if (label) label.textContent = 'Wood move sound';
   const description = document.querySelector('#soundStyleDescription');
-  if (description) description.textContent = 'Your uploaded wooden impact is used for every ordinary move. Captures and checks keep separate cues.';
+  if (description) {
+    description.textContent = 'The same quieter wooden impact is used for every move, capture, check, castle, en passant, and promotion.';
+  }
+  const capturePreview = document.querySelector('#previewCaptureButton');
+  if (capturePreview) capturePreview.title = 'Captures use the same wood sound';
   return true;
 }
 
@@ -349,17 +382,18 @@ function kmateMoveSoundFinishMigration() {
   if (!kmateMoveSoundMigrationPending()) return true;
   kmateMoveSoundMigrateSettings({ reinforce: true });
   const toggle = document.querySelector('#soundToggle');
-  if (kmateMoveSoundOwnEnabled() && toggle instanceof HTMLButtonElement && toggle.textContent?.includes('🔇')) toggle.click();
+  if (kmateMoveSoundOwnEnabled() && toggle instanceof HTMLButtonElement && toggle.textContent?.includes('🔇')) {
+    toggle.click();
+  }
   kmateMoveSoundUpdateInterface();
 
   const stored = kmateMoveSoundStoredSettings();
-  const soundOn = kmateMoveSoundOwnEnabled() && !toggle?.textContent?.includes('🔇');
   const profileReady = stored?.soundTheme === 'reference-crisp'
-    && stored?.uploadedMoveSoundV45 === KMATE_MOVE_SOUND_VERSION;
-  // Keep reinforcing through the app shell's startup writes. Only then mark
-  // the one-time migration complete so future manual mute choices are kept.
+    && stored?.uploadedMoveSoundV45 === KMATE_MOVE_SOUND_VERSION
+    && stored?.uniformWoodMoveSound === true
+    && stored?.woodMoveSoundVolume === KMATE_MOVE_SOUND_VOLUME;
   const startupSettled = performance.now() - kmateMoveSoundMigrationStartedAt >= 3500;
-  if (soundOn && profileReady && document.querySelector('#soundStyleSelect')?.disabled && startupSettled) {
+  if (profileReady && document.querySelector('#soundStyleSelect')?.disabled && startupSettled) {
     kmateMoveSoundSetMigrationPending(false);
     return true;
   }
@@ -368,8 +402,6 @@ function kmateMoveSoundFinishMigration() {
 
 function kmateMoveSoundInitialize() {
   kmateMoveSoundMigrationStartedAt = performance.now();
-  // Deferred app-shell code may write an older settings snapshot after the
-  // early migration. Reapply during the short first-run settling window.
   kmateMoveSoundMigrateSettings({ reinforce: kmateMoveSoundMigrationPending() });
   kmateMoveSoundObserveBoards();
   void kmateMoveSoundBytes();
@@ -385,7 +417,7 @@ function kmateMoveSoundInitialize() {
   window.addEventListener('keydown', () => { void kmateMoveSoundPrime(); }, { capture: true });
   window.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest('#previewSoundButton')) {
+    if (target?.closest('#previewSoundButton,#previewCaptureButton')) {
       event.preventDefault();
       event.stopImmediatePropagation();
       kmateMoveSoundSetEnabled(true);
@@ -413,6 +445,10 @@ function kmateMoveSoundInitialize() {
       ready: true,
       version: KMATE_MOVE_SOUND_VERSION,
       enabled: kmateMoveSoundOwnEnabled(),
+      volume: KMATE_MOVE_SOUND_VOLUME,
+      uniformBoardSound: true,
+      suppressedCoreKinds: KMATE_CORE_BOARD_CUES.map((cue) => cue.kind),
+      interceptedLegacyKinds: [...kmateMoveSoundInterceptKinds].sort(),
       primed: kmateMoveSoundPrimed,
       bufferReady: Boolean(kmateMoveSoundBuffer),
       contextState: kmateMoveSoundContext?.state || 'not-created',
@@ -425,6 +461,8 @@ function kmateMoveSoundInitialize() {
       migrationAttempts: kmateMoveSoundMigrationAttempts,
       storedSound: kmateMoveSoundStoredSettings()?.sound,
       storedTheme: kmateMoveSoundStoredSettings()?.soundTheme || null,
+      storedUniformWoodSound: kmateMoveSoundStoredSettings()?.uniformWoodMoveSound === true,
+      storedVolume: kmateMoveSoundStoredSettings()?.woodMoveSoundVolume ?? null,
     }),
   };
 }
