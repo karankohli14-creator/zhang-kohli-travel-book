@@ -1,4 +1,4 @@
-name: K-Mate v46 stable board QA
+name: K-Mate v47 stable board and sculpted pieces QA
 
 on:
   push:
@@ -6,19 +6,23 @@ on:
     paths:
       - "kmate-trainer/classic-board-v46.js"
       - "kmate-trainer/classic-board-v46.css"
+      - "kmate-trainer/sculpted-pieces-v47.js"
       - "kmate-trainer/move-sound-v45.js"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/classic-board-v46.spec.mjs"
+      - "kmate-trainer/tests/sculpted-pieces-v47.spec.mjs"
       - ".github/workflows/kmate-classic-board-v46.yml"
   pull_request:
     paths:
       - "kmate-trainer/classic-board-v46.js"
       - "kmate-trainer/classic-board-v46.css"
+      - "kmate-trainer/sculpted-pieces-v47.js"
       - "kmate-trainer/move-sound-v45.js"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/classic-board-v46.spec.mjs"
+      - "kmate-trainer/tests/sculpted-pieces-v47.spec.mjs"
       - ".github/workflows/kmate-classic-board-v46.yml"
   workflow_dispatch:
 
@@ -28,7 +32,7 @@ permissions:
 jobs:
   stable-board-browser-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -38,14 +42,20 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate stable-board and audio wiring
+      - name: Validate stable-board, sculpted-piece, and audio wiring
         run: |
           node --check kmate-trainer/classic-board-v46.js
+          node --check kmate-trainer/sculpted-pieces-v47.js
           node --check kmate-trainer/move-sound-v45.js
           node --check kmate-trainer/app-v7.js
           node --check kmate-trainer/tests/classic-board-v46.spec.mjs
+          node --check kmate-trainer/tests/sculpted-pieces-v47.spec.mjs
           grep -Fq "classic-board-v46.js?v=46.0.0" kmate-trainer/app-v7.js
+          grep -Fq "sculpted-pieces-v47.js?v=47.0.0" kmate-trainer/app-v7.js
           grep -Fq "move-sound-v45.js?v=45.2.0" kmate-trainer/app-v7.js
+          grep -Fq "SCULPTED_PIECES_VERSION = '47.0.0'" kmate-trainer/sculpted-pieces-v47.js
+          grep -Fq "sourceImageCopied: false" kmate-trainer/sculpted-pieces-v47.js
+          grep -Fq "original-sculpted-wood-inspired" kmate-trainer/sculpted-pieces-v47.js
           grep -Fq "KMATE_MOVE_SOUND_VERSION = '45.2.0'" kmate-trainer/move-sound-v45.js
           grep -Fq "KMATE_MOVE_SOUND_VOLUME = 0.48" kmate-trainer/move-sound-v45.js
           grep -Fq "uniformBoardSound: true" kmate-trainer/move-sound-v45.js
@@ -65,22 +75,23 @@ jobs:
 
       - name: Start static K-Mate server
         run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v46-http.log 2>&1 &
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v47-http.log 2>&1 &
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
               exit 0
             fi
             sleep 1
           done
-          cat /tmp/kmate-v46-http.log
+          cat /tmp/kmate-v47-http.log
           exit 1
 
-      - name: Test native pieces, palette, move response, overlay retirement, and uniform wood audio
+      - name: Test native board, sculpted artwork, move response, and uniform wood audio
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
         run: >-
           npx playwright test
           kmate-trainer/tests/classic-board-v46.spec.mjs
+          kmate-trainer/tests/sculpted-pieces-v47.spec.mjs
           --workers=1
           --reporter=line
 
@@ -88,9 +99,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: kmate-classic-board-v46-failure
+          name: kmate-sculpted-pieces-v47-failure
           path: |
             test-results
-            /tmp/kmate-v46-http.log
+            /tmp/kmate-v47-http.log
           if-no-files-found: ignore
           retention-days: 7
