@@ -6,6 +6,7 @@ on:
     paths:
       - "kmate-trainer/classic-board-v46.js"
       - "kmate-trainer/classic-board-v46.css"
+      - "kmate-trainer/move-sound-v45.js"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/classic-board-v46.spec.mjs"
@@ -14,6 +15,7 @@ on:
     paths:
       - "kmate-trainer/classic-board-v46.js"
       - "kmate-trainer/classic-board-v46.css"
+      - "kmate-trainer/move-sound-v45.js"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/classic-board-v46.spec.mjs"
@@ -39,6 +41,7 @@ jobs:
       - name: Validate stable-board wiring
         run: |
           node --check kmate-trainer/classic-board-v46.js
+          node --check kmate-trainer/move-sound-v45.js
           node --check kmate-trainer/app-v7.js
           node --check kmate-trainer/tests/classic-board-v46.spec.mjs
           grep -Fq "classic-board-v46.js?v=46.0.0" kmate-trainer/app-v7.js
@@ -47,6 +50,7 @@ jobs:
           grep -Fq -- "--kmate-board-light: #eeeed2" kmate-trainer/classic-board-v46.css
           grep -Fq -- "--kmate-board-dark: #769656" kmate-trainer/classic-board-v46.css
           grep -Fq "native-staunton-grid" kmate-trainer/classic-board-v46.js
+          grep -Fq "target === board && mutation.type === 'childList'" kmate-trainer/move-sound-v45.js
           grep -Fq "legacySvg" kmate-trainer/app-v7.js
 
       - name: Install browser dependencies
