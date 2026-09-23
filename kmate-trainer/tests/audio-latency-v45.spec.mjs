@@ -62,7 +62,7 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('uploaded move sound is active and ordinary SVG moves respond without the old delay', async ({ page }) => {
+test('one quieter wood sound owns every board move without the old delay', async ({ page }) => {
   test.setTimeout(150_000);
   await prepare(page);
 
@@ -77,17 +77,28 @@ test('uploaded move sound is active and ordinary SVG moves respond without the o
   await expect.poll(
     () => page.evaluate(() => JSON.parse(localStorage.getItem('kmate-position-v7'))?.settings?.uploadedMoveSoundV45),
     { timeout: 15_000 },
-  ).toBe('45.1.0');
+  ).toBe('45.2.0');
+  await expect.poll(
+    () => page.evaluate(() => JSON.parse(localStorage.getItem('kmate-position-v7'))?.settings?.uniformWoodMoveSound),
+    { timeout: 15_000 },
+  ).toBe(true);
+  await expect.poll(
+    () => page.evaluate(() => JSON.parse(localStorage.getItem('kmate-position-v7'))?.settings?.woodMoveSoundVolume),
+    { timeout: 15_000 },
+  ).toBe(0.48);
   await expect.poll(
     () => page.locator('#soundToggle').textContent(),
     { timeout: 15_000 },
   ).toContain('🔊');
 
   await expect(page.locator('#soundStyleSelect')).toBeDisabled({ timeout: 20_000 });
-  await expect(page.locator('#soundStyleDescription')).toContainText('uploaded wooden impact');
+  await expect(page.locator('#soundStyleDescription')).toContainText('same quieter wooden impact');
   const soundState = await page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state());
-  expect(soundState.version).toBe('45.1.0');
+  expect(soundState.version).toBe('45.2.0');
   expect(soundState.enabled).toBe(true);
+  expect(soundState.volume).toBe(0.48);
+  expect(soundState.uniformBoardSound).toBe(true);
+  expect(soundState.suppressedCoreKinds).toEqual(['move', 'capture', 'check']);
   expect(soundState.storedTheme).toBe('reference-crisp');
 
   const initialPlays = soundState.plays;
@@ -135,7 +146,13 @@ test('uploaded move sound is active and ordinary SVG moves respond without the o
     () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().plays),
     { timeout: 10_000 },
   ).toBeGreaterThan(initialPlays + 1);
+  await expect.poll(
+    () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().interceptedLegacyKinds),
+    { timeout: 15_000 },
+  ).toEqual(['capture', 'check', 'move']);
 
+  const finalSoundState = await page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state());
+  expect(finalSoundState.interceptedLegacyRequests).toBeGreaterThanOrEqual(3);
   const performanceState = await page.evaluate(() => window.__KMATE_SVG_BOARD_PERFORMANCE__.state());
   expect(performanceState.arrivalAnimationsDisabled).toBe(true);
   expect(performanceState.decorativeFiltersDisabled).toBe(true);

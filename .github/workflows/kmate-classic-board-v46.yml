@@ -38,13 +38,17 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate stable-board wiring
+      - name: Validate stable-board and audio wiring
         run: |
           node --check kmate-trainer/classic-board-v46.js
           node --check kmate-trainer/move-sound-v45.js
           node --check kmate-trainer/app-v7.js
           node --check kmate-trainer/tests/classic-board-v46.spec.mjs
           grep -Fq "classic-board-v46.js?v=46.0.0" kmate-trainer/app-v7.js
+          grep -Fq "move-sound-v45.js?v=45.2.0" kmate-trainer/app-v7.js
+          grep -Fq "KMATE_MOVE_SOUND_VERSION = '45.2.0'" kmate-trainer/move-sound-v45.js
+          grep -Fq "KMATE_MOVE_SOUND_VOLUME = 0.48" kmate-trainer/move-sound-v45.js
+          grep -Fq "uniformBoardSound: true" kmate-trainer/move-sound-v45.js
           grep -Fq "classic-board-v46.css?v=46.0.0" kmate-trainer/index.html
           grep -Fq "app-v7.js?v=46.0.0" kmate-trainer/index.html
           grep -Fq -- "--kmate-board-light: #eeeed2" kmate-trainer/classic-board-v46.css
@@ -71,7 +75,7 @@ jobs:
           cat /tmp/kmate-v46-http.log
           exit 1
 
-      - name: Test native pieces, white-green palette, move response, and overlay retirement
+      - name: Test native pieces, palette, move response, overlay retirement, and uniform wood audio
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
         run: >-
