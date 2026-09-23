@@ -1,0 +1,280 @@
+/* K-Mate v49 — true board-first phone play and dependable focus mode */
+
+body.km49-compact-game.game-mode #gameMeta,
+body.km49-compact-game.game-mode #positionTitle,
+body.km49-compact-game.game-mode .playtop .left>div,
+body.km49-compact-game.game-mode #hintCard{
+  display:none!important;
+}
+
+body.km49-compact-game.game-mode .shell{
+  overflow:hidden!important;
+}
+body.km49-compact-game.game-mode #gameView{
+  display:grid!important;
+  grid-template-rows:44px minmax(0,1fr)!important;
+  gap:3px!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+body.km49-compact-game.game-mode .playtop{
+  min-height:44px!important;
+  height:44px!important;
+  margin:0!important;
+  padding:1px 2px 3px!important;
+}
+body.km49-compact-game.game-mode .playtop .left{
+  flex:0 0 auto!important;
+  gap:0!important;
+}
+body.km49-compact-game.game-mode .play-actions{
+  flex:1 1 auto!important;
+  justify-content:flex-end!important;
+  gap:6px!important;
+}
+body.km49-compact-game.game-mode .roundbtn{
+  width:40px!important;
+  height:40px!important;
+  min-width:40px!important;
+  min-height:40px!important;
+  border-radius:12px!important;
+  font-size:17px!important;
+}
+body.km49-compact-game.game-mode #fullscreenButton{
+  width:48px!important;
+  min-width:48px!important;
+  font-size:21px!important;
+}
+body.km49-compact-game.game-mode #gameCoachAudioButton{
+  display:grid!important;
+}
+
+body.km49-compact-game.game-mode .playgrid{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:100%!important;
+  gap:0!important;
+  overflow:hidden!important;
+}
+body.km49-compact-game.game-mode .boardcol{
+  display:grid!important;
+  grid-template-rows:40px minmax(0,1fr) 40px!important;
+  gap:2px!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+body.km49-compact-game.game-mode .playerbar{
+  min-height:40px!important;
+  height:40px!important;
+  padding:3px 7px!important;
+  border-radius:10px!important;
+}
+body.km49-compact-game.game-mode .playerbar .avatar,
+body.km49-compact-game.game-mode .playerbar .identity small,
+body.km49-compact-game.game-mode .playerbar .materialpill,
+body.km49-compact-game.game-mode .playerbar .turnpill{
+  display:none!important;
+}
+body.km49-compact-game.game-mode .playerbar .identity{
+  min-width:0!important;
+}
+body.km49-compact-game.game-mode .playerbar .identity b{
+  display:block!important;
+  max-width:160px!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  font-size:11px!important;
+}
+body.km49-compact-game.game-mode .clock-wrap{
+  margin-left:auto!important;
+}
+body.km49-compact-game.game-mode .clock{
+  min-width:70px!important;
+  padding:4px 7px!important;
+  font-size:18px!important;
+}
+body.km49-compact-game.game-mode .status{
+  display:none!important;
+}
+
+body.km49-compact-game.game-mode .board-coach-stage{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  place-items:center!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:8px!important;
+  background:#07100a!important;
+  overflow:hidden!important;
+}
+body.km49-compact-game.game-mode .live-boardwrap{
+  width:min(
+    calc(100vw - var(--kmate-safe-left,0px) - var(--kmate-safe-right,0px) - 8px),
+    calc(100dvh - var(--kmate-safe-top,12px) - var(--kmate-safe-bottom,8px) - 132px)
+  )!important;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  aspect-ratio:1!important;
+  margin:auto!important;
+  padding:2px!important;
+  align-self:center!important;
+  justify-self:center!important;
+  border-radius:8px!important;
+}
+body.km49-compact-game.game-mode .live-boardwrap #board{
+  width:100%!important;
+  height:100%!important;
+  aspect-ratio:1!important;
+}
+
+/* Position details stay available through the three-line button, but never
+   reserve board space when closed. */
+body.km49-compact-game.game-mode .sidepanel{
+  display:none!important;
+}
+body.km49-compact-game.game-mode.game-panel-open .sidepanel{
+  position:fixed!important;
+  z-index:96!important;
+  top:calc(var(--kmate-safe-top,12px) + 6px)!important;
+  right:calc(var(--kmate-safe-right,0px) + 6px)!important;
+  bottom:calc(var(--kmate-safe-bottom,8px) + 6px)!important;
+  display:flex!important;
+  width:min(360px,calc(100vw - var(--kmate-safe-left,0px) - var(--kmate-safe-right,0px) - 18px))!important;
+  height:auto!important;
+  transform:none!important;
+  overflow:auto!important;
+  box-shadow:0 25px 80px #000e!important;
+}
+
+/* Hint is a light-bulb tab. Its text becomes an overlay only after a tap. */
+body.km49-compact-game.game-mode #kmateHintEdgeButton{
+  position:fixed!important;
+  z-index:92!important;
+  top:calc(var(--kmate-safe-top,12px) + 54px)!important;
+  left:var(--kmate-safe-left,0px)!important;
+  display:grid!important;
+  place-items:center!important;
+  width:40px!important;
+  height:48px!important;
+  padding:0 3px 0 0!important;
+  border-left:0!important;
+  border-radius:0 14px 14px 0!important;
+  font-size:21px!important;
+}
+body.km49-compact-game.game-mode.km49-hint-open #hintCard{
+  position:fixed!important;
+  z-index:94!important;
+  top:calc(var(--kmate-safe-top,12px) + 51px)!important;
+  left:calc(var(--kmate-safe-left,0px) + 45px)!important;
+  display:block!important;
+  width:min(320px,calc(100vw - var(--kmate-safe-left,0px) - var(--kmate-safe-right,0px) - 57px))!important;
+  max-height:230px!important;
+  margin:0!important;
+  padding:10px!important;
+  overflow:auto!important;
+  border:1px solid #b9f47470!important;
+  border-radius:14px!important;
+  background:linear-gradient(155deg,#1b2b20,#09120c)!important;
+  box-shadow:0 20px 60px #000e!important;
+}
+body.km49-compact-game.game-mode.km49-hint-open #hintCard p{
+  display:block!important;
+  margin:6px 0!important;
+  font-size:12px!important;
+  line-height:1.4!important;
+}
+body.km49-compact-game.game-mode .live-coach-active #kmateHintEdgeButton,
+body.km49-compact-game.game-mode.km49-fullscreen #kmateHintEdgeButton{
+  display:none!important;
+}
+
+/* Paused coaching retains the v48 pros/cons card but no longer shrinks the
+   board to a thumbnail. */
+body.km49-compact-game.game-mode .live-coach-active .boardcol{
+  grid-template-rows:40px minmax(0,1fr) 40px!important;
+}
+body.km49-compact-game.game-mode .live-coach-active .board-coach-stage{
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-template-rows:auto minmax(150px,26dvh)!important;
+  align-content:start!important;
+  gap:5px!important;
+  padding:1px!important;
+  overflow:hidden!important;
+}
+body.km49-compact-game.game-mode .live-coach-active .live-boardwrap{
+  width:min(
+    calc(100vw - var(--kmate-safe-left,0px) - var(--kmate-safe-right,0px) - 8px),
+    max(344px,45dvh)
+  )!important;
+  max-height:none!important;
+}
+body.km49-compact-game.game-mode .live-coach-active .live-coach-board-panel{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:26dvh!important;
+  overflow:auto!important;
+}
+
+/* True focus mode works even where iPhone browsers do not expose the native
+   Fullscreen API. The only top controls retained are coach audio and exit. */
+body.km49-compact-game.game-mode.km49-fullscreen .playtop{
+  justify-content:flex-end!important;
+}
+body.km49-compact-game.game-mode.km49-fullscreen .playtop .left,
+body.km49-compact-game.game-mode.km49-fullscreen .play-actions>#panelToggleButton,
+body.km49-compact-game.game-mode.km49-fullscreen .play-actions>#flipButton{
+  display:none!important;
+}
+body.km49-compact-game.game-mode.km49-fullscreen .play-actions{
+  flex:0 0 auto!important;
+}
+body.km49-compact-game.game-mode.km49-fullscreen #fullscreenButton{
+  border-color:#e8ffbf!important;
+  outline:2px solid #d7ff9f!important;
+  outline-offset:1px!important;
+}
+body.km49-compact-game.game-mode.km49-fullscreen .live-boardwrap{
+  width:min(
+    calc(100vw - var(--kmate-safe-left,0px) - var(--kmate-safe-right,0px) - 4px),
+    calc(100dvh - var(--kmate-safe-top,12px) - var(--kmate-safe-bottom,8px) - 126px)
+  )!important;
+}
+body.km49-compact-game.game-mode.km49-fullscreen .sidepanel,
+body.km49-compact-game.game-mode.km49-fullscreen .game-panel-backdrop{
+  display:none!important;
+}
+
+@media (orientation:landscape){
+  body.km49-compact-game.game-mode #gameView{
+    grid-template-rows:42px minmax(0,1fr)!important;
+  }
+  body.km49-compact-game.game-mode .boardcol{
+    grid-template-rows:36px minmax(0,1fr) 36px!important;
+  }
+  body.km49-compact-game.game-mode .playerbar{
+    min-height:36px!important;
+    height:36px!important;
+  }
+  body.km49-compact-game.game-mode .live-boardwrap{
+    width:min(
+      calc(100vw - var(--kmate-safe-left,0px) - var(--kmate-safe-right,0px) - 12px),
+      calc(100dvh - var(--kmate-safe-top,12px) - var(--kmate-safe-bottom,8px) - 118px)
+    )!important;
+  }
+}
+
+/* End K-Mate v49 */
