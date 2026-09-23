@@ -1,0 +1,92 @@
+name: K-Mate v46 stable board QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kmate-trainer/classic-board-v46.js"
+      - "kmate-trainer/classic-board-v46.css"
+      - "kmate-trainer/move-sound-v45.js"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/index.html"
+      - "kmate-trainer/tests/classic-board-v46.spec.mjs"
+      - ".github/workflows/kmate-classic-board-v46.yml"
+  pull_request:
+    paths:
+      - "kmate-trainer/classic-board-v46.js"
+      - "kmate-trainer/classic-board-v46.css"
+      - "kmate-trainer/move-sound-v45.js"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/index.html"
+      - "kmate-trainer/tests/classic-board-v46.spec.mjs"
+      - ".github/workflows/kmate-classic-board-v46.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stable-board-browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate stable-board wiring
+        run: |
+          node --check kmate-trainer/classic-board-v46.js
+          node --check kmate-trainer/move-sound-v45.js
+          node --check kmate-trainer/app-v7.js
+          node --check kmate-trainer/tests/classic-board-v46.spec.mjs
+          grep -Fq "classic-board-v46.js?v=46.0.0" kmate-trainer/app-v7.js
+          grep -Fq "classic-board-v46.css?v=46.0.0" kmate-trainer/index.html
+          grep -Fq "app-v7.js?v=46.0.0" kmate-trainer/index.html
+          grep -Fq -- "--kmate-board-light: #eeeed2" kmate-trainer/classic-board-v46.css
+          grep -Fq -- "--kmate-board-dark: #769656" kmate-trainer/classic-board-v46.css
+          grep -Fq "native-staunton-grid" kmate-trainer/classic-board-v46.js
+          grep -Fq "target === board && mutation.type === 'childList'" kmate-trainer/move-sound-v45.js
+          grep -Fq "legacySvg" kmate-trainer/app-v7.js
+
+      - name: Install browser dependencies
+        run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start static K-Mate server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v46-http.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/kmate-v46-http.log
+          exit 1
+
+      - name: Test native pieces, white-green palette, move response, and overlay retirement
+        env:
+          KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
+        run: >-
+          npx playwright test
+          kmate-trainer/tests/classic-board-v46.spec.mjs
+          --workers=1
+          --reporter=line
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmate-classic-board-v46-failure
+          path: |
+            test-results
+            /tmp/kmate-v46-http.log
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,88 @@
+/* K-Mate v46 — stable native board with the existing Staunton piece artwork. */
+:root {
+  --kmate-board-light: #eeeed2;
+  --kmate-board-dark: #769656;
+  --kmate-board-frame: #263c22;
+  --kmate-board-ink-light: #4f6b3d;
+  --kmate-board-ink-dark: #f4f7e9;
+}
+
+#board,
+#km42PuzzleBoard,
+.replay-board {
+  background: var(--kmate-board-dark) !important;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 12%), 0 18px 42px rgb(0 0 0 / 48%) !important;
+  contain: layout paint;
+  isolation: auto;
+}
+
+#board > .sq.light,
+#km42PuzzleBoard > .sq.light,
+.replay-board > .sq.light {
+  background-color: var(--kmate-board-light) !important;
+  background-image: none !important;
+}
+
+#board > .sq.dark,
+#km42PuzzleBoard > .sq.dark,
+.replay-board > .sq.dark {
+  background-color: var(--kmate-board-dark) !important;
+  background-image: none !important;
+}
+
+#board > .sq,
+#km42PuzzleBoard > .sq,
+.replay-board > .sq {
+  transition: none !important;
+  animation: none !important;
+  transform-style: flat;
+  backface-visibility: visible;
+}
+
+#board > .sq::after,
+#km42PuzzleBoard > .sq::after,
+.replay-board > .sq::after {
+  box-shadow: inset 0 1px rgb(255 255 255 / 13%), inset 0 -1px rgb(20 45 18 / 13%) !important;
+}
+
+#board > .sq.selected,
+#km42PuzzleBoard > .sq.selected,
+.replay-board > .sq.selected {
+  box-shadow: inset 0 0 0 5px rgb(246 246 105 / 92%) !important;
+}
+
+#board > .sq.last,
+#km42PuzzleBoard > .sq.last,
+.replay-board > .sq.last {
+  box-shadow: inset 0 0 0 999px rgb(246 246 105 / 31%) !important;
+}
+
+#board > .sq.legal::before,
+#km42PuzzleBoard > .sq.legal::before,
+.replay-board > .sq.legal::before {
+  background: rgb(38 70 29 / 48%) !important;
+  box-shadow: none !important;
+}
+
+#board > .sq.capture::before,
+#km42PuzzleBoard > .sq.capture::before,
+.replay-board > .sq.capture::before {
+  border-color: rgb(38 70 29 / 52%) !important;
+}
+
+#board > .sq.light .coord,
+#km42PuzzleBoard > .sq.light .coord,
+.replay-board > .sq.light .coord {
+  color: var(--kmate-board-ink-light) !important;
+  opacity: .9 !important;
+}
+
+#board > .sq.dark .coord,
+#km42PuzzleBoard > .sq.dark .coord,
+.replay-board > .sq.dark .coord {
+  color: var(--kmate-board-ink-dark) !important;
+  opacity: .92 !important;
+}
+
+/* The piece selectors are intentionally absent: v46 keeps the exact existing
+   Staunton SVG shapes, gradients, outlines, scale, and shadows. */
