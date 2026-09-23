@@ -44,18 +44,32 @@ try {
 }
 
 try {
-  // v48 installs the board-first mobile layout, concise Live Coach narration,
-  // one soft interface tap, 50%-quieter piece feedback, and optional haptics.
-  // It runs before v45 so the retired louder wood player remains disabled while
-  // v45 continues suppressing the core move/capture/check samples.
+  // v48 installs the concise bad-move comparison card, consistent soft UI tap,
+  // sculpted-piece contrast foundation, and the uniform wooden movement cue.
   await import('./mobile-game-ux-v48.js?v=48.0.0');
 } catch (error) {
   console.warn('Optional v48 mobile game and coaching layer could not load.', error);
 }
 
 try {
-  // This compatibility bootstrap suppresses the core sound library. v48 owns
-  // the single quieter wooden movement sample used by the production board.
+  // v49 makes phone play genuinely board-first, provides a dependable CSS
+  // fullscreen fallback, restores coach narration through the browser's native
+  // speech method, and attenuates the wooden movement cue again.
+  await import('./mobile-board-focus-v49.js?v=49.0.0');
+  try {
+    // This tiny, later style layer deliberately outranks v48's phone rule so the
+    // explicit coach-audio button remains available beside fullscreen.
+    await import('./mobile-board-focus-v49-overrides.js?v=49.0.1');
+  } catch (error) {
+    console.warn('Optional v49 compact-control specificity fix could not load.', error);
+  }
+} catch (error) {
+  console.warn('Optional v49 board-focus and coach-voice repair could not load.', error);
+}
+
+try {
+  // This compatibility bootstrap suppresses the core sound library. v48/v49
+  // own the single quieter wooden movement sample used by the production board.
   await import('./move-sound-v45.js?v=45.2.0');
 } catch (error) {
   console.warn('Optional v45 move-sound compatibility layer could not load.', error);
