@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const APP_URL = process.env.KMATE_APP_URL || 'http://127.0.0.1:4173/kmate-trainer/';
+const APP_URL = process.env.KMATE_APP_URL || 'http://127.0.0.1:4173/kmate-trainer/?legacySvg=1';
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 function chessModuleSource() {
@@ -251,6 +251,10 @@ test('the same SVG presentation plays a real puzzle by tap on a phone viewport',
   await clickVisibleSquare(page, '#km42PuzzleBoard', 'e4');
   await expect(page.locator('#km42PuzzleStatusText')).toContainText(/Correct|Continue/, { timeout: 10_000 });
   await expect(page.locator('#km42PuzzleBoard > .sq[data-km42-square="e4"] .piece')).toHaveCount(1);
+  // The retired SVG renderer intentionally rebuilds its overlay after the
+  // underlying puzzle grid changes. Wait for that opt-in overlay to settle
+  // before measuring it; the default v46 renderer has no overlay or flash.
+  await expect(page.locator('#km42PuzzleBoard.svg44-enabled .svg44-overlay')).toBeVisible({ timeout: 10_000 });
 
   const safeLayout = await page.evaluate(() => {
     const mode = document.querySelector('#km42PuzzleMode').getBoundingClientRect();

@@ -102,9 +102,9 @@ jobs:
           cat /tmp/kmate-svg44-http.log
           exit 1
 
-      - name: Test SVG play, piece contrast, move audio, and low-latency input
+      - name: Test opt-in legacy SVG play, contrast, audio, and input
         env:
-          KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/
+          KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?legacySvg=1
         run: >-
           npx playwright test
           kmate-trainer/tests/svg-board-v44.spec.mjs
