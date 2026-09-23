@@ -119,7 +119,9 @@ test('mobile play prioritizes the board, uses soft controls, and exposes hints f
     };
   });
   expect(layout.titleDisplay).toBe('none');
-  expect(layout.coachAudioDisplay).toBe('none');
+  // v49 deliberately restores this explicit control after removing the noisy
+  // automatic startup phrase, so players can confirm or replay coach speech.
+  expect(layout.coachAudioDisplay).toBe('grid');
   expect(layout.boardWidth).toBeGreaterThanOrEqual(360);
   expect(Math.abs(layout.boardWidth - layout.boardHeight)).toBeLessThan(2);
   expect(layout.menuShadow).not.toBe('none');
@@ -147,9 +149,10 @@ test('mobile play prioritizes the board, uses soft controls, and exposes hints f
   const voiceStartup = await page.evaluate(() => ({
     spoken: window.__kmateSpoken,
     ux: window.__KMATE_GAME_UX_V48__.state(),
+    v49: window.__KMATE_BOARD_FOCUS_V49__?.state?.() || null,
   }));
   expect(voiceStartup.spoken.some((text) => /^coach voice ready/i.test(text))).toBe(false);
-  expect(voiceStartup.ux.suppressedReadyPrompts).toBeGreaterThan(0);
+  expect((voiceStartup.ux.suppressedReadyPrompts || 0) + (voiceStartup.v49?.suppressedReadyPrompts || 0)).toBeGreaterThan(0);
 });
 
 test('paused coaching shows only why, principle, and stronger idea with a larger board', async ({ page }) => {
