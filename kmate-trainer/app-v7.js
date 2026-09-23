@@ -65,12 +65,16 @@ const moduleUrl = URL.createObjectURL(new Blob([responses.join('')], { type: 'te
 try {
   await import(moduleUrl);
 
-  try {
-    // v47 replaces only the piece artwork. It keeps the stable white/green
-    // board and all existing input, chess, puzzle, clock, and audio behavior.
-    await import('./sculpted-pieces-v47.js?v=47.0.0');
-  } catch (error) {
-    console.warn('Optional v47 sculpted chess-piece artwork could not load.', error);
+  if (window.__KMATE_CLASSIC_BOARD_V46__?.state?.().active !== false) {
+    try {
+      // v47 replaces only the piece artwork on the stable production board.
+      // It keeps the white/green board and all input, chess, puzzle, clock,
+      // and audio behavior. The retired ?legacySvg=1 renderer retains its
+      // original v44 pieces so its fallback contract stays deterministic.
+      await import('./sculpted-pieces-v47.js?v=47.0.0');
+    } catch (error) {
+      console.warn('Optional v47 sculpted chess-piece artwork could not load.', error);
+    }
   }
 
   try {
