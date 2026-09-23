@@ -60,17 +60,67 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('native board keeps the Staunton pieces, uses white and green, and never mounts the flashing overlay', async ({ page }) => {
+test('native board keeps the Staunton pieces, stays white-green, and uses one quieter wood sound', async ({ page }) => {
   test.setTimeout(120_000);
   await prepare(page);
 
   const startup = await page.evaluate(() => ({
     classic: window.__KMATE_CLASSIC_BOARD_V46__.state(),
+    sound: window.__KMATE_MOVE_SOUND_V45__.state(),
     storedSvg: JSON.parse(localStorage.getItem('kmate-svg-board-v44') || 'null'),
   }));
   expect(startup.classic.active).toBe(true);
   expect(startup.classic.renderer).toBe('native-staunton-grid');
   expect(startup.storedSvg.enabled).toBe(false);
+  expect(startup.sound.version).toBe('45.2.0');
+  expect(startup.sound.volume).toBe(0.48);
+  expect(startup.sound.uniformBoardSound).toBe(true);
+  expect(startup.sound.suppressedCoreKinds).toEqual(['move', 'capture', 'check']);
+  expect(startup.sound.storedUniformWoodSound).toBe(true);
+  expect(startup.sound.storedVolume).toBe(0.48);
+
+  // A capture that also gives check must use the same single wood sample rather
+  // than being skipped in favor of the old capture/check sounds.
+  const specialStart = startup.sound.plays;
+  await page.evaluate(async () => {
+    await window.__KMATE_MOVE_SOUND_V45__.prime();
+    document.querySelector('#km42PuzzleBoard')?.remove();
+    const board = document.createElement('div');
+    board.id = 'km42PuzzleBoard';
+    const pieces = [
+      ['a1', 'white', 'r'],
+      ['b2', 'white', 'p'],
+      ['c3', 'black', 'n'],
+      ['d4', 'black', 'q'],
+    ];
+    for (const [squareName, color, type] of pieces) {
+      const square = document.createElement('div');
+      square.className = 'sq';
+      square.dataset.km42Square = squareName;
+      const piece = document.createElement('span');
+      piece.className = `piece ${color}`;
+      piece.dataset.pieceType = type;
+      square.append(piece);
+      board.append(square);
+    }
+    document.body.append(board);
+    await new Promise((resolve) => window.setTimeout(resolve, 60));
+    const source = board.querySelector('[data-km42-square="b2"]');
+    const target = board.querySelector('[data-km42-square="c3"]');
+    target.querySelector('.piece')?.remove();
+    target.append(source.querySelector('.piece'));
+    target.classList.add('check');
+    await new Promise((resolve) => window.setTimeout(resolve, 60));
+    board.remove();
+  });
+  await expect.poll(
+    () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().plays),
+    { timeout: 10_000 },
+  ).toBeGreaterThan(specialStart);
+  await expect.poll(
+    () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().lastReason),
+    { timeout: 10_000 },
+  ).toBe('puzzle-capture-check');
 
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
   await expect(page.locator('#gameView')).toBeVisible();
@@ -137,8 +187,13 @@ test('native board keeps the Staunton pieces, uses white and green, and never mo
   expect(move.elapsed).toBeLessThan(250);
   await expect(page.locator('#board > .sq[data-square="e4"] .piece.staunton-piece svg')).toHaveCount(1);
 
+  await expect.poll(
+    () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().interceptedLegacyKinds),
+    { timeout: 15_000 },
+  ).toEqual(['capture', 'check', 'move']);
   const soundState = await page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state());
-  expect(soundState.plays).toBeGreaterThan(0);
+  expect(soundState.plays).toBeGreaterThan(specialStart);
+  expect(soundState.interceptedLegacyRequests).toBeGreaterThanOrEqual(3);
   const finalState = await page.evaluate(() => window.__KMATE_CLASSIC_BOARD_V46__.state());
   expect(finalState.boards.find((board) => board.id === 'board')?.overlay).toBe(false);
 });
