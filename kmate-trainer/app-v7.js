@@ -44,11 +44,21 @@ try {
 }
 
 try {
-  // This bootstrap runs before the core sound system so one quieter wooden
-  // impact owns every board move while the legacy move/capture/check cues stay silent.
+  // v48 installs the board-first mobile layout, concise Live Coach narration,
+  // one soft interface tap, 50%-quieter piece feedback, and optional haptics.
+  // It runs before v45 so the retired louder wood player remains disabled while
+  // v45 continues suppressing the core move/capture/check samples.
+  await import('./mobile-game-ux-v48.js?v=48.0.0');
+} catch (error) {
+  console.warn('Optional v48 mobile game and coaching layer could not load.', error);
+}
+
+try {
+  // This compatibility bootstrap suppresses the core sound library. v48 owns
+  // the single quieter wooden movement sample used by the production board.
   await import('./move-sound-v45.js?v=45.2.0');
 } catch (error) {
-  console.warn('Optional v45 uploaded move-sound bootstrap could not load.', error);
+  console.warn('Optional v45 move-sound compatibility layer could not load.', error);
 }
 
 const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((number) => `./app-v7-part${number}.txt?v=42.0.0`);

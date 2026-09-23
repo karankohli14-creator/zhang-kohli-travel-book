@@ -1,0 +1,105 @@
+name: K-Mate v48 mobile game and concise coach QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kmate-trainer/mobile-game-ux-v48.js"
+      - "kmate-trainer/mobile-game-ux-v48.css"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/sculpted-pieces-v47.js"
+      - "kmate-trainer/tests/mobile-game-ux-v48.spec.mjs"
+      - "kmate-trainer/tests/classic-board-v46.spec.mjs"
+      - "kmate-trainer/tests/audio-latency-v45.spec.mjs"
+      - ".github/workflows/kmate-mobile-game-v48.yml"
+  pull_request:
+    paths:
+      - "kmate-trainer/mobile-game-ux-v48.js"
+      - "kmate-trainer/mobile-game-ux-v48.css"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/sculpted-pieces-v47.js"
+      - "kmate-trainer/tests/mobile-game-ux-v48.spec.mjs"
+      - "kmate-trainer/tests/classic-board-v46.spec.mjs"
+      - "kmate-trainer/tests/audio-latency-v45.spec.mjs"
+      - ".github/workflows/kmate-mobile-game-v48.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-game-browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate v48 source wiring
+        run: |
+          node --check kmate-trainer/mobile-game-ux-v48.js
+          node --check kmate-trainer/app-v7.js
+          node --check kmate-trainer/tests/mobile-game-ux-v48.spec.mjs
+          node --check kmate-trainer/tests/classic-board-v46.spec.mjs
+          node --check kmate-trainer/tests/audio-latency-v45.spec.mjs
+          grep -Fq "mobile-game-ux-v48.js?v=48.0.0" kmate-trainer/app-v7.js
+          grep -Fq "KMATE_MOVE_VOLUME_V48 = 0.24" kmate-trainer/mobile-game-ux-v48.js
+          grep -Fq "KMATE_MOVE_VIBRATION_MS_V48 = 8" kmate-trainer/mobile-game-ux-v48.js
+          grep -Fiq "coach voice ready" kmate-trainer/mobile-game-ux-v48.js
+          grep -Fq "Principle violated" kmate-trainer/mobile-game-ux-v48.js
+          grep -Fq "live-coach-lines-grid" kmate-trainer/mobile-game-ux-v48.css
+          grep -Fq "#kmateHintEdgeButton" kmate-trainer/mobile-game-ux-v48.css
+          grep -Fq -- "--kmate-sculpted-edge:#e8eee9" kmate-trainer/mobile-game-ux-v48.css
+
+      - name: Install browser dependencies
+        run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start static K-Mate server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v48-http.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/kmate-v48-http.log
+          exit 1
+
+      - name: Test mobile layout, concise coaching, contrast, sound, and haptics
+        env:
+          KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
+        run: >-
+          npx playwright test
+          kmate-trainer/tests/mobile-game-ux-v48.spec.mjs
+          kmate-trainer/tests/classic-board-v46.spec.mjs
+          --workers=1
+          --reporter=line
+
+      - name: Test quiet feedback on the SVG fallback
+        env:
+          KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?legacySvg=1
+        run: >-
+          npx playwright test
+          kmate-trainer/tests/audio-latency-v45.spec.mjs
+          --workers=1
+          --reporter=line
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmate-mobile-game-v48-failure
+          path: |
+            test-results
+            /tmp/kmate-v48-http.log
+          if-no-files-found: ignore
+          retention-days: 7

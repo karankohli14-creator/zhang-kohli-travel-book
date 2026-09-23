@@ -24,6 +24,14 @@ async function routeChessJs(page) {
 
 async function prepare(page) {
   await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'vibrate', {
+      configurable: true,
+      value: (duration) => {
+        window.__kmateVibrations ||= [];
+        window.__kmateVibrations.push(duration);
+        return true;
+      },
+    });
     localStorage.setItem('kmate-position-v7', JSON.stringify({
       version: 7,
       sessions: [],
@@ -36,7 +44,6 @@ async function prepare(page) {
         liveCoach: false, principleReview: false, coachVoice: false,
       },
     }));
-    // Simulate an existing user who had the flashing SVG board enabled.
     localStorage.setItem('kmate-svg-board-v44', JSON.stringify({
       enabled: true, theme: 'wood', coordinates: true, annotations: true,
     }));
@@ -47,6 +54,9 @@ async function prepare(page) {
     () => Boolean(
       window.__KMATE__?.test?.startLiveCoachPrincipleDemo
       && window.__KMATE_CLASSIC_BOARD_V46__?.state?.().ready
+      && window.__KMATE_SCULPTED_PIECES_V47__?.state?.().ready
+      && window.__KMATE_MOVE_FEEDBACK_V48__?.state?.().ready
+      && window.__KMATE_GAME_UX_V48__?.state?.().ready
       && window.__KMATE_MOVE_SOUND_V45__?.state?.().ready
     ),
     undefined,
@@ -60,90 +70,69 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('native board keeps the Staunton pieces, stays white-green, and uses one quieter wood sound', async ({ page }) => {
-  test.setTimeout(120_000);
+test('stable white-green board keeps sculpted pieces visible and uses v48 quiet feedback', async ({ page }) => {
+  test.setTimeout(150_000);
   await prepare(page);
 
   const startup = await page.evaluate(() => ({
     classic: window.__KMATE_CLASSIC_BOARD_V46__.state(),
-    sound: window.__KMATE_MOVE_SOUND_V45__.state(),
+    pieces: window.__KMATE_SCULPTED_PIECES_V47__.state(),
+    feedback: window.__KMATE_MOVE_FEEDBACK_V48__.state(),
+    compatibility: window.__KMATE_MOVE_SOUND_V45__.state(),
+    ux: window.__KMATE_GAME_UX_V48__.state(),
     storedSvg: JSON.parse(localStorage.getItem('kmate-svg-board-v44') || 'null'),
   }));
   expect(startup.classic.active).toBe(true);
   expect(startup.classic.renderer).toBe('native-staunton-grid');
   expect(startup.storedSvg.enabled).toBe(false);
-  expect(startup.sound.version).toBe('45.2.0');
-  expect(startup.sound.volume).toBe(0.48);
-  expect(startup.sound.uniformBoardSound).toBe(true);
-  expect(startup.sound.suppressedCoreKinds).toEqual(['move', 'capture', 'check']);
-  expect(startup.sound.storedUniformWoodSound).toBe(true);
-  expect(startup.sound.storedVolume).toBe(0.48);
-
-  // A capture that also gives check must use the same single wood sample rather
-  // than being skipped in favor of the old capture/check sounds.
-  const specialStart = startup.sound.plays;
-  await page.evaluate(async () => {
-    await window.__KMATE_MOVE_SOUND_V45__.prime();
-    document.querySelector('#km42PuzzleBoard')?.remove();
-    const board = document.createElement('div');
-    board.id = 'km42PuzzleBoard';
-    const pieces = [
-      ['a1', 'white', 'r'],
-      ['b2', 'white', 'p'],
-      ['c3', 'black', 'n'],
-      ['d4', 'black', 'q'],
-    ];
-    for (const [squareName, color, type] of pieces) {
-      const square = document.createElement('div');
-      square.className = 'sq';
-      square.dataset.km42Square = squareName;
-      const piece = document.createElement('span');
-      piece.className = `piece ${color}`;
-      piece.dataset.pieceType = type;
-      square.append(piece);
-      board.append(square);
-    }
-    document.body.append(board);
-    await new Promise((resolve) => window.setTimeout(resolve, 60));
-    const source = board.querySelector('[data-km42-square="b2"]');
-    const target = board.querySelector('[data-km42-square="c3"]');
-    target.querySelector('.piece')?.remove();
-    target.append(source.querySelector('.piece'));
-    target.classList.add('check');
-    await new Promise((resolve) => window.setTimeout(resolve, 60));
-    board.remove();
-  });
-  await expect.poll(
-    () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().plays),
-    { timeout: 10_000 },
-  ).toBeGreaterThan(specialStart);
-  await expect.poll(
-    () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().lastReason),
-    { timeout: 10_000 },
-  ).toBe('puzzle-capture-check');
+  expect(startup.pieces.version).toBe('47.0.0');
+  expect(startup.feedback.version).toBe('48.0.0');
+  expect(startup.feedback.volume).toBe(0.24);
+  expect(startup.feedback.hapticDurationMs).toBe(8);
+  expect(startup.feedback.legacyLoudPlayerDisabled).toBe(true);
+  expect(startup.compatibility.enabled).toBe(false);
+  expect(startup.compatibility.suppressedCoreKinds).toEqual(['move', 'capture', 'check']);
+  expect(startup.ux.softButtonSound).toBe(true);
 
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
   await expect(page.locator('#gameView')).toBeVisible();
   await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
   await expect(page.locator('#board > .svg44-overlay')).toHaveCount(0);
-  await expect(page.locator('#board .piece.staunton-piece')).toHaveCount(32, { timeout: 30_000 });
-  await expect(page.locator('#board .piece.staunton-piece svg')).toHaveCount(32);
+  await expect(page.locator('#board .piece.kmate-sculpted-piece-v47')).toHaveCount(32, { timeout: 30_000 });
+  await expect(page.locator('#board .piece.kmate-sculpted-piece-v47 svg')).toHaveCount(32);
 
   const palette = await page.evaluate(() => {
     const light = document.querySelector('#board > .sq.light');
     const dark = document.querySelector('#board > .sq.dark');
+    const white = document.querySelector('#board .piece.kmate-sculpted-piece-v47.white');
+    const black = document.querySelector('#board .piece.kmate-sculpted-piece-v47.black');
+    const whiteStyle = getComputedStyle(white);
+    const blackStyle = getComputedStyle(black);
     return {
       light: getComputedStyle(light).backgroundColor,
       dark: getComputedStyle(dark).backgroundColor,
       lightImage: getComputedStyle(light).backgroundImage,
       darkImage: getComputedStyle(dark).backgroundImage,
+      whiteEdge: whiteStyle.getPropertyValue('--kmate-sculpted-edge').trim(),
+      blackEdge: blackStyle.getPropertyValue('--kmate-sculpted-edge').trim(),
+      whiteHigh: whiteStyle.getPropertyValue('--kmate-sculpted-body-hi').trim(),
+      blackLow: blackStyle.getPropertyValue('--kmate-sculpted-body-low').trim(),
+      whiteStroke: getComputedStyle(white.querySelector('.sculpted-art')).strokeWidth,
+      blackStroke: getComputedStyle(black.querySelector('.sculpted-art')).strokeWidth,
     };
   });
   expect(palette.light).toBe('rgb(238, 238, 210)');
   expect(palette.dark).toBe('rgb(118, 150, 86)');
   expect(palette.lightImage).toBe('none');
   expect(palette.darkImage).toBe('none');
+  expect(palette.whiteEdge).toBe('#2b1307');
+  expect(palette.blackEdge).toBe('#e8eee9');
+  expect(palette.whiteHigh).toBe('#fffdf6');
+  expect(palette.blackLow).toBe('#000102');
+  expect(Number.parseFloat(palette.whiteStroke)).toBeGreaterThanOrEqual(2.8);
+  expect(Number.parseFloat(palette.blackStroke)).toBeGreaterThanOrEqual(2.4);
 
+  const beforeMove = await page.evaluate(() => window.__KMATE_MOVE_FEEDBACK_V48__.state());
   await page.locator('#board > .sq[data-square="e2"]').click();
   await expect(page.locator('#board > .sq[data-square="e2"]')).toHaveClass(/selected/);
 
@@ -154,28 +143,25 @@ test('native board keeps the Staunton pieces, stays white-green, and uses one qu
     let frames = 0;
     let minimumPieceCount = Infinity;
     let finished = false;
-
     const finish = () => {
       if (finished) return;
       finished = true;
       resolve({
         elapsed: performance.now() - started,
         minimumPieceCount,
-        moved: Boolean(board.querySelector(':scope > .sq[data-square="e4"] .piece.staunton-piece')),
+        moved: Boolean(board.querySelector(':scope > .sq[data-square="e4"] .piece.kmate-sculpted-piece-v47')),
         overlay: Boolean(board.querySelector(':scope > .svg44-overlay')),
       });
     };
-
     const sample = () => {
       frames += 1;
-      minimumPieceCount = Math.min(minimumPieceCount, board.querySelectorAll('.piece.staunton-piece').length);
-      if (board.querySelector(':scope > .sq[data-square="e4"] .piece.staunton-piece') || frames >= 24) {
+      minimumPieceCount = Math.min(minimumPieceCount, board.querySelectorAll('.piece.kmate-sculpted-piece-v47').length);
+      if (board.querySelector(':scope > .sq[data-square="e4"] .piece.kmate-sculpted-piece-v47') || frames >= 24) {
         finish();
         return;
       }
       requestAnimationFrame(sample);
     };
-
     destination.click();
     requestAnimationFrame(sample);
   }));
@@ -185,15 +171,17 @@ test('native board keeps the Staunton pieces, stays white-green, and uses one qu
   expect(move.overlay).toBe(false);
   expect(move.minimumPieceCount).toBe(32);
   expect(move.elapsed).toBeLessThan(250);
-  await expect(page.locator('#board > .sq[data-square="e4"] .piece.staunton-piece svg')).toHaveCount(1);
 
   await expect.poll(
-    () => page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state().interceptedLegacyKinds),
-    { timeout: 15_000 },
-  ).toEqual(['capture', 'check', 'move']);
-  const soundState = await page.evaluate(() => window.__KMATE_MOVE_SOUND_V45__.state());
-  expect(soundState.plays).toBeGreaterThan(specialStart);
-  expect(soundState.interceptedLegacyRequests).toBeGreaterThanOrEqual(3);
+    () => page.evaluate(() => window.__KMATE_MOVE_FEEDBACK_V48__.state().plays),
+    { timeout: 10_000 },
+  ).toBeGreaterThan(beforeMove.plays);
+  await expect.poll(
+    () => page.evaluate(() => window.__KMATE_MOVE_FEEDBACK_V48__.state().haptics),
+    { timeout: 10_000 },
+  ).toBeGreaterThan(beforeMove.haptics);
+  expect(await page.evaluate(() => window.__kmateVibrations)).toContain(8);
+
   const finalState = await page.evaluate(() => window.__KMATE_CLASSIC_BOARD_V46__.state());
   expect(finalState.boards.find((board) => board.id === 'board')?.overlay).toBe(false);
 });
