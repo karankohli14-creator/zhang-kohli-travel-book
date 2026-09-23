@@ -35,6 +35,15 @@ narrowLayoutFix.textContent = `.card,.table-card,.recent-card,.tables-grid,.tabl
 document.head.append(narrowLayoutFix);
 
 try {
+  // v46 uses the original K-Mate grid for immediate, flicker-free rendering
+  // while preserving the exact Staunton piece artwork. The retired SVG board
+  // remains available only through ?legacySvg=1 for regression testing.
+  await import('./classic-board-v46.js?v=46.0.0');
+} catch (error) {
+  console.warn('Optional v46 stable classic board could not load.', error);
+}
+
+try {
   // This bootstrap runs before the core sound system so the uploaded wooden
   // impact is preloaded, cache-busted, and unlocked from the first gesture.
   await import('./move-sound-v45.js?v=45.1.0');
@@ -126,33 +135,29 @@ try {
     console.warn('Optional adaptive learning system could not load.', error);
   }
 
-  try {
-    await import('./svg-board-v44.js?v=44.0.0');
+  if (window.__KMATE_CLASSIC_BOARD_V46__?.state?.().active === false) {
     try {
-      await import('./svg-board-v44-input.js?v=44.0.4');
+      await import('./svg-board-v44.js?v=44.0.0');
+      try {
+        await import('./svg-board-v44-input.js?v=44.0.4');
+      } catch (error) {
+        console.warn('Optional v44 SVG board input compatibility layer could not load.', error);
+      }
+      try {
+        await import('./svg-board-v44-contrast.js?v=44.0.1');
+      } catch (error) {
+        console.warn('Optional v44 SVG piece contrast layer could not load.', error);
+      }
+      try {
+        await import('./svg-board-v45-performance.js?v=45.1.0');
+      } catch (error) {
+        console.warn('Optional v45 low-latency SVG layer could not load.', error);
+      }
     } catch (error) {
-      // This compatibility layer keeps taps, drags, right-click annotations,
-      // and keyboard focus deterministic across embedded and mobile browsers.
-      console.warn('Optional v44 SVG board input compatibility layer could not load.', error);
+      // Keep the retired renderer available for controlled regression checks
+      // without loading its observers or full-board redraw path for users.
+      console.warn('Optional legacy SVG board interface could not load.', error);
     }
-    try {
-      await import('./svg-board-v44-contrast.js?v=44.0.1');
-    } catch (error) {
-      // Preserve unmistakable white/black piece colors even if a browser does
-      // not carry the source-piece CSS classes into the SVG presentation.
-      console.warn('Optional v44 SVG piece contrast layer could not load.', error);
-    }
-    try {
-      await import('./svg-board-v45-performance.js?v=45.1.0');
-    } catch (error) {
-      // Low-latency mode removes the delayed arrival animation and expensive
-      // filters while retaining the same board, pieces, and move logic.
-      console.warn('Optional v45 low-latency SVG layer could not load.', error);
-    }
-  } catch (error) {
-    // The full-SVG board is a visual and interaction enhancement. The original
-    // K-Mate board remains the automatic fallback if this module cannot load.
-    console.warn('Optional v44 SVG board interface could not load.', error);
   }
 } finally {
   URL.revokeObjectURL(moduleUrl);
