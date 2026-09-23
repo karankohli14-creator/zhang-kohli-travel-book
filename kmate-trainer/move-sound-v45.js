@@ -315,8 +315,13 @@ function kmateMoveSoundObserveBoards() {
     const observer = new MutationObserver((mutations) => {
       const sourceChanged = mutations.some((mutation) => {
         const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
+        if (target === board && mutation.type === 'childList') return true;
         const square = target?.closest?.('.sq');
-        return Boolean(square && square.parentElement === board);
+        if (square && square.parentElement === board) return true;
+        return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => (
+          node instanceof Element
+          && (node.classList.contains('sq') || Boolean(node.querySelector?.('.sq,.piece')))
+        ));
       });
       if (sourceChanged) kmateMoveSoundScheduleBoard(board);
     });
