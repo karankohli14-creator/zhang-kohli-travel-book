@@ -152,6 +152,14 @@ html.kmate-mobile-full-page-v50 body.game-mode .roundbtn:active {
     0 3px 8px rgba(0, 0, 0, .55) !important;
 }
 
+html.kmate-mobile-full-page-v50 body.game-mode #gameCoachAudioButton {
+  display: grid !important;
+}
+
+html.kmate-mobile-full-page-v50 body.game-mode .playerbar .avatar {
+  display: none !important;
+}
+
 /* The play grid, clocks, and board now use the entire viewport. */
 html.kmate-mobile-full-page-v50 body.game-mode .playgrid {
   display: grid !important;
