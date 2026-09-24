@@ -190,11 +190,14 @@ function km50EnsureHintControls() {
   }
   button = km50StripOldButtonListener('#kmateHintEdgeButton', 'kmateV50HintBound') || button;
   button.type = 'button';
-  button.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    km50ToggleHint();
-  });
+  if (button.dataset.kmateV50Listener !== KMATE_MOBILE_FULL_PAGE_V50) {
+    button.dataset.kmateV50Listener = KMATE_MOBILE_FULL_PAGE_V50;
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      km50ToggleHint();
+    });
+  }
   km50UpdateHintButton();
 
   const action = km50HintAction();
@@ -262,11 +265,14 @@ function km50EnsureFullscreenControl() {
   let button = document.querySelector('#fullscreenButton');
   if (!button) return;
   button = km50StripOldButtonListener('#fullscreenButton', 'kmateV50FullscreenBound') || button;
-  button.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    void km50SetImmersive(!km50Immersive);
-  });
+  if (button.dataset.kmateV50Listener !== KMATE_MOBILE_FULL_PAGE_V50) {
+    button.dataset.kmateV50Listener = KMATE_MOBILE_FULL_PAGE_V50;
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void km50SetImmersive(!km50Immersive);
+    });
+  }
   km50UpdateFullscreenButton();
 }
 

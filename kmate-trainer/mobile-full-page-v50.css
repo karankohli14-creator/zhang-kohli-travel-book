@@ -7,6 +7,10 @@ html.kmate-mobile-full-page-v50 body {
   min-height: 100%;
 }
 
+html.kmate-mobile-full-page-v50 body:not(.game-mode) label.hint-toggle {
+  display: none !important;
+}
+
 html.kmate-mobile-full-page-v50 body.game-mode {
   margin: 0 !important;
   overflow: hidden !important;

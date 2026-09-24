@@ -52,23 +52,7 @@ try {
 }
 
 try {
-  // v49 makes phone play genuinely board-first, provides a dependable CSS
-  // fullscreen fallback, restores coach narration through the browser's native
-  // speech method, and attenuates the wooden movement cue again.
-  await import('./mobile-board-focus-v49.js?v=49.0.0');
-  try {
-    // This tiny, later style layer deliberately outranks v48's phone rule so the
-    // explicit coach-audio button remains available beside fullscreen.
-    await import('./mobile-board-focus-v49-overrides.js?v=49.0.1');
-  } catch (error) {
-    console.warn('Optional v49 compact-control specificity fix could not load.', error);
-  }
-} catch (error) {
-  console.warn('Optional v49 board-focus and coach-voice repair could not load.', error);
-}
-
-try {
-  // This compatibility bootstrap suppresses the core sound library. v48/v49
+  // This compatibility bootstrap suppresses the core sound library. v48/v50
   // own the single quieter wooden movement sample used by the production board.
   await import('./move-sound-v45.js?v=45.2.0');
 } catch (error) {
@@ -99,6 +83,17 @@ try {
     } catch (error) {
       console.warn('Optional v47 sculpted chess-piece artwork could not load.', error);
     }
+  }
+
+
+  try {
+    // v50 is the production phone-play layer: the game occupies the full
+    // viewport, titles never reserve space, hints stay behind one light-bulb
+    // control, candidate reveal remains interactive, and pawns use the new
+    // pointed finial silhouette. It also preserves concise coach narration.
+    await import('./mobile-full-page-v50.js?v=50.0.0');
+  } catch (error) {
+    console.warn('Optional v50 full-page game layer could not load.', error);
   }
 
   try {
