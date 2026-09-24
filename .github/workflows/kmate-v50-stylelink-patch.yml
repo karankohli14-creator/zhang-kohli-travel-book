@@ -1,0 +1,46 @@
+name: K-Mate v50 one-time stylesheet preload
+
+on:
+  push:
+    branches: [kmate-full-page-v50]
+    paths:
+      - ".github/workflows/kmate-v50-stylelink-patch.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-full-page-v50
+          fetch-depth: 0
+
+      - name: Preload the full-page stylesheet
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('kmate-trainer/index.html')
+          text = path.read_text()
+          marker = '  <link rel="stylesheet" href="./classic-board-v46.css?v=46.0.0">\n'
+          addition = marker + '  <link id="kmateFullPageV50Styles" rel="stylesheet" href="./full-page-play-v50.css?v=50.0.0">\n'
+          if 'id="kmateFullPageV50Styles"' not in text:
+              if marker not in text:
+                  raise SystemExit('Classic board stylesheet marker was not found')
+              text = text.replace(marker, addition, 1)
+          path.write_text(text)
+          PY
+
+      - name: Commit stylesheet preload
+        run: |
+          if git diff --quiet -- kmate-trainer/index.html; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kmate-trainer/index.html
+          git commit -m "Preload the v50 full-page stylesheet"
+          git push origin HEAD:kmate-full-page-v50
