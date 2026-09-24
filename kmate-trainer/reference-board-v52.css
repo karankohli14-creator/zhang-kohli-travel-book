@@ -1,0 +1,257 @@
+/* K-Mate v52 — detailed theme derived from the user's uploaded SVG reference. */
+
+html.kmate-reference-theme-v52 {
+  --km52-light-square: #d3cebd;
+  --km52-dark-square: #758e72;
+  --km52-frame-dark: #29150b;
+  --km52-frame-mid: #4b2916;
+  --km52-frame-light: #765033;
+  --km52-trim: #eaeae4;
+  --km52-grid: #232421;
+  --km52-coordinate: #d55236;
+  --km52-coordinate-edge: #742918;
+  --km52-coordinate-text: #fff1dd;
+  --km52-frame-size: clamp(18px, 5.2vw, 34px);
+  --km52-coordinate-size: clamp(19px, 5.2vw, 27px);
+  --km52-coordinate-shift: clamp(-19px, -3.2vw, -12px);
+}
+
+/* The exact piece silhouettes are traced from the user's SVG. */
+html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52 {
+  display: grid !important;
+  place-items: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+  transform: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+  isolation: isolate;
+}
+html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52 > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  filter: none !important;
+  shape-rendering: geometricPrecision;
+}
+html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52 .km52-piece-shape {
+  stroke: var(--km52-piece-edge);
+  stroke-width: 2.15;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  paint-order: stroke fill;
+}
+html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52 .km52-piece-shadow {
+  fill: var(--km52-piece-shadow);
+  stroke: none;
+  opacity: .24;
+}
+html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52 .km52-stop-top { stop-color: var(--km52-piece-top); }
+html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52 .km52-stop-mid { stop-color: var(--km52-piece-mid); }
+html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52 .km52-stop-bottom { stop-color: var(--km52-piece-bottom); }
+html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52.white {
+  --km52-piece-top: #fffef9;
+  --km52-piece-mid: #fbfaf4;
+  --km52-piece-bottom: #eae7dc;
+  --km52-piece-edge: #343936;
+  --km52-piece-shadow: #151815;
+}
+html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52.black {
+  --km52-piece-top: #343735;
+  --km52-piece-mid: #232624;
+  --km52-piece-bottom: #181a19;
+  --km52-piece-edge: #090b0a;
+  --km52-piece-shadow: #000000;
+}
+
+/* Exact square colors and wood texture sampled from the uploaded SVG. */
+html.kmate-reference-theme-v52 #board > .sq.light,
+html.kmate-reference-theme-v52 #km42PuzzleBoard > .sq.light,
+html.kmate-reference-theme-v52 .replay-board > .sq.light,
+html.kmate-reference-theme-v52 .learning-puzzle-square.light,
+html.kmate-reference-theme-v52 .km-import-square.light {
+  background-color: var(--km52-light-square) !important;
+  background-image:
+    linear-gradient(90deg, rgba(255,255,255,.10), transparent 23%, rgba(83,72,52,.035) 52%, transparent 78%, rgba(255,255,255,.08)),
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(105,92,69,.045) 3px 4px, transparent 4px 8px),
+    repeating-linear-gradient(88deg, transparent 0 19px, rgba(118,101,75,.035) 20px 21px, transparent 22px 37px) !important;
+  background-repeat: repeat !important;
+  background-position: center !important;
+  background-size: auto !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14) !important;
+}
+html.kmate-reference-theme-v52 #board > .sq.dark,
+html.kmate-reference-theme-v52 #km42PuzzleBoard > .sq.dark,
+html.kmate-reference-theme-v52 .replay-board > .sq.dark,
+html.kmate-reference-theme-v52 .learning-puzzle-square.dark,
+html.kmate-reference-theme-v52 .km-import-square.dark {
+  background-color: var(--km52-dark-square) !important;
+  background-image:
+    linear-gradient(90deg, rgba(222,235,218,.055), transparent 25%, rgba(32,59,37,.045) 56%, transparent 80%, rgba(235,244,231,.04)),
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(38,65,43,.07) 3px 4px, transparent 4px 8px),
+    repeating-linear-gradient(88deg, transparent 0 21px, rgba(38,66,44,.05) 22px 23px, transparent 24px 39px) !important;
+  background-repeat: repeat !important;
+  background-position: center !important;
+  background-size: auto !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.09) !important;
+}
+html.kmate-reference-theme-v52 #board > .sq,
+html.kmate-reference-theme-v52 #km42PuzzleBoard > .sq,
+html.kmate-reference-theme-v52 .replay-board > .sq {
+  overflow: visible !important;
+}
+
+/* Rich brown frame with the same layered wood, bevel, and pale inner trim. */
+html.kmate-reference-theme-v52 body.game-mode .live-boardwrap {
+  position: relative !important;
+  width: min(
+    calc(100dvw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 4px),
+    calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 92px)
+  ) !important;
+  height: auto !important;
+  aspect-ratio: 1 !important;
+  padding: var(--km52-frame-size) !important;
+  border: 2px solid #1c0e07 !important;
+  border-radius: 2px !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  background-color: var(--km52-frame-mid) !important;
+  background-image:
+    linear-gradient(145deg, rgba(255,255,255,.18), transparent 18%, transparent 74%, rgba(0,0,0,.38)),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(15,6,2,.12) 3px 4px, transparent 4px 8px),
+    repeating-linear-gradient(2deg, rgba(145,91,50,.07) 0 1px, transparent 1px 13px),
+    linear-gradient(90deg, var(--km52-frame-light), var(--km52-frame-mid) 48%, var(--km52-frame-dark)) !important;
+  background-repeat: no-repeat, repeat, repeat, no-repeat !important;
+  background-position: center, center, center, center !important;
+  background-size: 100% 100%, auto, auto, 100% 100% !important;
+  box-shadow:
+    inset 0 0 0 3px rgba(126,84,50,.72),
+    inset 0 0 0 8px rgba(24,11,5,.42),
+    inset 0 0 22px rgba(0,0,0,.58),
+    0 14px 34px rgba(0,0,0,.55) !important;
+}
+html.kmate-reference-theme-v52 body.game-mode .live-boardwrap::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: calc(var(--km52-frame-size) - 6px);
+  border: 3px solid var(--km52-trim);
+  box-shadow:
+    0 0 0 1px #6c6d66,
+    inset 0 0 0 1px rgba(255,255,255,.92),
+    0 0 7px rgba(0,0,0,.58);
+  pointer-events: none;
+}
+html.kmate-reference-theme-v52 body.game-mode .live-boardwrap::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 7px;
+  border: 1px solid rgba(191,139,91,.38);
+  box-shadow: inset 0 0 0 1px rgba(12,5,2,.52);
+  pointer-events: none;
+}
+html.kmate-reference-theme-v52 body.game-mode .live-boardwrap #board {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 !important;
+  overflow: visible !important;
+  contain: layout !important;
+  border: 1px solid var(--km52-grid) !important;
+  border-radius: 0 !important;
+  box-shadow:
+    0 0 0 2px rgba(242,242,234,.92),
+    0 0 0 4px rgba(77,78,70,.92),
+    0 2px 6px rgba(0,0,0,.48) !important;
+}
+
+/* Orange coordinate medallions sit in the wooden frame, as in the SVG. */
+html.kmate-reference-theme-v52 body.game-mode #board .coord {
+  z-index: 20 !important;
+  display: grid !important;
+  place-items: center !important;
+  width: var(--km52-coordinate-size) !important;
+  height: var(--km52-coordinate-size) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--km52-coordinate-edge) !important;
+  border-radius: 50% !important;
+  background: var(--km52-coordinate) !important;
+  color: var(--km52-coordinate-text) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.36),
+    0 1px 0 rgba(255,139,93,.23),
+    0 2px 4px rgba(0,0,0,.38) !important;
+  font: 850 clamp(10px, 2.8vw, 15px)/1 ui-rounded, system-ui, sans-serif !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+}
+html.kmate-reference-theme-v52 body.game-mode #board .coord.rank {
+  left: var(--km52-coordinate-shift) !important;
+  top: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%) !important;
+}
+html.kmate-reference-theme-v52 body.game-mode #board .coord.file {
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: var(--km52-coordinate-shift) !important;
+  transform: translate(-50%, 50%) !important;
+}
+
+/* Smaller orange badges remain inside secondary boards that do not have the frame. */
+html.kmate-reference-theme-v52 #km42PuzzleBoard .coord,
+html.kmate-reference-theme-v52 .replay-board .coord,
+html.kmate-reference-theme-v52 .learning-puzzle-coordinate,
+html.kmate-reference-theme-v52 .km-import-coordinate {
+  width: 17px !important;
+  height: 17px !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 1px solid var(--km52-coordinate-edge) !important;
+  border-radius: 50% !important;
+  background: var(--km52-coordinate) !important;
+  color: var(--km52-coordinate-text) !important;
+  font: 850 9px/1 system-ui, sans-serif !important;
+  opacity: 1 !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.3), 0 1px 2px rgba(0,0,0,.3) !important;
+}
+
+/* Preserve all chess-state overlays on top of the texture. */
+html.kmate-reference-theme-v52 #board > .sq.selected,
+html.kmate-reference-theme-v52 #km42PuzzleBoard > .sq.selected,
+html.kmate-reference-theme-v52 .replay-board > .sq.selected {
+  box-shadow: inset 0 0 0 4px rgba(255,213,72,.90), inset 0 0 14px rgba(255,226,102,.30) !important;
+}
+html.kmate-reference-theme-v52 #board > .sq.last,
+html.kmate-reference-theme-v52 #km42PuzzleBoard > .sq.last,
+html.kmate-reference-theme-v52 .replay-board > .sq.last {
+  box-shadow: inset 0 0 0 999px rgba(240,186,62,.24) !important;
+}
+
+@media (max-width: 520px) {
+  html.kmate-reference-theme-v52 {
+    --km52-frame-size: clamp(18px, 5.1vw, 23px);
+    --km52-coordinate-size: clamp(19px, 5vw, 22px);
+    --km52-coordinate-shift: clamp(-14px, -3.2vw, -12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52,
+  html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52 > svg {
+    transition: none !important;
+    animation: none !important;
+  }
+}
