@@ -95,6 +95,7 @@ async function prepare(page) {
     () => Boolean(
       window.__KMATE__?.test?.startLiveCoachPrincipleDemo
       && window.__KMATE_BOARD_FOCUS_V49__?.state?.().ready
+      && window.__KMATE_FULL_PAGE_V50__?.state?.().ready
       && window.__KMATE_MOVE_FEEDBACK_V48__?.state?.().ready
       && window.__KMATE_SCULPTED_PIECES_V47__?.state?.().ready
     ),
@@ -109,41 +110,54 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('phone play hides position copy, keeps hint collapsed, and provides a real focus mode', async ({ page }) => {
+test('phone play remains full-page while v49 focus controls and the v50 hint overlay coexist', async ({ page }) => {
   test.setTimeout(120_000);
   await prepare(page);
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
   await expect(page.locator('#gameView')).toBeVisible();
   await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
-  await expect(page.locator('#kmateHintEdgeButton')).toBeVisible();
+  await expect(page.locator('#km50HintBulb')).toBeVisible();
+  await expect(page.locator('#kmateHintEdgeButton')).not.toBeVisible();
 
   const initial = await page.evaluate(() => {
     const board = document.querySelector('#board').getBoundingClientRect();
+    const view = document.querySelector('#gameView').getBoundingClientRect();
+    const titleWrapper = document.querySelector('#positionTitle').parentElement;
     return {
-      title: getComputedStyle(document.querySelector('#positionTitle')).display,
+      title: getComputedStyle(titleWrapper).display,
+      titleHidden: titleWrapper.hidden,
       meta: getComputedStyle(document.querySelector('#gameMeta')).display,
       hint: getComputedStyle(document.querySelector('#hintCard')).display,
       boardWidth: board.width,
       boardHeight: board.height,
+      viewWidth: view.width,
+      viewHeight: view.height,
+      viewportWidth: innerWidth,
+      viewportHeight: innerHeight,
       coachAudio: getComputedStyle(document.querySelector('#gameCoachAudioButton')).display,
       focusState: window.__KMATE_BOARD_FOCUS_V49__.state(),
+      fullPageState: window.__KMATE_FULL_PAGE_V50__.state(),
     };
   });
-  expect(initial.title).toBe('none');
+  expect(initial.titleHidden || initial.title === 'none').toBe(true);
   expect(initial.meta).toBe('none');
   expect(initial.hint).toBe('none');
-  expect(initial.boardWidth).toBeGreaterThanOrEqual(370);
+  expect(initial.boardWidth).toBeGreaterThanOrEqual(380);
   expect(Math.abs(initial.boardWidth - initial.boardHeight)).toBeLessThan(2);
+  expect(initial.viewWidth).toBeGreaterThanOrEqual(initial.viewportWidth - 1);
+  expect(initial.viewHeight).toBeGreaterThanOrEqual(initial.viewportHeight - 1);
   expect(initial.coachAudio).toBe('grid');
   expect(initial.focusState.compact).toBe(true);
+  expect(initial.fullPageState.gameMode).toBe(true);
 
   const boardBeforeHint = await page.locator('#board').boundingBox();
-  await page.locator('#kmateHintEdgeButton').click();
+  await page.locator('#km50HintBulb').click();
+  await expect(page.locator('#km50HintOverlay')).toBeVisible();
   await expect(page.locator('#hintCard')).toBeVisible();
-  await expect(page.locator('#kmateHintEdgeButton')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#km50HintBulb')).toHaveAttribute('aria-expanded', 'true');
   const boardAfterHint = await page.locator('#board').boundingBox();
   expect(Math.abs((boardBeforeHint?.width || 0) - (boardAfterHint?.width || 0))).toBeLessThan(2);
-  await page.locator('#kmateHintEdgeButton').click();
+  await page.locator('#km50HintClose').click();
   await expect(page.locator('#hintCard')).not.toBeVisible();
 
   await page.locator('#fullscreenButton').click();

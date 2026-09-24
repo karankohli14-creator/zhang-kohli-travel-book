@@ -1,0 +1,89 @@
+name: K-Mate v50 full-page play QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kmate-trainer/full-page-play-v50.js"
+      - "kmate-trainer/full-page-play-v50.css"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/index.html"
+      - "kmate-trainer/tests/full-page-play-v50.spec.mjs"
+      - ".github/workflows/kmate-full-page-v50.yml"
+  pull_request:
+    paths:
+      - "kmate-trainer/full-page-play-v50.js"
+      - "kmate-trainer/full-page-play-v50.css"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/index.html"
+      - "kmate-trainer/tests/full-page-play-v50.spec.mjs"
+      - ".github/workflows/kmate-full-page-v50.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-page-browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate v50 wiring
+        run: |
+          node --check kmate-trainer/full-page-play-v50.js
+          node --check kmate-trainer/app-v7.js
+          node --check kmate-trainer/tests/full-page-play-v50.spec.mjs
+          grep -Fq "full-page-play-v50.js?v=50.0.0" kmate-trainer/app-v7.js
+          grep -Fq "KMATE_FULL_PAGE_V50 = '50.0.0'" kmate-trainer/full-page-play-v50.js
+          grep -Fq "km50HintBulb" kmate-trainer/full-page-play-v50.js
+          grep -Fq "data-kmate-pointed-pawn" kmate-trainer/full-page-play-v50.js
+          grep -Fq "#km50HintOverlay" kmate-trainer/full-page-play-v50.css
+          grep -Fq "#f8faea" kmate-trainer/full-page-play-v50.css
+          grep -Fq "#91bb72" kmate-trainer/full-page-play-v50.css
+          grep -Eq 'app-v7.js\?v=(49\.0\.0|50\.0\.0)' kmate-trainer/index.html
+
+      - name: Install browser dependencies
+        run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start static K-Mate server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v50-http.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/kmate-v50-http.log
+          exit 1
+
+      - name: Test full-page play, hint disclosure, candidate reveal, board contrast, and pawns
+        env:
+          KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
+        run: >-
+          npx playwright test
+          kmate-trainer/tests/full-page-play-v50.spec.mjs
+          --workers=1
+          --reporter=line
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmate-full-page-v50-failure
+          path: |
+            test-results
+            /tmp/kmate-v50-http.log
+          if-no-files-found: ignore
+          retention-days: 7

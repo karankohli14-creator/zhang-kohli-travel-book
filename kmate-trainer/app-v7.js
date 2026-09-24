@@ -102,6 +102,15 @@ try {
   }
 
   try {
+    // v50 makes the active position a true full-viewport experience, removes
+    // the title and inline hint from layout, adds a reliable bulb/candidate
+    // overlay, brightens the board, and replaces only the pawn silhouette.
+    await import('./full-page-play-v50.js?v=50.0.0');
+  } catch (error) {
+    console.warn('Optional v50 full-page play and hint overlay could not load.', error);
+  }
+
+  try {
     await import('./position-importers-v1.js?v=36.0.0');
     try {
       await import('./position-importers-hardening-v37.js?v=37.0.0');

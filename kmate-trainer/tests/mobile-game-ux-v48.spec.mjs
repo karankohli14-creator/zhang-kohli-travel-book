@@ -81,6 +81,7 @@ async function prepare(page) {
       && window.__KMATE_GAME_UX_V48__?.state?.().ready
       && window.__KMATE_MOVE_FEEDBACK_V48__?.state?.().ready
       && window.__KMATE_SCULPTED_PIECES_V47__?.state?.().ready
+      && window.__KMATE_FULL_PAGE_V50__?.state?.().ready
     ),
     undefined,
     { timeout: 90_000 },
@@ -93,24 +94,32 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('mobile play prioritizes the board, uses soft controls, and exposes hints from the edge', async ({ page }) => {
+test('full-page play preserves soft controls and exposes hints only through the v50 bulb', async ({ page }) => {
   test.setTimeout(120_000);
   await prepare(page);
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
   await expect(page.locator('#gameView')).toBeVisible();
   await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
-  await expect(page.locator('#kmateHintEdgeButton')).toBeVisible();
+  await expect(page.locator('#km50HintBulb')).toBeVisible();
+  await expect(page.locator('#kmateHintEdgeButton')).not.toBeVisible();
+  await expect(page.locator('#hintCard')).not.toBeVisible();
 
   const layout = await page.evaluate(() => {
     const titleBlock = document.querySelector('.playtop .left > div');
     const board = document.querySelector('#board').getBoundingClientRect();
+    const game = document.querySelector('#gameView').getBoundingClientRect();
     const menu = document.querySelector('#panelToggleButton');
     const fullscreen = document.querySelector('#fullscreenButton');
     const back = document.querySelector('#backButton');
     return {
       titleDisplay: getComputedStyle(titleBlock).display,
+      titleHidden: titleBlock.hidden,
       boardWidth: board.width,
       boardHeight: board.height,
+      gameWidth: game.width,
+      gameHeight: game.height,
+      viewportWidth: innerWidth,
+      viewportHeight: innerHeight,
       menuShadow: getComputedStyle(menu).boxShadow,
       fullscreenShadow: getComputedStyle(fullscreen).boxShadow,
       fullscreenWidth: fullscreen.getBoundingClientRect().width,
@@ -118,12 +127,12 @@ test('mobile play prioritizes the board, uses soft controls, and exposes hints f
       coachAudioDisplay: getComputedStyle(document.querySelector('#gameCoachAudioButton')).display,
     };
   });
-  expect(layout.titleDisplay).toBe('none');
-  // v49 deliberately restores this explicit control after removing the noisy
-  // automatic startup phrase, so players can confirm or replay coach speech.
+  expect(layout.titleHidden || layout.titleDisplay === 'none').toBe(true);
   expect(layout.coachAudioDisplay).toBe('grid');
-  expect(layout.boardWidth).toBeGreaterThanOrEqual(360);
+  expect(layout.boardWidth).toBeGreaterThanOrEqual(380);
   expect(Math.abs(layout.boardWidth - layout.boardHeight)).toBeLessThan(2);
+  expect(layout.gameWidth).toBeGreaterThanOrEqual(layout.viewportWidth - 1);
+  expect(layout.gameHeight).toBeGreaterThanOrEqual(layout.viewportHeight - 1);
   expect(layout.menuShadow).not.toBe('none');
   expect(layout.fullscreenShadow).not.toBe('none');
   expect(layout.fullscreenWidth).toBeGreaterThan(layout.boardWidth / 10);
@@ -133,9 +142,10 @@ test('mobile play prioritizes the board, uses soft controls, and exposes hints f
     ux: window.__KMATE_GAME_UX_V48__.state(),
     move: window.__KMATE_MOVE_FEEDBACK_V48__.state(),
   }));
-  await page.locator('#kmateHintEdgeButton').click();
+  await page.locator('#km50HintBulb').click();
+  await expect(page.locator('#km50HintOverlay')).toBeVisible();
   await expect(page.locator('#hintCard')).toBeVisible();
-  await expect(page.locator('#kmateHintEdgeButton')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#km50HintBulb')).toHaveAttribute('aria-expanded', 'true');
   const afterTap = await page.evaluate(() => ({
     ux: window.__KMATE_GAME_UX_V48__.state(),
     move: window.__KMATE_MOVE_FEEDBACK_V48__.state(),
