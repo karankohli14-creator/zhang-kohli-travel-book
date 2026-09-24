@@ -1,215 +1,166 @@
-const SIMPLE_PIECES_VERSION = '51.0.0';
-const SIMPLE_PIECES_STYLE_ID = 'kmateSimplePiecesV51Styles';
-const SIMPLE_PIECES_SELECTOR = '.piece[data-piece-type], .sq > .piece';
-const SIMPLE_PIECE_GLYPHS = Object.freeze({
-  '♙': 'p', '♟': 'p',
-  '♖': 'r', '♜': 'r',
-  '♘': 'n', '♞': 'n',
-  '♗': 'b', '♝': 'b',
-  '♕': 'q', '♛': 'q',
-  '♔': 'k', '♚': 'k',
+const KMATE_REFERENCE_THEME_V52 = '52.0.0';
+const KMATE_REFERENCE_STYLE_ID_V52 = 'kmateReferenceThemeV52Styles';
+const KMATE_REFERENCE_SELECTOR_V52 = '.piece[data-piece-type], .sq > .piece';
+const KMATE_REFERENCE_GLYPHS_V52 = Object.freeze({
+  '♙': 'p', '♟': 'p', '♖': 'r', '♜': 'r', '♘': 'n', '♞': 'n',
+  '♗': 'b', '♝': 'b', '♕': 'q', '♛': 'q', '♔': 'k', '♚': 'k',
 });
-const SIMPLE_PIECE_NAMES = Object.freeze({
-  p: 'pawn',
-  r: 'rook',
-  n: 'knight',
-  b: 'bishop',
-  q: 'queen',
-  k: 'king',
+const KMATE_REFERENCE_NAMES_V52 = Object.freeze({ p: 'pawn', r: 'rook', n: 'knight', b: 'bishop', q: 'queen', k: 'king' });
+const KMATE_REFERENCE_PATHS_V52 = Object.freeze({
+  "r": "M66,55 64,57 66,83 69,89 72,92 76,94 78,96 78,98 77,99 77,108 76,109 76,117 75,118 75,126 74,127 74,136 73,137 72,152 63,156 59,160 57,164 57,167 56,168 56,182 57,183 160,183 161,182 161,167 160,166 160,164 158,160 154,156 145,152 145,146 144,145 144,136 143,135 143,127 142,126 142,117 141,116 141,108 140,107 140,95 145,92 148,89 151,84 151,79 152,78 152,66 153,65 153,57 149,54 147,54 140,51 135,51 135,54 133,58 133,61 131,65 131,68 129,70 122,70 121,69 121,49 119,49 118,48 99,48 98,49 96,49 96,69 95,70 88,70 85,64 85,61 83,57 82,51 77,51 76,52 74,52 73,53Z",
+  "n": "M83,38 79,43 79,45 78,46 78,51 77,53 66,64 66,65 64,67 61,78 59,81 59,83 57,87 54,90 54,91 44,104 43,108 42,109 42,117 45,121 48,122 50,124 52,124 55,126 58,126 59,127 66,127 69,124 71,120 76,115 84,115 85,114 90,113 93,110 94,110 101,102 103,102 104,103 104,111 103,113 79,136 79,137 74,143 71,152 69,154 67,154 65,156 64,156 60,160 57,166 57,183 162,183 162,166 161,165 161,163 155,156 149,153 149,149 151,146 151,144 153,141 153,139 155,135 155,132 156,131 156,128 157,127 157,120 158,119 158,112 157,111 157,104 156,103 156,99 149,82 147,80 144,74 139,69 139,68 131,61 118,54 112,53 111,52 105,52 104,51 101,51 88,38Z",
+  "b": "M105,35 101,37 98,40 97,44 96,45 96,52 98,55 98,58 92,64 91,64 80,76 80,77 76,82 75,85 73,87 71,91 71,93 69,96 69,99 67,103 67,108 66,109 66,120 67,121 67,126 68,127 68,130 69,131 70,136 72,140 74,142 75,145 79,149 79,151 78,152 71,153 65,156 63,158 62,158 62,159 59,162 58,168 57,169 57,182 58,183 162,183 162,167 158,159 151,154 145,153 144,152 141,152 140,151 140,149 143,146 148,138 148,136 150,133 151,127 152,126 152,120 153,119 153,110 152,109 152,104 151,103 151,100 150,99 149,94 141,79 131,68 131,67 130,67 126,63 123,69 123,71 122,72 122,74 119,81 119,85 118,86 118,91 117,92 117,112 116,113 109,113 108,112 108,94 109,93 110,82 111,81 112,75 115,69 115,67 118,61 120,59 121,55 123,52 123,44 121,40 118,37 114,35Z",
+  "q": "M82,39 76,44 73,51 73,55 74,56 74,59 75,61 81,67 83,68 83,75 82,76 82,94 81,95 81,102 80,103 78,103 67,92 67,87 68,86 68,78 66,74 61,69 57,68 56,67 50,67 49,68 47,68 42,71 42,72 39,75 39,77 38,78 38,87 40,91 44,95 48,97 50,97 53,100 53,102 55,105 55,107 57,110 57,112 59,115 59,117 61,120 61,122 63,125 63,127 65,130 65,132 67,135 67,137 69,140 69,142 73,150 73,152 72,153 70,153 64,156 59,162 58,164 58,167 57,168 57,182 58,183 162,183 162,165 160,161 154,155 150,154 147,152 147,149 149,146 149,144 151,141 151,139 153,136 153,134 155,131 155,129 157,126 157,124 159,121 159,119 161,116 161,114 163,111 163,109 165,106 167,99 169,97 172,97 176,95 181,89 181,87 182,86 182,79 181,78 180,74 175,69 171,68 170,67 163,67 157,70 154,73 152,77 152,80 151,81 151,84 152,85 153,91 141,103 139,103 138,102 137,68 144,62 146,58 146,49 142,42 135,38 127,38 120,42 120,43 117,46 117,48 116,49 116,58 118,62 120,64 120,67 119,68 115,82 113,85 112,90 111,91 109,91 106,86 106,84 105,83 105,81 104,80 104,78 103,77 103,75 100,68 100,64 104,56 104,50 103,49 102,45 97,40 93,39 92,38 85,38 84,39Z",
+  "k": "M101,33 100,34 100,45 99,46 88,46 88,62 101,62 102,63 102,67 101,68 101,71 100,72 100,76 99,77 96,77 91,74 89,74 85,72 82,72 81,71 67,71 66,72 61,73 58,75 56,75 49,81 48,81 44,86 42,93 41,94 41,97 40,98 40,111 41,112 42,118 45,124 62,140 62,141 67,146 70,151 70,153 64,156 58,163 58,165 57,166 57,183 161,183 162,182 162,169 161,168 161,164 156,157 149,153 149,150 154,144 154,143 173,125 177,117 177,115 178,114 178,109 179,108 179,102 178,101 178,95 177,94 176,89 173,84 167,78 158,73 152,72 151,71 138,71 137,72 133,72 127,75 125,75 122,77 120,77 118,73 118,70 117,69 116,63 117,62 131,62 131,46 120,46 119,45 119,34 118,33Z M76,98 78,98 79,97 87,98 91,100 95,104 95,129 94,130 88,130 72,112 71,110 71,103Z M144,99 148,104 148,109 146,113 139,120 139,121 131,130 125,130 124,129 124,103 126,101 135,97 139,97 140,98Z",
+  "p": "M100,50 93,54 90,57 87,62 87,64 85,68 85,76 86,77 86,80 88,84 92,89 92,92 88,94 86,96 83,97 80,101 80,103 83,109 95,109 96,110 95,116 94,117 93,122 89,129 83,135 72,142 65,150 63,154 63,156 62,157 62,161 61,162 61,172 156,172 156,162 155,161 155,157 152,150 144,141 133,134 128,129 124,122 124,120 122,116 122,113 121,112 121,110 122,109 134,109 137,103 136,99 131,95 128,94 125,91 125,89 128,86 131,80 131,77 132,76 132,68 131,67 131,64 127,57 124,54 117,50 115,50 114,49 103,49 102,50Z"
 });
 
-const SIMPLE_PIECE_PATHS = Object.freeze({
-  p: `M 46.08 22.94 L 41.47 26.15 L 39.17 31.19 L 39.63 36.70 L 42.86 41.74 L 38.25 44.50 L 36.87 46.33 L 38.25 50.00 L 43.78 50.00 L 43.78 53.21 L 41.01 59.17 L 38.25 61.93 L 33.18 65.14 L 29.95 68.81 L 28.11 74.31 L 28.11 78.90 L 71.89 78.90 L 71.89 73.85 L 70.05 68.81 L 66.36 64.68 L 58.99 59.17 L 57.14 55.96 L 55.76 51.38 L 56.22 50.00 L 61.75 50.00 L 63.13 47.25 L 61.75 44.50 L 57.14 41.74 L 60.83 35.32 L 60.37 29.36 L 58.53 26.15 L 53.92 22.94 Z`,
-  r: `M 30.41 25.35 L 29.49 26.27 L 30.41 38.25 L 31.80 41.01 L 35.02 43.32 L 35.94 45.16 L 33.18 70.05 L 29.03 71.89 L 27.19 73.73 L 25.81 77.42 L 25.81 83.87 L 73.73 84.33 L 73.73 75.58 L 70.97 71.89 L 66.82 70.05 L 64.06 44.70 L 68.20 41.01 L 69.59 38.71 L 70.51 26.27 L 68.66 24.88 L 64.52 23.50 L 62.21 23.50 L 60.37 31.34 L 59.45 32.26 L 56.68 32.26 L 55.76 31.34 L 55.76 22.58 L 45.16 22.12 L 44.24 22.58 L 44.24 31.80 L 40.55 32.26 L 39.17 29.49 L 37.79 23.50 L 35.48 23.50 Z`,
-  n: `M 38.07 17.51 L 36.24 19.82 L 35.32 24.42 L 29.82 29.95 L 26.61 39.17 L 20.64 47.00 L 19.27 50.23 L 19.27 53.92 L 20.64 55.76 L 26.61 58.53 L 30.28 58.53 L 34.86 53.00 L 38.53 53.00 L 41.28 52.07 L 46.79 46.54 L 47.71 47.47 L 47.71 51.15 L 36.24 62.67 L 33.94 65.90 L 32.57 70.05 L 29.36 71.89 L 26.61 75.12 L 26.15 84.33 L 74.31 84.33 L 73.85 75.12 L 71.10 71.89 L 67.89 70.05 L 71.56 60.83 L 72.48 55.30 L 72.02 47.47 L 68.35 37.79 L 64.22 31.80 L 60.09 28.11 L 54.13 24.88 L 46.33 23.50 L 40.37 17.51 Z`,
-  b: `M 52.07 16.13 L 47.93 16.13 L 44.70 18.43 L 43.78 20.74 L 43.78 23.96 L 45.16 26.73 L 41.47 29.49 L 36.41 35.02 L 31.34 44.24 L 29.95 50.23 L 30.41 58.06 L 33.18 65.44 L 36.41 69.59 L 29.49 71.89 L 26.73 74.65 L 25.81 77.88 L 26.27 84.33 L 74.19 84.33 L 74.19 76.96 L 72.81 73.73 L 69.12 70.97 L 63.59 69.59 L 67.28 64.52 L 69.59 58.06 L 70.05 50.69 L 69.12 46.08 L 64.52 36.41 L 57.60 29.03 L 55.30 34.10 L 53.92 39.63 L 53.46 51.61 L 49.31 51.61 L 49.77 40.09 L 51.61 33.18 L 56.22 23.96 L 56.22 20.28 L 55.30 18.43 Z`,
-  q: `M 36.24 18.43 L 34.40 20.28 L 33.03 23.50 L 33.94 28.11 L 37.61 31.34 L 37.16 42.86 L 36.24 48.39 L 29.82 41.94 L 30.73 40.09 L 30.73 35.94 L 27.52 31.80 L 25.23 30.88 L 22.02 30.88 L 18.81 32.72 L 16.97 35.48 L 16.97 40.09 L 20.18 44.24 L 22.48 44.70 L 23.85 46.08 L 33.03 69.12 L 32.57 70.51 L 28.90 71.89 L 27.06 73.73 L 25.69 76.96 L 25.69 83.87 L 73.85 84.33 L 73.85 76.04 L 70.18 71.43 L 66.97 70.05 L 66.97 68.66 L 76.15 45.62 L 80.28 43.78 L 82.57 41.01 L 83.03 36.41 L 82.11 34.10 L 79.82 31.80 L 77.52 30.88 L 74.31 30.88 L 71.56 32.26 L 70.18 33.64 L 68.81 36.87 L 69.72 41.94 L 63.76 47.93 L 62.84 46.54 L 62.39 31.34 L 65.60 28.57 L 66.51 26.73 L 66.51 22.58 L 64.68 19.35 L 61.47 17.51 L 57.80 17.51 L 54.59 19.35 L 52.75 22.58 L 52.75 26.73 L 54.59 29.49 L 54.59 30.88 L 50.00 43.32 L 44.95 29.95 L 47.25 25.81 L 47.25 23.04 L 46.33 20.74 L 44.04 18.43 L 41.74 17.51 L 38.53 17.51 Z`,
-  k: `M 46.08 15.21 L 45.62 20.74 L 40.09 21.20 L 40.09 28.57 L 46.54 29.03 L 45.62 35.02 L 44.70 35.94 L 40.55 33.64 L 36.87 32.72 L 30.41 32.72 L 26.27 34.10 L 22.12 36.87 L 19.82 39.63 L 18.43 43.32 L 17.97 51.15 L 20.28 57.14 L 28.11 64.52 L 32.26 70.05 L 29.03 71.89 L 26.27 75.12 L 25.81 84.33 L 73.73 84.33 L 73.73 75.58 L 71.43 72.35 L 68.20 70.97 L 67.74 70.05 L 70.51 65.90 L 80.18 56.22 L 82.03 49.77 L 81.57 43.78 L 80.65 41.01 L 76.50 35.94 L 69.12 32.72 L 60.83 33.18 L 54.84 35.94 L 53.00 29.49 L 53.92 28.57 L 59.91 28.57 L 59.91 21.20 L 54.84 21.20 L 53.92 15.21 Z M 65.90 45.62 L 67.74 47.93 L 67.74 50.23 L 66.82 52.07 L 59.91 59.91 L 57.14 59.91 L 56.68 47.47 L 62.21 44.70 Z M 34.56 45.16 L 39.63 45.16 L 43.32 47.93 L 42.86 59.91 L 40.09 59.91 L 32.72 51.61 L 32.26 47.47 Z`,
-});
+let km52PieceSerial = 0;
+let km52CssReady = false;
+let km52PieceObserver = null;
+let km52Applied = 0;
+let km52Refreshes = 0;
 
-let simplePieceObserver = null;
-let simplePiecesApplied = 0;
-let simplePieceRefreshes = 0;
-
-function simplePiecesEnsureStyles() {
-  if (document.querySelector(`#${SIMPLE_PIECES_STYLE_ID}`)) return;
-  const style = document.createElement('style');
-  style.id = SIMPLE_PIECES_STYLE_ID;
-  style.textContent = `
-    .piece.kmate-simple-piece-v51 {
-      display: grid !important;
-      place-items: center !important;
-      font-size: 0 !important;
-      isolation: isolate;
-    }
-    .piece.kmate-simple-piece-v51 > svg {
-      display: block;
-      width: 100%;
-      height: 100%;
-      overflow: visible;
-      pointer-events: none;
-      shape-rendering: geometricPrecision;
-    }
-    .piece.kmate-simple-piece-v51 .kmate-simple-shape {
-      fill: var(--kmate-simple-fill);
-      stroke: var(--kmate-simple-stroke);
-      stroke-width: var(--kmate-simple-stroke-width);
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      paint-order: stroke fill;
-      vector-effect: non-scaling-stroke;
-    }
-    .piece.kmate-simple-piece-v51.white {
-      --kmate-simple-fill: #fffdf7;
-      --kmate-simple-stroke: #343937;
-      --kmate-simple-stroke-width: 2.15;
-    }
-    .piece.kmate-simple-piece-v51.black {
-      --kmate-simple-fill: #202422;
-      --kmate-simple-stroke: #0f1211;
-      --kmate-simple-stroke-width: 2.05;
-    }
-    .piece.kmate-simple-piece-v51.selected,
-    .piece.kmate-simple-piece-v51.last-move {
-      filter: none !important;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .piece.kmate-simple-piece-v51,
-      .piece.kmate-simple-piece-v51 > svg {
-        transition: none !important;
-        animation: none !important;
-      }
-    }
-  `;
-  document.head.append(style);
+function km52EnsureStyles() {
+  let link = document.querySelector(`#${KMATE_REFERENCE_STYLE_ID_V52}`);
+  if (!link) {
+    link = document.createElement('link');
+    link.id = KMATE_REFERENCE_STYLE_ID_V52;
+    link.rel = 'stylesheet';
+    link.href = new URL(`./reference-board-v52.css?v=${KMATE_REFERENCE_THEME_V52}`, import.meta.url).href;
+    document.head.append(link);
+  }
+  const markReady = () => {
+    km52CssReady = true;
+    document.documentElement.dataset.kmateReferenceThemeReady = KMATE_REFERENCE_THEME_V52;
+  };
+  if (link.sheet) markReady();
+  else {
+    link.addEventListener('load', markReady, { once: true });
+    link.addEventListener('error', () => {
+      console.warn('K-Mate v52 reference-theme stylesheet could not load.');
+    }, { once: true });
+  }
+  return link;
 }
 
-function simplePieceType(element) {
+function km52PieceType(element) {
   const datasetType = String(element?.dataset?.pieceType || '').toLowerCase();
-  if (SIMPLE_PIECE_PATHS[datasetType]) return datasetType;
-  const legacySvgType = element?.querySelector(':scope > svg')?.dataset?.kmateSculptedPiece;
-  if (SIMPLE_PIECE_PATHS[legacySvgType]) return legacySvgType;
-  const glyph = String(element?.textContent || '').trim();
-  return SIMPLE_PIECE_GLYPHS[glyph] || '';
+  if (KMATE_REFERENCE_PATHS_V52[datasetType]) return datasetType;
+  const oldSvgType = element?.querySelector(':scope > svg')?.dataset?.kmateSimplePiece
+    || element?.querySelector(':scope > svg')?.dataset?.kmateSculptedPiece
+    || element?.querySelector(':scope > svg')?.dataset?.kmatePointedPawnV50;
+  if (KMATE_REFERENCE_PATHS_V52[oldSvgType]) return oldSvgType;
+  return KMATE_REFERENCE_GLYPHS_V52[String(element?.textContent || '').trim()] || '';
 }
 
-function simplePieceColor(element) {
+function km52PieceColor(element) {
   if (element?.classList?.contains('white')) return 'white';
   if (element?.classList?.contains('black')) return 'black';
-  const datasetColor = String(element?.dataset?.pieceColor || '').toLowerCase();
-  if (datasetColor === 'w' || datasetColor === 'white') return 'white';
-  if (datasetColor === 'b' || datasetColor === 'black') return 'black';
+  const value = String(element?.dataset?.pieceColor || '').toLowerCase();
+  if (value === 'w' || value === 'white') return 'white';
+  if (value === 'b' || value === 'black') return 'black';
   return '';
 }
 
-function simplePieceSvg(type, color) {
-  const name = SIMPLE_PIECE_NAMES[type] || 'piece';
-  return `<svg viewBox="0 0 100 100" focusable="false" aria-hidden="true" data-kmate-simple-piece="${type}" data-kmate-simple-color="${color}">
+function km52PieceSvg(type, color) {
+  const uid = `km52-${type}-${color}-${++km52PieceSerial}`;
+  const d = KMATE_REFERENCE_PATHS_V52[type];
+  const name = KMATE_REFERENCE_NAMES_V52[type] || 'piece';
+  return `<svg viewBox="0 0 217 217" preserveAspectRatio="xMidYMid meet" focusable="false" aria-hidden="true" data-kmate-reference-piece="${type}" data-kmate-reference-color="${color}">
+    <defs>
+      <linearGradient id="${uid}-fill" x1="20%" y1="8%" x2="78%" y2="96%">
+        <stop offset="0" class="km52-stop-top"/><stop offset=".52" class="km52-stop-mid"/><stop offset="1" class="km52-stop-bottom"/>
+      </linearGradient>
+    </defs>
     <title>${color} ${name}</title>
-    <path class="kmate-simple-shape" fill-rule="evenodd" d="${SIMPLE_PIECE_PATHS[type]}"/>
+    <path class="km52-piece-shadow" d="${d}" fill-rule="evenodd" transform="translate(1.7 2.3)"/>
+    <path class="km52-piece-shape" d="${d}" fill="url(#${uid}-fill)" fill-rule="evenodd"/>
   </svg>`;
 }
 
-function simplePiecesApply(element) {
+function km52ApplyPiece(element) {
   if (!(element instanceof HTMLElement) || !element.classList.contains('piece')) return false;
-  const type = simplePieceType(element);
-  const color = simplePieceColor(element);
+  const type = km52PieceType(element);
+  const color = km52PieceColor(element);
   if (!type || !color) return false;
+  const current = element.querySelector(':scope > svg[data-kmate-reference-piece]');
+  if (element.dataset.kmatePieceStyle === KMATE_REFERENCE_THEME_V52
+      && current?.dataset.kmateReferencePiece === type
+      && current?.dataset.kmateReferenceColor === color) return false;
 
-  const current = element.querySelector(':scope > svg[data-kmate-simple-piece]');
-  if (
-    element.dataset.kmatePieceStyle === SIMPLE_PIECES_VERSION
-    && current?.dataset.kmateSimplePiece === type
-    && current?.dataset.kmateSimpleColor === color
-  ) return false;
-
-  element.dataset.kmatePieceStyle = SIMPLE_PIECES_VERSION;
+  element.dataset.kmatePieceStyle = KMATE_REFERENCE_THEME_V52;
   element.dataset.pieceType = type;
   element.dataset.pieceColor = color === 'white' ? 'w' : 'b';
-  element.classList.remove('kmate-sculpted-piece-v47', 'kmate-pointed-pawn-v50');
-  element.classList.add('vector-piece', 'staunton-piece', 'kmate-simple-piece-v51');
-  element.innerHTML = simplePieceSvg(type, color);
-  simplePiecesApplied += 1;
+  element.classList.remove('kmate-simple-piece-v51', 'kmate-sculpted-piece-v47', 'kmate-pointed-pawn-v50');
+  element.classList.add('vector-piece', 'staunton-piece', 'kmate-reference-piece-v52');
+  element.innerHTML = km52PieceSvg(type, color);
+  km52Applied += 1;
   return true;
 }
 
-function simplePiecesRefresh(root = document) {
-  simplePieceRefreshes += 1;
+function km52Refresh(root = document) {
+  km52Refreshes += 1;
   const pieces = new Set();
-  if (root instanceof Element && root.matches(SIMPLE_PIECES_SELECTOR)) pieces.add(root);
-  root.querySelectorAll?.(SIMPLE_PIECES_SELECTOR).forEach((piece) => pieces.add(piece));
+  if (root instanceof Element && root.matches(KMATE_REFERENCE_SELECTOR_V52)) pieces.add(root);
+  root.querySelectorAll?.(KMATE_REFERENCE_SELECTOR_V52).forEach((piece) => pieces.add(piece));
   let changed = 0;
-  pieces.forEach((piece) => {
-    if (simplePiecesApply(piece)) changed += 1;
-  });
+  pieces.forEach((piece) => { if (km52ApplyPiece(piece)) changed += 1; });
   return changed;
 }
 
-function simplePiecesStartObserver() {
-  if (simplePieceObserver || !document.body) return;
-  simplePieceObserver = new MutationObserver((mutations) => {
+function km52StartObserver() {
+  if (km52PieceObserver || !document.body) return;
+  km52PieceObserver = new MutationObserver((mutations) => {
     const roots = new Set();
     for (const mutation of mutations) {
       const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
       if (target?.classList?.contains('piece')) roots.add(target);
-      for (const node of mutation.addedNodes) {
-        if (node instanceof Element) roots.add(node);
-      }
+      for (const node of mutation.addedNodes) if (node instanceof Element) roots.add(node);
     }
-    roots.forEach((root) => simplePiecesRefresh(root));
+    roots.forEach((root) => km52Refresh(root));
   });
-  simplePieceObserver.observe(document.body, { childList: true, subtree: true });
+  km52PieceObserver.observe(document.body, { childList: true, subtree: true });
 }
 
-function simplePiecesState() {
-  const pieces = [...document.querySelectorAll('.piece.kmate-simple-piece-v51')];
-  const byType = Object.fromEntries(Object.keys(SIMPLE_PIECE_PATHS).map((type) => [
-    type,
-    pieces.filter((piece) => piece.dataset.pieceType === type).length,
-  ]));
+function km52State() {
+  const pieces = [...document.querySelectorAll('.piece.kmate-reference-piece-v52')];
+  const byType = Object.fromEntries(Object.keys(KMATE_REFERENCE_PATHS_V52).map((type) => [type, pieces.filter((piece) => piece.dataset.pieceType === type).length]));
   return {
-    ready: true,
-    version: SIMPLE_PIECES_VERSION,
-    style: 'flat-reference-silhouette',
-    reference: 'user-supplied green-and-ivory board',
+    ready: km52CssReady,
+    version: KMATE_REFERENCE_THEME_V52,
+    style: 'uploaded-svg-reference-theme',
+    source: 'user-supplied wooden green-and-ivory SVG',
     sourceImageCopied: false,
-    gradients: 0,
-    decorativeDetailLayers: 0,
-    applied: simplePiecesApplied,
-    refreshes: simplePieceRefreshes,
+    exactSilhouetteExtraction: true,
+    texturedSquares: true,
+    woodenFrame: true,
+    orangeCoordinateBadges: true,
+    applied: km52Applied,
+    refreshes: km52Refreshes,
     visiblePieces: pieces.filter((piece) => piece.getClientRects().length > 0).length,
     totalPieces: pieces.length,
     byType,
-    palette: {
-      white: 'flat warm white with charcoal outline',
-      black: 'flat near-black with dark outline',
-    },
+    palette: { white: 'reference ivory', black: 'reference charcoal' },
   };
 }
 
-function simplePiecesInitialize() {
-  document.documentElement.classList.remove('kmate-sculpted-pieces-v47');
-  document.documentElement.classList.add('kmate-simple-pieces-v51');
-  simplePiecesEnsureStyles();
-  simplePiecesRefresh();
-  simplePiecesStartObserver();
-  window.setTimeout(() => simplePiecesRefresh(), 0);
-  window.setTimeout(() => simplePiecesRefresh(), 300);
-  window.setTimeout(() => simplePiecesRefresh(), 1400);
-
-  const api = {
-    version: SIMPLE_PIECES_VERSION,
-    refresh: simplePiecesRefresh,
-    state: simplePiecesState,
-  };
+function km52Initialize() {
+  document.documentElement.classList.remove('kmate-simple-pieces-v51', 'kmate-sculpted-pieces-v47');
+  document.documentElement.classList.add('kmate-reference-theme-v52');
+  km52EnsureStyles();
+  km52Refresh();
+  km52StartObserver();
+  window.setTimeout(() => km52Refresh(), 0);
+  window.setTimeout(() => km52Refresh(), 300);
+  window.setTimeout(() => km52Refresh(), 1400);
+  const api = { version: KMATE_REFERENCE_THEME_V52, refresh: km52Refresh, state: km52State };
+  window.__KMATE_REFERENCE_THEME_V52__ = api;
+  // Compatibility aliases for existing K-Mate diagnostics and tests.
   window.__KMATE_SIMPLE_PIECES_V51__ = api;
-  // Retain the old diagnostic name so older QA and optional layers do not
-  // mistake the visual-only replacement for a missing piece renderer.
   window.__KMATE_SCULPTED_PIECES_V47__ = api;
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', simplePiecesInitialize, { once: true });
-} else {
-  simplePiecesInitialize();
-}
+km52EnsureStyles();
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', km52Initialize, { once: true });
+else km52Initialize();

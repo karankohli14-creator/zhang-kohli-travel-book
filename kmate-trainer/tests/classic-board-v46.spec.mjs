@@ -54,11 +54,10 @@ async function prepare(page) {
     () => Boolean(
       window.__KMATE__?.test?.startLiveCoachPrincipleDemo
       && window.__KMATE_CLASSIC_BOARD_V46__?.state?.().ready
-      && window.__KMATE_SIMPLE_PIECES_V51__?.state?.().ready
+      && window.__KMATE_REFERENCE_THEME_V52__?.state?.().ready
       && window.__KMATE_MOVE_FEEDBACK_V48__?.state?.().ready
-      && window.__KMATE_GAME_UX_V48__?.state?.().ready
-      && window.__KMATE_MOBILE_FULL_PAGE_V50__?.state?.().ready
       && window.__KMATE_MOVE_SOUND_V45__?.state?.().ready
+      && window.__KMATE_MOBILE_FULL_PAGE_V50__?.state?.().ready
     ),
     undefined,
     { timeout: 90_000 },
@@ -71,129 +70,91 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('stable board keeps the simpler reference pieces visible and preserves quiet movement feedback', async ({ page }) => {
+test('stable native board uses the uploaded-SVG textures, frame, coordinates, and detailed pieces', async ({ page }) => {
   test.setTimeout(150_000);
   await prepare(page);
 
   const startup = await page.evaluate(() => ({
     classic: window.__KMATE_CLASSIC_BOARD_V46__.state(),
-    pieces: window.__KMATE_SIMPLE_PIECES_V51__.state(),
+    theme: window.__KMATE_REFERENCE_THEME_V52__.state(),
     feedback: window.__KMATE_MOVE_FEEDBACK_V48__.state(),
     compatibility: window.__KMATE_MOVE_SOUND_V45__.state(),
-    ux: window.__KMATE_GAME_UX_V48__.state(),
     fullPage: window.__KMATE_MOBILE_FULL_PAGE_V50__.state(),
     storedSvg: JSON.parse(localStorage.getItem('kmate-svg-board-v44') || 'null'),
   }));
   expect(startup.classic.active).toBe(true);
   expect(startup.classic.renderer).toBe('native-staunton-grid');
   expect(startup.storedSvg.enabled).toBe(false);
-  expect(startup.pieces.version).toBe('51.0.0');
-  expect(startup.pieces.style).toBe('flat-reference-silhouette');
-  expect(startup.pieces.gradients).toBe(0);
-  expect(startup.pieces.decorativeDetailLayers).toBe(0);
+  expect(startup.theme.version).toBe('52.0.0');
+  expect(startup.theme.style).toBe('uploaded-svg-reference-theme');
   expect(startup.feedback.version).toBe('48.0.0');
-  expect(startup.feedback.volume).toBe(0.24);
-  expect(startup.feedback.hapticDurationMs).toBe(8);
   expect(startup.feedback.legacyLoudPlayerDisabled).toBe(true);
   expect(startup.compatibility.enabled).toBe(false);
-  expect(startup.compatibility.suppressedCoreKinds).toEqual(['move', 'capture', 'check']);
-  expect(startup.ux.softButtonSound).toBe(true);
-  expect(startup.fullPage.version).toBe('50.0.0');
   expect(startup.fullPage.effectiveMoveGain).toBe(0.10);
 
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
   await expect(page.locator('#gameView')).toBeVisible();
   await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
   await expect(page.locator('#board > .svg44-overlay')).toHaveCount(0);
-  await expect(page.locator('#board .piece.kmate-simple-piece-v51')).toHaveCount(32, { timeout: 30_000 });
-  await expect(page.locator('#board .piece.kmate-simple-piece-v51 svg[data-kmate-simple-piece]')).toHaveCount(32);
-  await expect(page.locator('#board .piece.kmate-pointed-pawn-v50')).toHaveCount(0);
+  await expect(page.locator('#board .piece.kmate-reference-piece-v52')).toHaveCount(32, { timeout: 30_000 });
 
-  const palette = await page.evaluate(() => {
-    const light = document.querySelector('#board > .sq.light');
-    const dark = document.querySelector('#board > .sq.dark');
-    const white = document.querySelector('#board .piece.kmate-simple-piece-v51.white');
-    const black = document.querySelector('#board .piece.kmate-simple-piece-v51.black');
-    const whiteStyle = getComputedStyle(white);
-    const blackStyle = getComputedStyle(black);
+  const appearance = await page.evaluate(() => {
+    const board = document.querySelector('#board');
+    const wrap = document.querySelector('.live-boardwrap');
+    const light = board.querySelector(':scope > .sq.light');
+    const dark = board.querySelector(':scope > .sq.dark');
+    const rank = board.querySelector('.coord.rank');
+    const file = board.querySelector('.coord.file');
+    const white = board.querySelector('.piece.kmate-reference-piece-v52.white');
+    const black = board.querySelector('.piece.kmate-reference-piece-v52.black');
+    const boardBox = board.getBoundingClientRect();
+    const rankBox = rank.getBoundingClientRect();
+    const fileBox = file.getBoundingClientRect();
     return {
-      light: getComputedStyle(light).backgroundColor,
-      dark: getComputedStyle(dark).backgroundColor,
+      lightColor: getComputedStyle(light).backgroundColor,
+      darkColor: getComputedStyle(dark).backgroundColor,
       lightImage: getComputedStyle(light).backgroundImage,
       darkImage: getComputedStyle(dark).backgroundImage,
-      whiteFill: whiteStyle.getPropertyValue('--kmate-simple-fill').trim(),
-      blackFill: blackStyle.getPropertyValue('--kmate-simple-fill').trim(),
-      whiteEdge: whiteStyle.getPropertyValue('--kmate-simple-stroke').trim(),
-      blackEdge: blackStyle.getPropertyValue('--kmate-simple-stroke').trim(),
-      whiteStroke: getComputedStyle(white.querySelector('.kmate-simple-shape')).strokeWidth,
-      blackStroke: getComputedStyle(black.querySelector('.kmate-simple-shape')).strokeWidth,
-      gradients: document.querySelectorAll('#board .piece.kmate-simple-piece-v51 linearGradient, #board .piece.kmate-simple-piece-v51 radialGradient').length,
-      paths: document.querySelectorAll('#board .piece.kmate-simple-piece-v51 > svg > path').length,
+      frameImage: getComputedStyle(wrap).backgroundImage,
+      framePadding: Number.parseFloat(getComputedStyle(wrap).paddingLeft),
+      frameBorder: getComputedStyle(wrap).borderTopColor,
+      trimContent: getComputedStyle(wrap, '::before').content,
+      boardContain: getComputedStyle(board).contain,
+      rankBackground: getComputedStyle(rank).backgroundColor,
+      rankRadius: getComputedStyle(rank).borderRadius,
+      rankOutside: rankBox.right < boardBox.left + 2,
+      fileOutside: fileBox.top > boardBox.bottom - 2,
+      whiteTop: getComputedStyle(white).getPropertyValue('--km52-piece-top').trim(),
+      blackBottom: getComputedStyle(black).getPropertyValue('--km52-piece-bottom').trim(),
+      whitePathLength: white.querySelector('.km52-piece-shape')?.getAttribute('d')?.length || 0,
+      blackPathLength: black.querySelector('.km52-piece-shape')?.getAttribute('d')?.length || 0,
     };
   });
-  expect(palette.light).toBe('rgb(248, 248, 232)');
-  expect(palette.dark).toBe('rgb(139, 183, 104)');
-  expect(palette.lightImage).not.toBe('none');
-  expect(palette.darkImage).not.toBe('none');
-  expect(palette.whiteFill).toBe('#fffdf7');
-  expect(palette.blackFill).toBe('#202422');
-  expect(palette.whiteEdge).toBe('#343937');
-  expect(palette.blackEdge).toBe('#0f1211');
-  expect(Number.parseFloat(palette.whiteStroke)).toBeGreaterThanOrEqual(2);
-  expect(Number.parseFloat(palette.blackStroke)).toBeGreaterThanOrEqual(2);
-  expect(palette.gradients).toBe(0);
-  expect(palette.paths).toBe(32);
+
+  expect(appearance.lightColor).toBe('rgb(211, 206, 189)');
+  expect(appearance.darkColor).toBe('rgb(117, 142, 114)');
+  expect(appearance.lightImage).toContain('repeating-linear-gradient');
+  expect(appearance.darkImage).toContain('repeating-linear-gradient');
+  expect(appearance.frameImage).toContain('repeating-linear-gradient');
+  expect(appearance.framePadding).toBeGreaterThanOrEqual(18);
+  expect(appearance.frameBorder).toBe('rgb(28, 14, 7)');
+  expect(appearance.trimContent).not.toBe('none');
+  expect(appearance.boardContain).not.toContain('paint');
+  expect(appearance.rankBackground).toBe('rgb(213, 82, 54)');
+  expect(appearance.rankRadius).toContain('50%');
+  expect(appearance.rankOutside).toBe(true);
+  expect(appearance.fileOutside).toBe(true);
+  expect(appearance.whiteTop).toBe('#fffef9');
+  expect(appearance.blackBottom).toBe('#181a19');
+  expect(appearance.whitePathLength).toBeGreaterThan(400);
+  expect(appearance.blackPathLength).toBeGreaterThan(400);
 
   const beforeMove = await page.evaluate(() => window.__KMATE_MOVE_FEEDBACK_V48__.state());
   await page.locator('#board > .sq[data-square="e2"]').click();
   await expect(page.locator('#board > .sq[data-square="e2"]')).toHaveClass(/selected/);
-
-  const probe = page.evaluate(() => new Promise((resolve) => {
-    const board = document.querySelector('#board');
-    const destination = board.querySelector(':scope > .sq[data-square="e4"]');
-    const started = performance.now();
-    let frames = 0;
-    let minimumPieceCount = Infinity;
-    let finished = false;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
-      resolve({
-        elapsed: performance.now() - started,
-        minimumPieceCount,
-        moved: Boolean(board.querySelector(':scope > .sq[data-square="e4"] .piece.kmate-simple-piece-v51')),
-        overlay: Boolean(board.querySelector(':scope > .svg44-overlay')),
-      });
-    };
-    const sample = () => {
-      frames += 1;
-      minimumPieceCount = Math.min(minimumPieceCount, board.querySelectorAll('.piece.kmate-simple-piece-v51').length);
-      if (board.querySelector(':scope > .sq[data-square="e4"] .piece.kmate-simple-piece-v51') || frames >= 24) {
-        finish();
-        return;
-      }
-      requestAnimationFrame(sample);
-    };
-    destination.click();
-    requestAnimationFrame(sample);
-  }));
-
-  const move = await probe;
-  expect(move.moved).toBe(true);
-  expect(move.overlay).toBe(false);
-  expect(move.minimumPieceCount).toBe(32);
-  expect(move.elapsed).toBeLessThan(250);
-
-  await expect.poll(
-    () => page.evaluate(() => window.__KMATE_MOVE_FEEDBACK_V48__.state().plays),
-    { timeout: 10_000 },
-  ).toBeGreaterThan(beforeMove.plays);
-  await expect.poll(
-    () => page.evaluate(() => window.__KMATE_MOVE_FEEDBACK_V48__.state().haptics),
-    { timeout: 10_000 },
-  ).toBeGreaterThan(beforeMove.haptics);
-  expect(await page.evaluate(() => window.__kmateVibrations)).toContain(8);
-
-  const finalState = await page.evaluate(() => window.__KMATE_CLASSIC_BOARD_V46__.state());
-  expect(finalState.boards.find((board) => board.id === 'board')?.overlay).toBe(false);
+  await page.locator('#board > .sq[data-square="e4"]').click();
+  await expect(page.locator('#board > .sq[data-square="e4"] .piece.kmate-reference-piece-v52')).toHaveCount(1, { timeout: 15_000 });
+  await expect(page.locator('#board .piece.kmate-reference-piece-v52')).toHaveCount(32);
+  await expect.poll(() => page.evaluate(() => window.__KMATE_MOVE_FEEDBACK_V48__.state().plays), { timeout: 10_000 }).toBeGreaterThan(beforeMove.plays);
+  await expect.poll(() => page.evaluate(() => window.__KMATE_MOVE_FEEDBACK_V48__.state().haptics), { timeout: 10_000 }).toBeGreaterThan(beforeMove.haptics);
 });

@@ -1,0 +1,14 @@
+K-Mate v52 uploaded-SVG reference theme
+
+Source basis: a chessboard SVG supplied by the project owner in the K-Mate development conversation.
+Original uploaded filename: vecteezy_wooden-chess-board-with-white-and-green-squares-with-the_13373868.svg
+
+The production app does not embed or display the complete uploaded SVG as a static board. K-Mate v52 derives and implements:
+- the six interactive chess-piece silhouettes,
+- the sage-green and warm-ivory board palette,
+- vertical wood-grain styling,
+- the layered brown wooden frame,
+- the pale inner trim, and
+- orange circular file/rank markers.
+
+The app retains its own board state, legal-move handling, clocks, coaching, puzzles, imports, and interaction logic. This file records provenance only and does not make any representation about the licensing status of the original third-party artwork.
