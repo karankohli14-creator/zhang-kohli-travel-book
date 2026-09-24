@@ -43,7 +43,7 @@ async function prepare(page) {
     () => Boolean(
       window.__KMATE__?.test?.startLiveCoachPrincipleDemo
       && window.__KMATE_CLASSIC_BOARD_V46__?.state?.().ready
-      && window.__KMATE_SCULPTED_PIECES_V47__?.state?.().ready
+      && window.__KMATE_SIMPLE_PIECES_V51__?.state?.().ready
     ),
     undefined,
     { timeout: 90_000 },
@@ -56,7 +56,7 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('v47 uses the sculpted ivory-and-ebony piece set without changing board behavior', async ({ page }) => {
+test('v51 uses one clean flat silhouette per piece without changing board behavior', async ({ page }) => {
   test.setTimeout(120_000);
   await prepare(page);
 
@@ -64,55 +64,66 @@ test('v47 uses the sculpted ivory-and-ebony piece set without changing board beh
   await expect(page.locator('#gameView')).toBeVisible();
   await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
   await expect(page.locator('#board > .svg44-overlay')).toHaveCount(0);
-  await expect(page.locator('#board .piece.kmate-sculpted-piece-v47')).toHaveCount(32, { timeout: 30_000 });
-  await expect(page.locator('#board .piece.kmate-sculpted-piece-v47 > svg[data-kmate-sculpted-piece]')).toHaveCount(32);
+  await expect(page.locator('#board .piece.kmate-simple-piece-v51')).toHaveCount(32, { timeout: 30_000 });
+  await expect(page.locator('#board .piece.kmate-simple-piece-v51 > svg[data-kmate-simple-piece]')).toHaveCount(32);
+  await expect(page.locator('#board .piece.kmate-sculpted-piece-v47')).toHaveCount(0);
+  await expect(page.locator('#board .piece.kmate-pointed-pawn-v50')).toHaveCount(0);
 
   for (const type of ['p', 'r', 'n', 'b', 'q', 'k']) {
-    expect(await page.locator(`#board .piece.kmate-sculpted-piece-v47[data-piece-type="${type}"]`).count()).toBeGreaterThan(0);
+    expect(await page.locator(`#board .piece.kmate-simple-piece-v51[data-piece-type="${type}"]`).count()).toBeGreaterThan(0);
   }
 
   const artwork = await page.evaluate(() => {
-    const moduleState = window.__KMATE_SCULPTED_PIECES_V47__.state();
-    const white = document.querySelector('#board .piece.white.kmate-sculpted-piece-v47');
-    const black = document.querySelector('#board .piece.black.kmate-sculpted-piece-v47');
-    const knight = document.querySelector('#board .piece[data-piece-type="n"] svg');
-    const queen = document.querySelector('#board .piece[data-piece-type="q"] svg');
+    const moduleState = window.__KMATE_SIMPLE_PIECES_V51__.state();
+    const legacyAliasState = window.__KMATE_SCULPTED_PIECES_V47__.state();
+    const white = document.querySelector('#board .piece.white.kmate-simple-piece-v51');
+    const black = document.querySelector('#board .piece.black.kmate-simple-piece-v51');
+    const allPieces = [...document.querySelectorAll('#board .piece.kmate-simple-piece-v51')];
     const whiteStyle = getComputedStyle(white);
     const blackStyle = getComputedStyle(black);
     return {
       moduleState,
-      whiteBody: whiteStyle.getPropertyValue('--kmate-sculpted-body-mid').trim(),
-      blackBody: blackStyle.getPropertyValue('--kmate-sculpted-body-mid').trim(),
-      knightPaths: knight?.querySelectorAll('path').length || 0,
-      knightHasEye: Boolean(knight?.querySelector('.eye')),
-      knightHasMane: Boolean(knight?.querySelector('.mane')),
-      queenJewels: queen?.querySelectorAll('.jewel').length || 0,
+      legacyAliasVersion: legacyAliasState.version,
+      whiteFill: whiteStyle.getPropertyValue('--kmate-simple-fill').trim(),
+      blackFill: blackStyle.getPropertyValue('--kmate-simple-fill').trim(),
+      whiteStroke: whiteStyle.getPropertyValue('--kmate-simple-stroke').trim(),
+      blackStroke: blackStyle.getPropertyValue('--kmate-simple-stroke').trim(),
+      onePathEach: allPieces.every((piece) => piece.querySelectorAll(':scope > svg > path').length === 1),
+      noGradients: allPieces.every((piece) => !piece.querySelector('linearGradient, radialGradient')),
+      noDecorativePrimitives: allPieces.every((piece) => !piece.querySelector('circle, ellipse, polygon, polyline, line')),
+      evenOddPaths: allPieces.every((piece) => piece.querySelector(':scope > svg > path')?.getAttribute('fill-rule') === 'evenodd'),
       sourceImageCopied: moduleState.sourceImageCopied,
     };
   });
 
-  expect(artwork.moduleState.version).toBe('47.0.0');
-  expect(artwork.moduleState.style).toBe('original-sculpted-wood-inspired');
+  expect(artwork.moduleState.version).toBe('51.0.0');
+  expect(artwork.legacyAliasVersion).toBe('51.0.0');
+  expect(artwork.moduleState.style).toBe('flat-reference-silhouette');
   expect(artwork.sourceImageCopied).toBe(false);
-  expect(artwork.whiteBody).not.toBe(artwork.blackBody);
-  expect(artwork.knightPaths).toBeGreaterThanOrEqual(8);
-  expect(artwork.knightHasEye).toBe(true);
-  expect(artwork.knightHasMane).toBe(true);
-  expect(artwork.queenJewels).toBe(5);
+  expect(artwork.moduleState.gradients).toBe(0);
+  expect(artwork.moduleState.decorativeDetailLayers).toBe(0);
+  expect(artwork.whiteFill).toBe('#fffdf7');
+  expect(artwork.blackFill).toBe('#202422');
+  expect(artwork.whiteStroke).toBe('#343937');
+  expect(artwork.blackStroke).toBe('#0f1211');
+  expect(artwork.onePathEach).toBe(true);
+  expect(artwork.noGradients).toBe(true);
+  expect(artwork.noDecorativePrimitives).toBe(true);
+  expect(artwork.evenOddPaths).toBe(true);
 
   await page.locator('#board > .sq[data-square="e2"]').click();
   await expect(page.locator('#board > .sq[data-square="e2"]')).toHaveClass(/selected/);
   await page.locator('#board > .sq[data-square="e4"]').click();
 
-  await expect(page.locator('#board > .sq[data-square="e4"] .piece.kmate-sculpted-piece-v47[data-piece-type="p"]')).toHaveCount(1, { timeout: 15_000 });
+  await expect(page.locator('#board > .sq[data-square="e4"] .piece.kmate-simple-piece-v51[data-piece-type="p"]')).toHaveCount(1, { timeout: 15_000 });
   await expect(page.locator('#board > .svg44-overlay')).toHaveCount(0);
-  await expect(page.locator('#board .piece.kmate-sculpted-piece-v47')).toHaveCount(32);
+  await expect(page.locator('#board .piece.kmate-simple-piece-v51')).toHaveCount(32);
 
-  // Verify that later-created boards and promotion-style controls inherit the
-  // same artwork through the lightweight observer.
+  // Later-created boards and promotion-style controls inherit the same clean
+  // silhouette through the lightweight observer.
   await page.evaluate(() => {
     const square = document.createElement('div');
-    square.id = 'v47DynamicPieceFixture';
+    square.id = 'v51DynamicPieceFixture';
     square.className = 'sq';
     square.hidden = true;
     const piece = document.createElement('div');
@@ -122,5 +133,6 @@ test('v47 uses the sculpted ivory-and-ebony piece set without changing board beh
     square.append(piece);
     document.body.append(square);
   });
-  await expect(page.locator('#v47DynamicPieceFixture .piece.kmate-sculpted-piece-v47[data-piece-type="q"]')).toHaveCount(1, { timeout: 10_000 });
+  await expect(page.locator('#v51DynamicPieceFixture .piece.kmate-simple-piece-v51[data-piece-type="q"]')).toHaveCount(1, { timeout: 10_000 });
+  await expect(page.locator('#v51DynamicPieceFixture svg[data-kmate-simple-piece="q"] > path')).toHaveCount(1);
 });
