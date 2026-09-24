@@ -70,8 +70,10 @@ html.kmate-reference-theme-v52 .piece.kmate-reference-piece-v52.black {
   --km52-piece-shadow: #000000;
 }
 
-/* Exact square colors and wood texture sampled from the uploaded SVG. */
-html.kmate-reference-theme-v52 #board > .sq.light,
+/* Exact square colors and wood texture sampled from the uploaded SVG. The
+   body.game-mode qualifier deliberately matches and then overrides v50's
+   board-color specificity, while the secondary-board selectors stay general. */
+html.kmate-reference-theme-v52 body.game-mode #board > .sq.light,
 html.kmate-reference-theme-v52 #km42PuzzleBoard > .sq.light,
 html.kmate-reference-theme-v52 .replay-board > .sq.light,
 html.kmate-reference-theme-v52 .learning-puzzle-square.light,
@@ -86,7 +88,7 @@ html.kmate-reference-theme-v52 .km-import-square.light {
   background-size: auto !important;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.14) !important;
 }
-html.kmate-reference-theme-v52 #board > .sq.dark,
+html.kmate-reference-theme-v52 body.game-mode #board > .sq.dark,
 html.kmate-reference-theme-v52 #km42PuzzleBoard > .sq.dark,
 html.kmate-reference-theme-v52 .replay-board > .sq.dark,
 html.kmate-reference-theme-v52 .learning-puzzle-square.dark,
@@ -101,7 +103,7 @@ html.kmate-reference-theme-v52 .km-import-square.dark {
   background-size: auto !important;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.09) !important;
 }
-html.kmate-reference-theme-v52 #board > .sq,
+html.kmate-reference-theme-v52 body.game-mode #board > .sq,
 html.kmate-reference-theme-v52 #km42PuzzleBoard > .sq,
 html.kmate-reference-theme-v52 .replay-board > .sq {
   overflow: visible !important;
@@ -229,12 +231,12 @@ html.kmate-reference-theme-v52 .km-import-coordinate {
 }
 
 /* Preserve all chess-state overlays on top of the texture. */
-html.kmate-reference-theme-v52 #board > .sq.selected,
+html.kmate-reference-theme-v52 body.game-mode #board > .sq.selected,
 html.kmate-reference-theme-v52 #km42PuzzleBoard > .sq.selected,
 html.kmate-reference-theme-v52 .replay-board > .sq.selected {
   box-shadow: inset 0 0 0 4px rgba(255,213,72,.90), inset 0 0 14px rgba(255,226,102,.30) !important;
 }
-html.kmate-reference-theme-v52 #board > .sq.last,
+html.kmate-reference-theme-v52 body.game-mode #board > .sq.last,
 html.kmate-reference-theme-v52 #km42PuzzleBoard > .sq.last,
 html.kmate-reference-theme-v52 .replay-board > .sq.last {
   box-shadow: inset 0 0 0 999px rgba(240,186,62,.24) !important;
