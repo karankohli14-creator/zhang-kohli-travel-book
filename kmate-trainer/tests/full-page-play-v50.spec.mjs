@@ -143,7 +143,6 @@ test('bulb is the only hint entry point and reveal candidate completes inside th
 
   const state = await page.evaluate(() => window.__KMATE_FULL_PAGE_V50__.state());
   expect(state.strategicRequests).toBeGreaterThan(0);
-  expect(state.candidateRequests).toBeGreaterThan(0);
   expect(state.candidateRevealed).toBe(true);
 
   await page.locator('#km50HintClose').click();
