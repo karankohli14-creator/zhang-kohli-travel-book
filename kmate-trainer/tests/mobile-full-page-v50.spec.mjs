@@ -63,7 +63,7 @@ async function prepare(page) {
       window.__KMATE__?.test?.startLiveCoachPrincipleDemo
       && window.__KMATE_MOBILE_FULL_PAGE_V50__?.state?.().ready
       && window.__KMATE_CLASSIC_BOARD_V46__?.state?.().ready
-      && window.__KMATE_SCULPTED_PIECES_V47__?.state?.().ready
+      && window.__KMATE_SIMPLE_PIECES_V51__?.state?.().ready
     ),
     undefined,
     { timeout: 90_000 },
@@ -76,20 +76,26 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('phone game is genuinely full-page, title-free, bright, and high contrast', async ({ page }) => {
+test('phone game is genuinely full-page, title-free, bright, and uses the simpler flat pieces', async ({ page }) => {
   test.setTimeout(150_000);
   await prepare(page);
 
-  const startup = await page.evaluate(() => window.__KMATE_MOBILE_FULL_PAGE_V50__.state());
-  expect(startup.version).toBe('50.0.0');
-  expect(startup.autoHintsDisabled).toBe(true);
-  expect(startup.effectiveMoveGain).toBe(0.10);
+  const startup = await page.evaluate(() => ({
+    fullPage: window.__KMATE_MOBILE_FULL_PAGE_V50__.state(),
+    pieces: window.__KMATE_SIMPLE_PIECES_V51__.state(),
+  }));
+  expect(startup.fullPage.version).toBe('50.0.0');
+  expect(startup.fullPage.autoHintsDisabled).toBe(true);
+  expect(startup.fullPage.effectiveMoveGain).toBe(0.10);
+  expect(startup.pieces.version).toBe('51.0.0');
+  expect(startup.pieces.style).toBe('flat-reference-silhouette');
 
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
   await expect(page.locator('#gameView')).toBeVisible();
   await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
-  await expect(page.locator('#board .piece.kmate-sculpted-piece-v47')).toHaveCount(32, { timeout: 30_000 });
-  await expect(page.locator('#board .piece.kmate-pointed-pawn-v50')).toHaveCount(16, { timeout: 30_000 });
+  await expect(page.locator('#board .piece.kmate-simple-piece-v51')).toHaveCount(32, { timeout: 30_000 });
+  await expect(page.locator('#board .piece.kmate-pointed-pawn-v50')).toHaveCount(0);
+  await expect(page.locator('#board .piece.kmate-sculpted-piece-v47')).toHaveCount(0);
 
   await page.evaluate(() => {
     document.querySelector('#positionTitle').textContent = 'Rook against Knight pressure · Variation OOOJ';
@@ -107,8 +113,10 @@ test('phone game is genuinely full-page, title-free, bright, and high contrast',
     const meta = document.querySelector('#gameMeta');
     const light = document.querySelector('#board > .sq.light');
     const dark = document.querySelector('#board > .sq.dark');
-    const whitePiece = document.querySelector('#board .piece.kmate-sculpted-piece-v47.white');
-    const blackPiece = document.querySelector('#board .piece.kmate-sculpted-piece-v47.black');
+    const whitePiece = document.querySelector('#board .piece.kmate-simple-piece-v51.white');
+    const blackPiece = document.querySelector('#board .piece.kmate-simple-piece-v51.black');
+    const whiteStyle = getComputedStyle(whitePiece);
+    const blackStyle = getComputedStyle(blackPiece);
     return {
       appbar: getComputedStyle(document.querySelector('.appbar')).display,
       shell: { top: shell.top, left: shell.left, width: shell.width, height: shell.height },
@@ -123,10 +131,15 @@ test('phone game is genuinely full-page, title-free, bright, and high contrast',
       darkColor: getComputedStyle(dark).backgroundColor,
       lightImage: getComputedStyle(light).backgroundImage,
       darkImage: getComputedStyle(dark).backgroundImage,
-      whiteEdge: getComputedStyle(whitePiece).getPropertyValue('--kmate-sculpted-edge').trim(),
-      blackEdge: getComputedStyle(blackPiece).getPropertyValue('--kmate-sculpted-edge').trim(),
-      whiteStroke: Number.parseFloat(getComputedStyle(whitePiece.querySelector('.sculpted-art')).strokeWidth),
-      blackStroke: Number.parseFloat(getComputedStyle(blackPiece.querySelector('.sculpted-art')).strokeWidth),
+      whiteFill: whiteStyle.getPropertyValue('--kmate-simple-fill').trim(),
+      blackFill: blackStyle.getPropertyValue('--kmate-simple-fill').trim(),
+      whiteEdge: whiteStyle.getPropertyValue('--kmate-simple-stroke').trim(),
+      blackEdge: blackStyle.getPropertyValue('--kmate-simple-stroke').trim(),
+      whiteStroke: Number.parseFloat(getComputedStyle(whitePiece.querySelector('.kmate-simple-shape')).strokeWidth),
+      blackStroke: Number.parseFloat(getComputedStyle(blackPiece.querySelector('.kmate-simple-shape')).strokeWidth),
+      onePathPerPiece: [...document.querySelectorAll('#board .piece.kmate-simple-piece-v51')]
+        .every((piece) => piece.querySelectorAll(':scope > svg > path').length === 1),
+      gradients: document.querySelectorAll('#board .piece.kmate-simple-piece-v51 linearGradient, #board .piece.kmate-simple-piece-v51 radialGradient').length,
     };
   });
 
@@ -148,18 +161,14 @@ test('phone game is genuinely full-page, title-free, bright, and high contrast',
   expect(layout.darkColor).toBe('rgb(139, 183, 104)');
   expect(layout.lightImage).not.toBe('none');
   expect(layout.darkImage).not.toBe('none');
-  expect(layout.whiteEdge).toBe('#1d0902');
-  expect(layout.blackEdge).toBe('#f1f6ef');
-  expect(layout.whiteStroke).toBeGreaterThanOrEqual(3.1);
-  expect(layout.blackStroke).toBeGreaterThanOrEqual(2.7);
-
-  const pawns = await page.evaluate(() => [...document.querySelectorAll('#board .piece.kmate-pointed-pawn-v50')].map((piece) => ({
-    hasCircle: Boolean(piece.querySelector('circle')),
-    hasPoint: Boolean(piece.querySelector('.pointed-finial')),
-    marker: piece.querySelector('svg')?.dataset.kmatePointedPawnV50 || '',
-  })));
-  expect(pawns).toHaveLength(16);
-  expect(pawns.every((pawn) => !pawn.hasCircle && pawn.hasPoint && pawn.marker === '50.0.0')).toBe(true);
+  expect(layout.whiteFill).toBe('#fffdf7');
+  expect(layout.blackFill).toBe('#202422');
+  expect(layout.whiteEdge).toBe('#343937');
+  expect(layout.blackEdge).toBe('#0f1211');
+  expect(layout.whiteStroke).toBeGreaterThanOrEqual(2);
+  expect(layout.blackStroke).toBeGreaterThanOrEqual(2);
+  expect(layout.onePathPerPiece).toBe(true);
+  expect(layout.gradients).toBe(0);
 });
 
 test('coach hint is hidden until the bulb is pressed, then candidate reveal works', async ({ page }) => {

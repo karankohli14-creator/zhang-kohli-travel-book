@@ -1,7 +1,7 @@
-const SCULPTED_PIECES_VERSION = '47.0.0';
-const SCULPTED_PIECES_STYLE_ID = 'kmateSculptedPiecesV47Styles';
-const SCULPTED_PIECES_SELECTOR = '.piece[data-piece-type], .sq > .piece';
-const SCULPTED_PIECE_GLYPHS = Object.freeze({
+const SIMPLE_PIECES_VERSION = '51.0.0';
+const SIMPLE_PIECES_STYLE_ID = 'kmateSimplePiecesV51Styles';
+const SIMPLE_PIECES_SELECTOR = '.piece[data-piece-type], .sq > .piece';
+const SIMPLE_PIECE_GLYPHS = Object.freeze({
   '♙': 'p', '♟': 'p',
   '♖': 'r', '♜': 'r',
   '♘': 'n', '♞': 'n',
@@ -9,7 +9,7 @@ const SCULPTED_PIECE_GLYPHS = Object.freeze({
   '♕': 'q', '♛': 'q',
   '♔': 'k', '♚': 'k',
 });
-const SCULPTED_PIECE_NAMES = Object.freeze({
+const SIMPLE_PIECE_NAMES = Object.freeze({
   p: 'pawn',
   r: 'rook',
   n: 'knight',
@@ -18,188 +18,64 @@ const SCULPTED_PIECE_NAMES = Object.freeze({
   k: 'king',
 });
 
-const SCULPTED_PIECES = Object.freeze({
-  p: `
-    <ellipse class="ground" cx="50" cy="94" rx="34" ry="3.5"/>
-    <circle class="body" cx="50" cy="18" r="10.5"/>
-    <path class="band" d="M38 32L50 26L62 32L58 39H42Z"/>
-    <path class="body" d="M40 39Q50 34 60 39C66 47 67 57 62 64C59 69 56 72 59 76H41C44 72 41 69 38 64C33 57 34 47 40 39Z"/>
-    <path class="band" d="M32 73H68L74 81H26Z"/>
-    <path class="base" d="M22 80H78L85 89H15Z"/>
-    <path class="base" d="M14 88H86L89 94H11Z"/>
-    <path class="highlight" d="M44 42Q39 52 44 63M38 77H62M27 84H69"/>
-    <path class="grain" d="M48 8Q53 15 49 25M54 42Q59 51 55 64M34 87Q48 82 66 86"/>
-  `,
-  r: `
-    <ellipse class="ground" cx="50" cy="94" rx="35" ry="3.5"/>
-    <path class="body" d="M17 13H28V25H37V13H46V25H55V13H64V25H73V13H84V34H16Z"/>
-    <path class="band" d="M18 34H82L76 43H24Z"/>
-    <path class="body" d="M30 43H70L65 69H35Z"/>
-    <path class="band" d="M29 67H71L76 77H24Z"/>
-    <path class="base" d="M20 76H80L86 88H14Z"/>
-    <path class="base" d="M12 87H88L91 94H9Z"/>
-    <path class="highlight" d="M26 19V30M43 19V30M60 19V30M74 19V30M38 48L35 64M29 81H71"/>
-    <path class="grain" d="M58 45Q54 56 57 67M22 36Q49 40 77 36M31 89Q48 84 70 88"/>
-  `,
-  b: `
-    <ellipse class="ground" cx="50" cy="94" rx="34" ry="3.5"/>
-    <path class="cap" d="M42 10H58L61 14H39Z"/>
-    <path class="body" d="M50 13C63 22 68 31 63 41C60 47 55 50 54 55C54 58 57 61 61 64H39C43 61 46 58 46 55C45 50 40 47 37 41C32 31 37 22 50 13Z"/>
-    <path class="cut" d="M57 22L42 42"/>
-    <path class="band" d="M34 62H66L72 72H28Z"/>
-    <path class="body" d="M34 71H66L72 80H28Z"/>
-    <path class="base" d="M21 79H79L85 89H15Z"/>
-    <path class="base" d="M13 88H87L90 94H10Z"/>
-    <path class="highlight" d="M43 18Q37 29 41 38M44 66H61M31 82H69"/>
-    <path class="grain" d="M53 15Q57 26 53 40M38 73Q51 77 63 72M30 89Q47 84 70 88"/>
-  `,
-  n: `
-    <ellipse class="ground" cx="50" cy="94" rx="37" ry="3.5"/>
-    <path class="mane" d="M28 72C25 57 28 39 37 25C47 11 66 7 82 17L77 31C67 25 60 25 54 30C49 34 47 39 44 45C38 55 34 64 36 72Z"/>
-    <path class="body" d="M29 78C33 65 39 55 47 48C41 43 39 36 40 27C50 27 60 20 66 14C77 22 84 34 81 45C78 55 69 60 63 66H74L82 79H69L76 84H25Z"/>
-    <path class="shadow" d="M42 29C53 29 63 34 69 42C60 39 53 41 47 49C43 43 40 36 42 29Z"/>
-    <path class="snout" d="M63 45C72 44 80 47 84 53L79 61L70 59L65 64L57 57Z"/>
-    <circle class="eye" cx="65" cy="35" r="2.6"/>
-    <circle class="nostril" cx="77" cy="54" r="1.8"/>
-    <path class="band" d="M30 72H70L76 81H24Z"/>
-    <path class="base" d="M18 80H82L88 91H12Z"/>
-    <path class="base" d="M11 90H89L91 95H9Z"/>
-    <path class="highlight" d="M50 26Q60 27 68 34M46 49Q57 51 65 46M32 83H70"/>
-    <path class="grain" d="M34 31L44 24M31 40L42 34M29 50L40 44M29 60L37 55M56 18Q68 26 74 39M40 87Q54 82 72 87"/>
-  `,
-  q: `
-    <ellipse class="ground" cx="50" cy="94" rx="36" ry="3.5"/>
-    <circle class="jewel" cx="25" cy="16" r="4.2"/>
-    <circle class="jewel" cx="38" cy="11" r="4.2"/>
-    <circle class="jewel" cx="50" cy="9" r="4.4"/>
-    <circle class="jewel" cx="62" cy="11" r="4.2"/>
-    <circle class="jewel" cx="75" cy="16" r="4.2"/>
-    <path class="crown" d="M23 21L31 38H69L77 21L64 32L59 17L50 33L41 17L36 32Z"/>
-    <path class="band" d="M31 36H69L65 45H35Z"/>
-    <path class="body" d="M37 44H63C59 53 58 60 62 68L68 76H32L38 68C42 60 41 53 37 44Z"/>
-    <path class="band" d="M29 74H71L77 83H23Z"/>
-    <path class="base" d="M18 82H82L88 92H12Z"/>
-    <path class="base" d="M10 91H90L92 95H8Z"/>
-    <path class="highlight" d="M33 24L38 34M48 18V31M64 24L61 34M43 48Q38 59 43 68M34 78H66"/>
-    <path class="grain" d="M53 44Q57 55 53 68M27 87Q49 82 75 87"/>
-  `,
-  k: `
-    <ellipse class="ground" cx="50" cy="94" rx="36" ry="3.5"/>
-    <path class="cross" d="M46 4H54V13H63V21H54V31H46V21H37V13H46Z"/>
-    <path class="body" d="M50 29C39 29 32 35 33 44C34 51 40 56 45 59H38L34 68H66L62 59H55C60 56 66 51 67 44C68 35 61 29 50 29Z"/>
-    <path class="band" d="M32 66H68L74 76H26Z"/>
-    <path class="body" d="M31 75H69L75 83H25Z"/>
-    <path class="base" d="M18 82H82L88 92H12Z"/>
-    <path class="base" d="M10 91H90L92 95H8Z"/>
-    <path class="highlight" d="M41 37Q36 45 43 54M42 70H62M31 86H69"/>
-    <path class="grain" d="M54 32Q60 42 54 57M38 77Q50 81 64 77M27 88Q47 83 73 88"/>
-  `,
+const SIMPLE_PIECE_PATHS = Object.freeze({
+  p: `M 46.08 22.94 L 41.47 26.15 L 39.17 31.19 L 39.63 36.70 L 42.86 41.74 L 38.25 44.50 L 36.87 46.33 L 38.25 50.00 L 43.78 50.00 L 43.78 53.21 L 41.01 59.17 L 38.25 61.93 L 33.18 65.14 L 29.95 68.81 L 28.11 74.31 L 28.11 78.90 L 71.89 78.90 L 71.89 73.85 L 70.05 68.81 L 66.36 64.68 L 58.99 59.17 L 57.14 55.96 L 55.76 51.38 L 56.22 50.00 L 61.75 50.00 L 63.13 47.25 L 61.75 44.50 L 57.14 41.74 L 60.83 35.32 L 60.37 29.36 L 58.53 26.15 L 53.92 22.94 Z`,
+  r: `M 30.41 25.35 L 29.49 26.27 L 30.41 38.25 L 31.80 41.01 L 35.02 43.32 L 35.94 45.16 L 33.18 70.05 L 29.03 71.89 L 27.19 73.73 L 25.81 77.42 L 25.81 83.87 L 73.73 84.33 L 73.73 75.58 L 70.97 71.89 L 66.82 70.05 L 64.06 44.70 L 68.20 41.01 L 69.59 38.71 L 70.51 26.27 L 68.66 24.88 L 64.52 23.50 L 62.21 23.50 L 60.37 31.34 L 59.45 32.26 L 56.68 32.26 L 55.76 31.34 L 55.76 22.58 L 45.16 22.12 L 44.24 22.58 L 44.24 31.80 L 40.55 32.26 L 39.17 29.49 L 37.79 23.50 L 35.48 23.50 Z`,
+  n: `M 38.07 17.51 L 36.24 19.82 L 35.32 24.42 L 29.82 29.95 L 26.61 39.17 L 20.64 47.00 L 19.27 50.23 L 19.27 53.92 L 20.64 55.76 L 26.61 58.53 L 30.28 58.53 L 34.86 53.00 L 38.53 53.00 L 41.28 52.07 L 46.79 46.54 L 47.71 47.47 L 47.71 51.15 L 36.24 62.67 L 33.94 65.90 L 32.57 70.05 L 29.36 71.89 L 26.61 75.12 L 26.15 84.33 L 74.31 84.33 L 73.85 75.12 L 71.10 71.89 L 67.89 70.05 L 71.56 60.83 L 72.48 55.30 L 72.02 47.47 L 68.35 37.79 L 64.22 31.80 L 60.09 28.11 L 54.13 24.88 L 46.33 23.50 L 40.37 17.51 Z`,
+  b: `M 52.07 16.13 L 47.93 16.13 L 44.70 18.43 L 43.78 20.74 L 43.78 23.96 L 45.16 26.73 L 41.47 29.49 L 36.41 35.02 L 31.34 44.24 L 29.95 50.23 L 30.41 58.06 L 33.18 65.44 L 36.41 69.59 L 29.49 71.89 L 26.73 74.65 L 25.81 77.88 L 26.27 84.33 L 74.19 84.33 L 74.19 76.96 L 72.81 73.73 L 69.12 70.97 L 63.59 69.59 L 67.28 64.52 L 69.59 58.06 L 70.05 50.69 L 69.12 46.08 L 64.52 36.41 L 57.60 29.03 L 55.30 34.10 L 53.92 39.63 L 53.46 51.61 L 49.31 51.61 L 49.77 40.09 L 51.61 33.18 L 56.22 23.96 L 56.22 20.28 L 55.30 18.43 Z`,
+  q: `M 36.24 18.43 L 34.40 20.28 L 33.03 23.50 L 33.94 28.11 L 37.61 31.34 L 37.16 42.86 L 36.24 48.39 L 29.82 41.94 L 30.73 40.09 L 30.73 35.94 L 27.52 31.80 L 25.23 30.88 L 22.02 30.88 L 18.81 32.72 L 16.97 35.48 L 16.97 40.09 L 20.18 44.24 L 22.48 44.70 L 23.85 46.08 L 33.03 69.12 L 32.57 70.51 L 28.90 71.89 L 27.06 73.73 L 25.69 76.96 L 25.69 83.87 L 73.85 84.33 L 73.85 76.04 L 70.18 71.43 L 66.97 70.05 L 66.97 68.66 L 76.15 45.62 L 80.28 43.78 L 82.57 41.01 L 83.03 36.41 L 82.11 34.10 L 79.82 31.80 L 77.52 30.88 L 74.31 30.88 L 71.56 32.26 L 70.18 33.64 L 68.81 36.87 L 69.72 41.94 L 63.76 47.93 L 62.84 46.54 L 62.39 31.34 L 65.60 28.57 L 66.51 26.73 L 66.51 22.58 L 64.68 19.35 L 61.47 17.51 L 57.80 17.51 L 54.59 19.35 L 52.75 22.58 L 52.75 26.73 L 54.59 29.49 L 54.59 30.88 L 50.00 43.32 L 44.95 29.95 L 47.25 25.81 L 47.25 23.04 L 46.33 20.74 L 44.04 18.43 L 41.74 17.51 L 38.53 17.51 Z`,
+  k: `M 46.08 15.21 L 45.62 20.74 L 40.09 21.20 L 40.09 28.57 L 46.54 29.03 L 45.62 35.02 L 44.70 35.94 L 40.55 33.64 L 36.87 32.72 L 30.41 32.72 L 26.27 34.10 L 22.12 36.87 L 19.82 39.63 L 18.43 43.32 L 17.97 51.15 L 20.28 57.14 L 28.11 64.52 L 32.26 70.05 L 29.03 71.89 L 26.27 75.12 L 25.81 84.33 L 73.73 84.33 L 73.73 75.58 L 71.43 72.35 L 68.20 70.97 L 67.74 70.05 L 70.51 65.90 L 80.18 56.22 L 82.03 49.77 L 81.57 43.78 L 80.65 41.01 L 76.50 35.94 L 69.12 32.72 L 60.83 33.18 L 54.84 35.94 L 53.00 29.49 L 53.92 28.57 L 59.91 28.57 L 59.91 21.20 L 54.84 21.20 L 53.92 15.21 Z M 65.90 45.62 L 67.74 47.93 L 67.74 50.23 L 66.82 52.07 L 59.91 59.91 L 57.14 59.91 L 56.68 47.47 L 62.21 44.70 Z M 34.56 45.16 L 39.63 45.16 L 43.32 47.93 L 42.86 59.91 L 40.09 59.91 L 32.72 51.61 L 32.26 47.47 Z`,
 });
 
-let sculptedPieceSerial = 0;
-let sculptedPieceObserver = null;
-let sculptedPiecesApplied = 0;
-let sculptedPieceRefreshes = 0;
+let simplePieceObserver = null;
+let simplePiecesApplied = 0;
+let simplePieceRefreshes = 0;
 
-function sculptedPiecesEnsureStyles() {
-  if (document.querySelector(`#${SCULPTED_PIECES_STYLE_ID}`)) return;
+function simplePiecesEnsureStyles() {
+  if (document.querySelector(`#${SIMPLE_PIECES_STYLE_ID}`)) return;
   const style = document.createElement('style');
-  style.id = SCULPTED_PIECES_STYLE_ID;
+  style.id = SIMPLE_PIECES_STYLE_ID;
   style.textContent = `
-    .piece.kmate-sculpted-piece-v47 {
+    .piece.kmate-simple-piece-v51 {
+      display: grid !important;
+      place-items: center !important;
       font-size: 0 !important;
       isolation: isolate;
     }
-    .piece.kmate-sculpted-piece-v47 > svg {
+    .piece.kmate-simple-piece-v51 > svg {
+      display: block;
       width: 100%;
       height: 100%;
-      display: block;
       overflow: visible;
       pointer-events: none;
       shape-rendering: geometricPrecision;
     }
-    .piece.kmate-sculpted-piece-v47 .sculpted-art {
-      stroke: var(--kmate-sculpted-edge);
-      stroke-width: 2.1;
-      stroke-linejoin: round;
+    .piece.kmate-simple-piece-v51 .kmate-simple-shape {
+      fill: var(--kmate-simple-fill);
+      stroke: var(--kmate-simple-stroke);
+      stroke-width: var(--kmate-simple-stroke-width);
       stroke-linecap: round;
+      stroke-linejoin: round;
       paint-order: stroke fill;
+      vector-effect: non-scaling-stroke;
     }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-body-hi { stop-color: var(--kmate-sculpted-body-hi); }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-body-mid { stop-color: var(--kmate-sculpted-body-mid); }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-body-low { stop-color: var(--kmate-sculpted-body-low); }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-base-hi { stop-color: var(--kmate-sculpted-base-hi); }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-base-low { stop-color: var(--kmate-sculpted-base-low); }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-band-hi { stop-color: var(--kmate-sculpted-band-hi); }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-band-low { stop-color: var(--kmate-sculpted-band-low); }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-shadow-hi { stop-color: var(--kmate-sculpted-shadow-hi); }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-shadow-low { stop-color: var(--kmate-sculpted-shadow-low); }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-crown-hi { stop-color: var(--kmate-sculpted-crown-hi); }
-    .piece.kmate-sculpted-piece-v47 .sculpted-stop-crown-low { stop-color: var(--kmate-sculpted-crown-low); }
-    .piece.kmate-sculpted-piece-v47 .ground {
-      fill: var(--kmate-sculpted-ground);
-      opacity: .22;
-      stroke: none;
+    .piece.kmate-simple-piece-v51.white {
+      --kmate-simple-fill: #fffdf7;
+      --kmate-simple-stroke: #343937;
+      --kmate-simple-stroke-width: 2.15;
     }
-    .piece.kmate-sculpted-piece-v47 .highlight {
-      fill: none;
-      stroke: var(--kmate-sculpted-highlight);
-      stroke-width: 2.2;
-      opacity: .56;
+    .piece.kmate-simple-piece-v51.black {
+      --kmate-simple-fill: #202422;
+      --kmate-simple-stroke: #0f1211;
+      --kmate-simple-stroke-width: 2.05;
     }
-    .piece.kmate-sculpted-piece-v47 .grain {
-      fill: none;
-      stroke: var(--kmate-sculpted-grain);
-      stroke-width: 1.5;
-      opacity: .42;
-    }
-    .piece.kmate-sculpted-piece-v47 .cut {
-      fill: none;
-      stroke: var(--kmate-sculpted-edge);
-      stroke-width: 4.5;
-    }
-    .piece.kmate-sculpted-piece-v47 .eye,
-    .piece.kmate-sculpted-piece-v47 .nostril {
-      fill: var(--kmate-sculpted-edge);
-      stroke: none;
-    }
-    .piece.kmate-sculpted-piece-v47.white {
-      --kmate-sculpted-body-hi: #fff6e6;
-      --kmate-sculpted-body-mid: #e7c69d;
-      --kmate-sculpted-body-low: #b57942;
-      --kmate-sculpted-base-hi: #f1d4ad;
-      --kmate-sculpted-base-low: #8f582c;
-      --kmate-sculpted-band-hi: #dca56d;
-      --kmate-sculpted-band-low: #71411f;
-      --kmate-sculpted-shadow-hi: #9c6637;
-      --kmate-sculpted-shadow-low: #4d2916;
-      --kmate-sculpted-crown-hi: #f4d6a8;
-      --kmate-sculpted-crown-low: #9a5f2e;
-      --kmate-sculpted-edge: #5b341b;
-      --kmate-sculpted-grain: #75451f;
-      --kmate-sculpted-highlight: #fff5d9;
-      --kmate-sculpted-ground: #2f1b10;
-    }
-    .piece.kmate-sculpted-piece-v47.black {
-      --kmate-sculpted-body-hi: #737780;
-      --kmate-sculpted-body-mid: #292b30;
-      --kmate-sculpted-body-low: #050506;
-      --kmate-sculpted-base-hi: #44474e;
-      --kmate-sculpted-base-low: #020203;
-      --kmate-sculpted-band-hi: #575b63;
-      --kmate-sculpted-band-low: #0b0c0e;
-      --kmate-sculpted-shadow-hi: #202226;
-      --kmate-sculpted-shadow-low: #000000;
-      --kmate-sculpted-crown-hi: #878b93;
-      --kmate-sculpted-crown-low: #15171a;
-      --kmate-sculpted-edge: #030405;
-      --kmate-sculpted-grain: #a7abb2;
-      --kmate-sculpted-highlight: #e7e9ed;
-      --kmate-sculpted-ground: #000000;
+    .piece.kmate-simple-piece-v51.selected,
+    .piece.kmate-simple-piece-v51.last-move {
+      filter: none !important;
     }
     @media (prefers-reduced-motion: reduce) {
-      .piece.kmate-sculpted-piece-v47,
-      .piece.kmate-sculpted-piece-v47 > svg {
+      .piece.kmate-simple-piece-v51,
+      .piece.kmate-simple-piece-v51 > svg {
         transition: none !important;
         animation: none !important;
       }
@@ -208,14 +84,16 @@ function sculptedPiecesEnsureStyles() {
   document.head.append(style);
 }
 
-function sculptedPieceType(element) {
+function simplePieceType(element) {
   const datasetType = String(element?.dataset?.pieceType || '').toLowerCase();
-  if (SCULPTED_PIECES[datasetType]) return datasetType;
+  if (SIMPLE_PIECE_PATHS[datasetType]) return datasetType;
+  const legacySvgType = element?.querySelector(':scope > svg')?.dataset?.kmateSculptedPiece;
+  if (SIMPLE_PIECE_PATHS[legacySvgType]) return legacySvgType;
   const glyph = String(element?.textContent || '').trim();
-  return SCULPTED_PIECE_GLYPHS[glyph] || '';
+  return SIMPLE_PIECE_GLYPHS[glyph] || '';
 }
 
-function sculptedPieceColor(element) {
+function simplePieceColor(element) {
   if (element?.classList?.contains('white')) return 'white';
   if (element?.classList?.contains('black')) return 'black';
   const datasetColor = String(element?.dataset?.pieceColor || '').toLowerCase();
@@ -224,83 +102,52 @@ function sculptedPieceColor(element) {
   return '';
 }
 
-function sculptedPiecePaint(markup, uid) {
-  return markup
-    .replaceAll('class="body"', `class="body" fill="url(#${uid}-body)"`)
-    .replaceAll('class="base"', `class="base" fill="url(#${uid}-base)"`)
-    .replaceAll('class="band"', `class="band" fill="url(#${uid}-band)"`)
-    .replaceAll('class="shadow"', `class="shadow" fill="url(#${uid}-shadow)"`)
-    .replaceAll('class="mane"', `class="mane" fill="url(#${uid}-shadow)"`)
-    .replaceAll('class="snout"', `class="snout" fill="url(#${uid}-body)"`)
-    .replaceAll('class="cap"', `class="cap" fill="url(#${uid}-band)"`)
-    .replaceAll('class="crown"', `class="crown" fill="url(#${uid}-crown)"`)
-    .replaceAll('class="cross"', `class="cross" fill="url(#${uid}-crown)"`)
-    .replaceAll('class="jewel"', `class="jewel" fill="url(#${uid}-crown)"`);
-}
-
-function sculptedPieceSvg(type, color) {
-  const uid = `kmate-sculpted-${++sculptedPieceSerial}`;
-  const name = SCULPTED_PIECE_NAMES[type] || 'piece';
-  const painted = sculptedPiecePaint(SCULPTED_PIECES[type], uid);
-  return `<svg viewBox="0 0 100 100" focusable="false" aria-hidden="true" data-kmate-sculpted-piece="${type}" data-kmate-sculpted-color="${color}">
-    <defs>
-      <linearGradient id="${uid}-body" x1="15%" y1="7%" x2="84%" y2="96%">
-        <stop offset="0" class="sculpted-stop-body-hi"/><stop offset=".46" class="sculpted-stop-body-mid"/><stop offset="1" class="sculpted-stop-body-low"/>
-      </linearGradient>
-      <linearGradient id="${uid}-base" x1="18%" y1="0" x2="80%" y2="100%">
-        <stop offset="0" class="sculpted-stop-base-hi"/><stop offset="1" class="sculpted-stop-base-low"/>
-      </linearGradient>
-      <linearGradient id="${uid}-band" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" class="sculpted-stop-band-hi"/><stop offset="1" class="sculpted-stop-band-low"/>
-      </linearGradient>
-      <linearGradient id="${uid}-shadow" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" class="sculpted-stop-shadow-hi"/><stop offset="1" class="sculpted-stop-shadow-low"/>
-      </linearGradient>
-      <linearGradient id="${uid}-crown" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" class="sculpted-stop-crown-hi"/><stop offset="1" class="sculpted-stop-crown-low"/>
-      </linearGradient>
-    </defs>
+function simplePieceSvg(type, color) {
+  const name = SIMPLE_PIECE_NAMES[type] || 'piece';
+  return `<svg viewBox="0 0 100 100" focusable="false" aria-hidden="true" data-kmate-simple-piece="${type}" data-kmate-simple-color="${color}">
     <title>${color} ${name}</title>
-    <g class="sculpted-art">${painted}</g>
+    <path class="kmate-simple-shape" fill-rule="evenodd" d="${SIMPLE_PIECE_PATHS[type]}"/>
   </svg>`;
 }
 
-function sculptedPiecesApply(element) {
+function simplePiecesApply(element) {
   if (!(element instanceof HTMLElement) || !element.classList.contains('piece')) return false;
-  const type = sculptedPieceType(element);
-  const color = sculptedPieceColor(element);
+  const type = simplePieceType(element);
+  const color = simplePieceColor(element);
   if (!type || !color) return false;
-  const current = element.querySelector(':scope > svg[data-kmate-sculpted-piece]');
+
+  const current = element.querySelector(':scope > svg[data-kmate-simple-piece]');
   if (
-    element.dataset.kmatePieceStyle === SCULPTED_PIECES_VERSION
-    && current?.dataset.kmateSculptedPiece === type
-    && current?.dataset.kmateSculptedColor === color
+    element.dataset.kmatePieceStyle === SIMPLE_PIECES_VERSION
+    && current?.dataset.kmateSimplePiece === type
+    && current?.dataset.kmateSimpleColor === color
   ) return false;
 
-  element.dataset.kmatePieceStyle = SCULPTED_PIECES_VERSION;
+  element.dataset.kmatePieceStyle = SIMPLE_PIECES_VERSION;
   element.dataset.pieceType = type;
   element.dataset.pieceColor = color === 'white' ? 'w' : 'b';
-  element.classList.add('vector-piece', 'staunton-piece', 'kmate-sculpted-piece-v47');
-  element.innerHTML = sculptedPieceSvg(type, color);
-  sculptedPiecesApplied += 1;
+  element.classList.remove('kmate-sculpted-piece-v47', 'kmate-pointed-pawn-v50');
+  element.classList.add('vector-piece', 'staunton-piece', 'kmate-simple-piece-v51');
+  element.innerHTML = simplePieceSvg(type, color);
+  simplePiecesApplied += 1;
   return true;
 }
 
-function sculptedPiecesRefresh(root = document) {
-  sculptedPieceRefreshes += 1;
+function simplePiecesRefresh(root = document) {
+  simplePieceRefreshes += 1;
   const pieces = new Set();
-  if (root instanceof Element && root.matches(SCULPTED_PIECES_SELECTOR)) pieces.add(root);
-  root.querySelectorAll?.(SCULPTED_PIECES_SELECTOR).forEach((piece) => pieces.add(piece));
+  if (root instanceof Element && root.matches(SIMPLE_PIECES_SELECTOR)) pieces.add(root);
+  root.querySelectorAll?.(SIMPLE_PIECES_SELECTOR).forEach((piece) => pieces.add(piece));
   let changed = 0;
   pieces.forEach((piece) => {
-    if (sculptedPiecesApply(piece)) changed += 1;
+    if (simplePiecesApply(piece)) changed += 1;
   });
   return changed;
 }
 
-function sculptedPiecesStartObserver() {
-  if (sculptedPieceObserver || !document.body) return;
-  sculptedPieceObserver = new MutationObserver((mutations) => {
+function simplePiecesStartObserver() {
+  if (simplePieceObserver || !document.body) return;
+  simplePieceObserver = new MutationObserver((mutations) => {
     const roots = new Set();
     for (const mutation of mutations) {
       const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
@@ -309,51 +156,60 @@ function sculptedPiecesStartObserver() {
         if (node instanceof Element) roots.add(node);
       }
     }
-    roots.forEach((root) => sculptedPiecesRefresh(root));
+    roots.forEach((root) => simplePiecesRefresh(root));
   });
-  sculptedPieceObserver.observe(document.body, { childList: true, subtree: true });
+  simplePieceObserver.observe(document.body, { childList: true, subtree: true });
 }
 
-function sculptedPiecesState() {
-  const pieces = [...document.querySelectorAll('.piece.kmate-sculpted-piece-v47')];
-  const byType = Object.fromEntries(Object.keys(SCULPTED_PIECES).map((type) => [
+function simplePiecesState() {
+  const pieces = [...document.querySelectorAll('.piece.kmate-simple-piece-v51')];
+  const byType = Object.fromEntries(Object.keys(SIMPLE_PIECE_PATHS).map((type) => [
     type,
     pieces.filter((piece) => piece.dataset.pieceType === type).length,
   ]));
   return {
     ready: true,
-    version: SCULPTED_PIECES_VERSION,
-    style: 'original-sculpted-wood-inspired',
+    version: SIMPLE_PIECES_VERSION,
+    style: 'flat-reference-silhouette',
+    reference: 'user-supplied green-and-ivory board',
     sourceImageCopied: false,
-    applied: sculptedPiecesApplied,
-    refreshes: sculptedPieceRefreshes,
+    gradients: 0,
+    decorativeDetailLayers: 0,
+    applied: simplePiecesApplied,
+    refreshes: simplePieceRefreshes,
     visiblePieces: pieces.filter((piece) => piece.getClientRects().length > 0).length,
     totalPieces: pieces.length,
     byType,
     palette: {
-      white: 'warm carved ivory',
-      black: 'polished ebony',
+      white: 'flat warm white with charcoal outline',
+      black: 'flat near-black with dark outline',
     },
   };
 }
 
-function sculptedPiecesInitialize() {
-  document.documentElement.classList.add('kmate-sculpted-pieces-v47');
-  sculptedPiecesEnsureStyles();
-  sculptedPiecesRefresh();
-  sculptedPiecesStartObserver();
-  window.setTimeout(() => sculptedPiecesRefresh(), 0);
-  window.setTimeout(() => sculptedPiecesRefresh(), 300);
-  window.setTimeout(() => sculptedPiecesRefresh(), 1400);
-  window.__KMATE_SCULPTED_PIECES_V47__ = {
-    version: SCULPTED_PIECES_VERSION,
-    refresh: sculptedPiecesRefresh,
-    state: sculptedPiecesState,
+function simplePiecesInitialize() {
+  document.documentElement.classList.remove('kmate-sculpted-pieces-v47');
+  document.documentElement.classList.add('kmate-simple-pieces-v51');
+  simplePiecesEnsureStyles();
+  simplePiecesRefresh();
+  simplePiecesStartObserver();
+  window.setTimeout(() => simplePiecesRefresh(), 0);
+  window.setTimeout(() => simplePiecesRefresh(), 300);
+  window.setTimeout(() => simplePiecesRefresh(), 1400);
+
+  const api = {
+    version: SIMPLE_PIECES_VERSION,
+    refresh: simplePiecesRefresh,
+    state: simplePiecesState,
   };
+  window.__KMATE_SIMPLE_PIECES_V51__ = api;
+  // Retain the old diagnostic name so older QA and optional layers do not
+  // mistake the visual-only replacement for a missing piece renderer.
+  window.__KMATE_SCULPTED_PIECES_V47__ = api;
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', sculptedPiecesInitialize, { once: true });
+  document.addEventListener('DOMContentLoaded', simplePiecesInitialize, { once: true });
 } else {
-  sculptedPiecesInitialize();
+  simplePiecesInitialize();
 }
