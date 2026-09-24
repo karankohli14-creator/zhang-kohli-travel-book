@@ -1,0 +1,31 @@
+name: K-Mate v50 one-time source export
+
+on:
+  push:
+    branches: [kmate-full-page-hints-v50]
+    paths:
+      - ".github/workflows/kmate-v50-export.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-full-page-hints-v50
+
+      - name: Upload K-Mate source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmate-v50-source
+          path: |
+            kmate-trainer
+            playwright.config.*
+            package.json
+            package-lock.json
+          if-no-files-found: ignore
+          retention-days: 2
