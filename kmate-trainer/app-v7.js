@@ -85,12 +85,12 @@ try {
     }
   }
 
-
   try {
     // v50 is the production phone-play layer: the game occupies the full
     // viewport, titles never reserve space, hints stay behind one light-bulb
     // control, candidate reveal remains interactive, and pawns use the new
-    // pointed finial silhouette. It also preserves concise coach narration.
+    // pointed finial silhouette. Its observer guards prevent layout feedback
+    // loops while preserving concise coach narration and stable board input.
     await import('./mobile-full-page-v50.js?v=50.0.0');
   } catch (error) {
     console.warn('Optional v50 full-page game layer could not load.', error);
