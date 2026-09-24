@@ -1,4 +1,4 @@
-name: K-Mate v47 stable board and sculpted pieces QA
+name: K-Mate v51 stable board and simple pieces QA
 
 on:
   push:
@@ -42,7 +42,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate stable-board, sculpted-piece, and audio wiring
+      - name: Validate stable-board, simple-piece, and audio wiring
         run: |
           node --check kmate-trainer/classic-board-v46.js
           node --check kmate-trainer/sculpted-pieces-v47.js
@@ -51,11 +51,14 @@ jobs:
           node --check kmate-trainer/tests/classic-board-v46.spec.mjs
           node --check kmate-trainer/tests/sculpted-pieces-v47.spec.mjs
           grep -Fq "classic-board-v46.js?v=46.0.0" kmate-trainer/app-v7.js
-          grep -Fq "sculpted-pieces-v47.js?v=47.0.0" kmate-trainer/app-v7.js
+          grep -Fq "sculpted-pieces-v47.js?v=51.0.0" kmate-trainer/app-v7.js
           grep -Fq "move-sound-v45.js?v=45.2.0" kmate-trainer/app-v7.js
-          grep -Fq "SCULPTED_PIECES_VERSION = '47.0.0'" kmate-trainer/sculpted-pieces-v47.js
-          grep -Fq "sourceImageCopied: false" kmate-trainer/sculpted-pieces-v47.js
-          grep -Fq "original-sculpted-wood-inspired" kmate-trainer/sculpted-pieces-v47.js
+          grep -Fq "SIMPLE_PIECES_VERSION = '51.0.0'" kmate-trainer/sculpted-pieces-v47.js
+          grep -Fq "flat-reference-silhouette" kmate-trainer/sculpted-pieces-v47.js
+          grep -Fq "kmate-simple-piece-v51" kmate-trainer/sculpted-pieces-v47.js
+          grep -Fq "window.__KMATE_SIMPLE_PIECES_V51__ = api" kmate-trainer/sculpted-pieces-v47.js
+          grep -Fq "window.__KMATE_SCULPTED_PIECES_V47__ = api" kmate-trainer/sculpted-pieces-v47.js
+          grep -Fq "decorativeDetailLayers: 0" kmate-trainer/sculpted-pieces-v47.js
           grep -Fq "KMATE_MOVE_SOUND_VERSION = '45.2.0'" kmate-trainer/move-sound-v45.js
           grep -Fq "KMATE_MOVE_SOUND_VOLUME = 0.48" kmate-trainer/move-sound-v45.js
           grep -Fq "uniformBoardSound: true" kmate-trainer/move-sound-v45.js
@@ -75,17 +78,17 @@ jobs:
 
       - name: Start static K-Mate server
         run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v47-http.log 2>&1 &
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v51-http.log 2>&1 &
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
               exit 0
             fi
             sleep 1
           done
-          cat /tmp/kmate-v47-http.log
+          cat /tmp/kmate-v51-http.log
           exit 1
 
-      - name: Test native board, sculpted artwork, move response, and uniform wood audio
+      - name: Test native board, flat reference pieces, move response, and uniform wood audio
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
         run: >-
@@ -99,9 +102,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: kmate-sculpted-pieces-v47-failure
+          name: kmate-simple-pieces-v51-failure
           path: |
             test-results
-            /tmp/kmate-v47-http.log
+            /tmp/kmate-v51-http.log
           if-no-files-found: ignore
           retention-days: 7
