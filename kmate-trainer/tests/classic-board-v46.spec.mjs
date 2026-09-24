@@ -55,6 +55,7 @@ async function prepare(page) {
       window.__KMATE__?.test?.startLiveCoachPrincipleDemo
       && window.__KMATE_CLASSIC_BOARD_V46__?.state?.().ready
       && window.__KMATE_SCULPTED_PIECES_V47__?.state?.().ready
+      && window.__KMATE_FULL_PAGE_V50__?.state?.().ready
       && window.__KMATE_MOVE_FEEDBACK_V48__?.state?.().ready
       && window.__KMATE_GAME_UX_V48__?.state?.().ready
       && window.__KMATE_MOVE_SOUND_V45__?.state?.().ready
@@ -70,13 +71,14 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('stable white-green board keeps sculpted pieces visible and uses v48 quiet feedback', async ({ page }) => {
+test('stable native board keeps sculpted pieces visible under the v50 presentation', async ({ page }) => {
   test.setTimeout(150_000);
   await prepare(page);
 
   const startup = await page.evaluate(() => ({
     classic: window.__KMATE_CLASSIC_BOARD_V46__.state(),
     pieces: window.__KMATE_SCULPTED_PIECES_V47__.state(),
+    fullPage: window.__KMATE_FULL_PAGE_V50__.state(),
     feedback: window.__KMATE_MOVE_FEEDBACK_V48__.state(),
     compatibility: window.__KMATE_MOVE_SOUND_V45__.state(),
     ux: window.__KMATE_GAME_UX_V48__.state(),
@@ -86,6 +88,7 @@ test('stable white-green board keeps sculpted pieces visible and uses v48 quiet 
   expect(startup.classic.renderer).toBe('native-staunton-grid');
   expect(startup.storedSvg.enabled).toBe(false);
   expect(startup.pieces.version).toBe('47.0.0');
+  expect(startup.fullPage.version).toBe('50.0.0');
   expect(startup.feedback.version).toBe('48.0.0');
   expect(startup.feedback.volume).toBe(0.24);
   expect(startup.feedback.hapticDurationMs).toBe(8);
@@ -100,6 +103,7 @@ test('stable white-green board keeps sculpted pieces visible and uses v48 quiet 
   await expect(page.locator('#board > .svg44-overlay')).toHaveCount(0);
   await expect(page.locator('#board .piece.kmate-sculpted-piece-v47')).toHaveCount(32, { timeout: 30_000 });
   await expect(page.locator('#board .piece.kmate-sculpted-piece-v47 svg')).toHaveCount(32);
+  await expect(page.locator('#board svg[data-kmate-pointed-pawn="50.0.0"]')).toHaveCount(16, { timeout: 30_000 });
 
   const palette = await page.evaluate(() => {
     const light = document.querySelector('#board > .sq.light');
@@ -121,16 +125,16 @@ test('stable white-green board keeps sculpted pieces visible and uses v48 quiet 
       blackStroke: getComputedStyle(black.querySelector('.sculpted-art')).strokeWidth,
     };
   });
-  expect(palette.light).toBe('rgb(238, 238, 210)');
-  expect(palette.dark).toBe('rgb(118, 150, 86)');
-  expect(palette.lightImage).toBe('none');
-  expect(palette.darkImage).toBe('none');
-  expect(palette.whiteEdge).toBe('#2b1307');
-  expect(palette.blackEdge).toBe('#e8eee9');
-  expect(palette.whiteHigh).toBe('#fffdf6');
-  expect(palette.blackLow).toBe('#000102');
-  expect(Number.parseFloat(palette.whiteStroke)).toBeGreaterThanOrEqual(2.8);
-  expect(Number.parseFloat(palette.blackStroke)).toBeGreaterThanOrEqual(2.4);
+  expect(palette.light).toBe('rgb(248, 250, 234)');
+  expect(palette.dark).toBe('rgb(145, 187, 114)');
+  expect(palette.lightImage).not.toBe('none');
+  expect(palette.darkImage).not.toBe('none');
+  expect(palette.whiteEdge).toBe('#251006');
+  expect(palette.blackEdge).toBe('#f1f8ed');
+  expect(palette.whiteHigh).toBe('#fffef7');
+  expect(palette.blackLow).toBe('#000000');
+  expect(Number.parseFloat(palette.whiteStroke)).toBeGreaterThanOrEqual(3.1);
+  expect(Number.parseFloat(palette.blackStroke)).toBeGreaterThanOrEqual(2.7);
 
   const beforeMove = await page.evaluate(() => window.__KMATE_MOVE_FEEDBACK_V48__.state());
   await page.locator('#board > .sq[data-square="e2"]').click();
@@ -182,6 +186,7 @@ test('stable white-green board keeps sculpted pieces visible and uses v48 quiet 
   ).toBeGreaterThan(beforeMove.haptics);
   expect(await page.evaluate(() => window.__kmateVibrations)).toContain(8);
 
+  await expect(page.locator('#board svg[data-kmate-pointed-pawn="50.0.0"]')).toHaveCount(16, { timeout: 15_000 });
   const finalState = await page.evaluate(() => window.__KMATE_CLASSIC_BOARD_V46__.state());
   expect(finalState.boards.find((board) => board.id === 'board')?.overlay).toBe(false);
 });
