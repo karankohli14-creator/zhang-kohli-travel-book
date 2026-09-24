@@ -1,0 +1,42 @@
+name: K-Mate v52 index cache bump
+
+on:
+  push:
+    branches: [kmate-svg-reference-theme-v52]
+    paths:
+      - ".github/workflows/kmate-v52-index-bump.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  bump-index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-svg-reference-theme-v52
+          fetch-depth: 0
+
+      - name: Update app cache key and remove this one-time workflow
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('kmate-trainer/index.html')
+          text = path.read_text()
+          old = 'app-v7.js?v=50.0.0'
+          new = 'app-v7.js?v=52.0.0'
+          if old not in text and new not in text:
+              raise SystemExit('Expected app script marker was not found.')
+          path.write_text(text.replace(old, new))
+          PY
+          git rm .github/workflows/kmate-v52-index-bump.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kmate-trainer/index.html
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Bump K-Mate app loader to v52"
+          git push origin HEAD:kmate-svg-reference-theme-v52
