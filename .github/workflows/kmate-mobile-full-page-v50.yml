@@ -1,4 +1,4 @@
-name: K-Mate v50 full-page game QA
+name: K-Mate v52 full-page reference board QA
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - "kmate-trainer/mobile-full-page-v50.js"
       - "kmate-trainer/mobile-full-page-v50.css"
       - "kmate-trainer/sculpted-pieces-v47.js"
+      - "kmate-trainer/reference-board-v52.css"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/mobile-full-page-v50.spec.mjs"
@@ -16,6 +17,7 @@ on:
       - "kmate-trainer/mobile-full-page-v50.js"
       - "kmate-trainer/mobile-full-page-v50.css"
       - "kmate-trainer/sculpted-pieces-v47.js"
+      - "kmate-trainer/reference-board-v52.css"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/mobile-full-page-v50.spec.mjs"
@@ -38,25 +40,23 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate v50 layout and v51 piece wiring
+      - name: Validate full-page v50 and reference-theme v52 wiring
         run: |
           node --check kmate-trainer/mobile-full-page-v50.js
           node --check kmate-trainer/sculpted-pieces-v47.js
           node --check kmate-trainer/app-v7.js
           node --check kmate-trainer/tests/mobile-full-page-v50.spec.mjs
           grep -Fq "mobile-full-page-v50.js?v=50.0.0" kmate-trainer/app-v7.js
-          grep -Fq "sculpted-pieces-v47.js?v=51.0.0" kmate-trainer/app-v7.js
-          ! grep -Fq "mobile-board-focus-v49.js?v=49.0.0" kmate-trainer/app-v7.js
-          grep -Fq "app-v7.js?v=50.0.0" kmate-trainer/index.html
+          grep -Fq "sculpted-pieces-v47.js?v=52.0.0" kmate-trainer/app-v7.js
+          grep -Fq "app-v7.js?v=52.0.0" kmate-trainer/index.html
           grep -Fq "KMATE_MOBILE_FULL_PAGE_V50 = '50.0.0'" kmate-trainer/mobile-full-page-v50.js
-          grep -Fq "KMATE_EFFECTIVE_MOVE_GAIN_V50 = 0.10" kmate-trainer/mobile-full-page-v50.js
-          grep -Fq "SIMPLE_PIECES_VERSION = '51.0.0'" kmate-trainer/sculpted-pieces-v47.js
-          grep -Fq "flat-reference-silhouette" kmate-trainer/sculpted-pieces-v47.js
-          grep -Fq "kmate-simple-piece-v51" kmate-trainer/sculpted-pieces-v47.js
-          grep -Fq "km50-hint-open" kmate-trainer/mobile-full-page-v50.css
+          grep -Fq "KMATE_REFERENCE_THEME_V52 = '52.0.0'" kmate-trainer/sculpted-pieces-v47.js
+          grep -Fq "kmate-reference-piece-v52" kmate-trainer/sculpted-pieces-v47.js
+          grep -Fq "#d55236" kmate-trainer/reference-board-v52.css
+          grep -Fq "#d3cebd" kmate-trainer/reference-board-v52.css
+          grep -Fq "#758e72" kmate-trainer/reference-board-v52.css
+          grep -Fq "body.game-mode .live-boardwrap" kmate-trainer/reference-board-v52.css
           grep -Fq "#kmateHintEdgeButton" kmate-trainer/mobile-full-page-v50.css
-          grep -Fq "#f8f8e8" kmate-trainer/mobile-full-page-v50.css
-          grep -Fq "#8bb768" kmate-trainer/mobile-full-page-v50.css
 
       - name: Install browser dependencies
         run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
@@ -66,17 +66,17 @@ jobs:
 
       - name: Start static K-Mate server
         run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v50-http.log 2>&1 &
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v52-full-http.log 2>&1 &
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
               exit 0
             fi
             sleep 1
           done
-          cat /tmp/kmate-v50-http.log
+          cat /tmp/kmate-v52-full-http.log
           exit 1
 
-      - name: Test full-page layout, on-demand hints, candidate reveal, and simple pieces
+      - name: Test full-page layout, on-demand hints, fullscreen, and framed reference theme
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
         run: >-
@@ -89,9 +89,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: kmate-mobile-full-page-v50-failure
+          name: kmate-full-page-reference-v52-failure
           path: |
             test-results
-            /tmp/kmate-v50-http.log
+            /tmp/kmate-v52-full-http.log
           if-no-files-found: ignore
           retention-days: 7
