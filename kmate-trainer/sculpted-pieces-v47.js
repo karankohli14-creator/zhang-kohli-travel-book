@@ -16,17 +16,32 @@ const KMATE_REFERENCE_PATHS_V52 = Object.freeze({
 });
 
 let km52PieceSerial = 0;
+let km52CssReady = false;
 let km52PieceObserver = null;
 let km52Applied = 0;
 let km52Refreshes = 0;
 
 function km52EnsureStyles() {
-  if (document.querySelector(`#${KMATE_REFERENCE_STYLE_ID_V52}`)) return;
-  const link = document.createElement('link');
-  link.id = KMATE_REFERENCE_STYLE_ID_V52;
-  link.rel = 'stylesheet';
-  link.href = new URL(`./reference-board-v52.css?v=${KMATE_REFERENCE_THEME_V52}`, import.meta.url).href;
-  document.head.append(link);
+  let link = document.querySelector(`#${KMATE_REFERENCE_STYLE_ID_V52}`);
+  if (!link) {
+    link = document.createElement('link');
+    link.id = KMATE_REFERENCE_STYLE_ID_V52;
+    link.rel = 'stylesheet';
+    link.href = new URL(`./reference-board-v52.css?v=${KMATE_REFERENCE_THEME_V52}`, import.meta.url).href;
+    document.head.append(link);
+  }
+  const markReady = () => {
+    km52CssReady = true;
+    document.documentElement.dataset.kmateReferenceThemeReady = KMATE_REFERENCE_THEME_V52;
+  };
+  if (link.sheet) markReady();
+  else {
+    link.addEventListener('load', markReady, { once: true });
+    link.addEventListener('error', () => {
+      console.warn('K-Mate v52 reference-theme stylesheet could not load.');
+    }, { once: true });
+  }
+  return link;
 }
 
 function km52PieceType(element) {
@@ -112,7 +127,7 @@ function km52State() {
   const pieces = [...document.querySelectorAll('.piece.kmate-reference-piece-v52')];
   const byType = Object.fromEntries(Object.keys(KMATE_REFERENCE_PATHS_V52).map((type) => [type, pieces.filter((piece) => piece.dataset.pieceType === type).length]));
   return {
-    ready: true,
+    ready: km52CssReady,
     version: KMATE_REFERENCE_THEME_V52,
     style: 'uploaded-svg-reference-theme',
     source: 'user-supplied wooden green-and-ivory SVG',
