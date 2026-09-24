@@ -122,7 +122,9 @@ test('mobile play prioritizes the board, uses soft controls, and exposes hints f
   // v50 keeps this explicit control after removing the noisy
   // automatic startup phrase, so players can confirm or replay coach speech.
   expect(layout.coachAudioDisplay).toBe('grid');
-  expect(layout.boardWidth).toBeGreaterThanOrEqual(360);
+  // v52 deliberately reserves part of the full-width surface for the
+  // uploaded reference's substantial wooden frame and coordinate medallions.
+  expect(layout.boardWidth).toBeGreaterThanOrEqual(330);
   expect(Math.abs(layout.boardWidth - layout.boardHeight)).toBeLessThan(2);
   expect(layout.menuShadow).not.toBe('none');
   expect(layout.fullscreenShadow).not.toBe('none');
