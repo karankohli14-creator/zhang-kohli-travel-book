@@ -35,9 +35,9 @@ narrowLayoutFix.textContent = `.card,.table-card,.recent-card,.tables-grid,.tabl
 document.head.append(narrowLayoutFix);
 
 try {
-  // v46 uses the original K-Mate grid for immediate, flicker-free rendering.
-  // The retired SVG board remains available only through ?legacySvg=1 for
-  // controlled regression testing.
+  // v46 uses the original K-Mate grid for immediate, flicker-free rendering
+  // while preserving the exact Staunton piece artwork. The retired SVG board
+  // remains available only through ?legacySvg=1 for regression testing.
   await import('./classic-board-v46.js?v=46.0.0');
 } catch (error) {
   console.warn('Optional v46 stable classic board could not load.', error);
@@ -45,7 +45,7 @@ try {
 
 try {
   // v48 installs the concise bad-move comparison card, consistent soft UI tap,
-  // piece-contrast foundation, and the uniform wooden movement cue.
+  // sculpted-piece contrast foundation, and the uniform wooden movement cue.
   await import('./mobile-game-ux-v48.js?v=48.0.0');
 } catch (error) {
   console.warn('Optional v48 mobile game and coaching layer could not load.', error);
@@ -75,22 +75,20 @@ try {
 
   if (window.__KMATE_CLASSIC_BOARD_V46__?.state?.().active !== false) {
     try {
-      // v51 replaces only the piece artwork on the stable production board
-      // with the user's simpler flat white-and-black reference silhouettes.
-      // Input, chess logic, puzzles, clocks, sound, and board geometry remain
-      // unchanged. The retired ?legacySvg=1 renderer keeps its own artwork.
-      await import('./sculpted-pieces-v47.js?v=51.0.0');
+      // v52 applies the detailed piece silhouettes, textured sage/ivory squares,
+      // wooden frame, and orange coordinate medallions derived from the user's
+      // uploaded SVG. Chess input, clocks, puzzles, coaching, and audio remain unchanged.
+      await import('./sculpted-pieces-v47.js?v=52.0.0');
     } catch (error) {
-      console.warn('Optional v51 simple chess-piece artwork could not load.', error);
+      console.warn('Optional v52 uploaded-SVG reference theme could not load.', error);
     }
   }
 
   try {
-    // v50 is the production phone-play layer: the game occupies the full
+    // v50 remains the production phone-play layer: the game occupies the full
     // viewport, titles never reserve space, hints stay behind one light-bulb
-    // control, and candidate reveal remains interactive. Its observer guards
-    // prevent layout feedback loops while preserving concise coach narration
-    // and stable board input. The v51 renderer now owns all pawn artwork.
+    // control, and candidate reveal remains interactive. The v52 renderer owns
+    // all piece artwork while v50 preserves concise coach narration.
     await import('./mobile-full-page-v50.js?v=50.0.0');
   } catch (error) {
     console.warn('Optional v50 full-page game layer could not load.', error);
