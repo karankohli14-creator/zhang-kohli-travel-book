@@ -73,6 +73,16 @@ const moduleUrl = URL.createObjectURL(new Blob([responses.join('')], { type: 'te
 try {
   await import(moduleUrl);
 
+  try {
+    // v50 remains the production phone-play layer: the game occupies the full
+    // viewport, titles never reserve space, hints stay behind one light-bulb
+    // control, and candidate reveal remains interactive. Load it before v52 so
+    // the reference-theme stylesheet is the final visual authority.
+    await import('./mobile-full-page-v50.js?v=50.0.0');
+  } catch (error) {
+    console.warn('Optional v50 full-page game layer could not load.', error);
+  }
+
   if (window.__KMATE_CLASSIC_BOARD_V46__?.state?.().active !== false) {
     try {
       // v52 applies the detailed piece silhouettes, textured sage/ivory squares,
@@ -82,16 +92,6 @@ try {
     } catch (error) {
       console.warn('Optional v52 uploaded-SVG reference theme could not load.', error);
     }
-  }
-
-  try {
-    // v50 remains the production phone-play layer: the game occupies the full
-    // viewport, titles never reserve space, hints stay behind one light-bulb
-    // control, and candidate reveal remains interactive. The v52 renderer owns
-    // all piece artwork while v50 preserves concise coach narration.
-    await import('./mobile-full-page-v50.js?v=50.0.0');
-  } catch (error) {
-    console.warn('Optional v50 full-page game layer could not load.', error);
   }
 
   try {
