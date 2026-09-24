@@ -23,6 +23,8 @@ let km50SuppressedReadyPrompts = 0;
 let km50CoachFallbackTimer = 0;
 let km50ScaledGainWrites = 0;
 let km50ScaledMediaPlays = 0;
+let km50LastGameMode = null;
+let km50SyncingGameMode = false;
 
 function km50InstallStyles() {
   if (document.querySelector('#kmateMobileFullPageV50Styles')) return;
@@ -106,8 +108,8 @@ function km50CloseHint() {
   document.body?.classList.remove('km50-hint-open', 'km48-hint-open', 'km49-hint-open');
   const card = km50HintCard();
   if (card) {
-    card.hidden = true;
-    card.setAttribute('aria-hidden', 'true');
+    if (!card.hidden) card.hidden = true;
+    if (card.getAttribute('aria-hidden') !== 'true') card.setAttribute('aria-hidden', 'true');
   }
   km50UpdateHintButton();
 }
@@ -175,7 +177,7 @@ function km50RefreshHintState() {
     }
   }
 
-  if (/waiting for your turn|hints unavailable/i.test(title)) km50CloseHint();
+  if (/waiting for your turn|hints unavailable/i.test(title) && (km50HintOpen || !card.hidden)) km50CloseHint();
 }
 
 function km50EnsureHintControls() {
@@ -292,25 +294,45 @@ function km50HandleOutsideClick(event) {
 }
 
 function km50SyncGameMode() {
-  const gameMode = Boolean(document.body?.classList.contains('game-mode'));
-  document.documentElement.classList.add('kmate-mobile-full-page-v50');
-  document.body?.classList.toggle('km50-full-page-game', gameMode);
-  km50HidePositionTitle();
-  km50DisableAutomaticHints();
-  km50EnsureHintControls();
-  km50EnsureFullscreenControl();
-  if (!gameMode) {
-    km50CloseHint();
-    km50Immersive = false;
-    document.body?.classList.remove('km50-immersive', 'board-focus');
-    km50UpdateFullscreenButton();
+  if (km50SyncingGameMode || !document.body) return;
+  km50SyncingGameMode = true;
+  try {
+    const gameMode = document.body.classList.contains('game-mode');
+    km50LastGameMode = gameMode;
+    document.documentElement.classList.add('kmate-mobile-full-page-v50');
+    if (document.body.classList.contains('km50-full-page-game') !== gameMode) {
+      document.body.classList.toggle('km50-full-page-game', gameMode);
+    }
+    km50HidePositionTitle();
+    km50DisableAutomaticHints();
+    km50EnsureHintControls();
+    km50EnsureFullscreenControl();
+    if (!gameMode) {
+      const card = km50HintCard();
+      if (
+        km50HintOpen
+        || !card?.hidden
+        || document.body.classList.contains('km50-hint-open')
+        || document.body.classList.contains('km48-hint-open')
+        || document.body.classList.contains('km49-hint-open')
+      ) km50CloseHint();
+      if (km50Immersive) km50Immersive = false;
+      if (document.body.classList.contains('km50-immersive')) document.body.classList.remove('km50-immersive');
+      if (document.body.classList.contains('board-focus')) document.body.classList.remove('board-focus');
+      km50UpdateFullscreenButton();
+    }
+  } finally {
+    km50SyncingGameMode = false;
   }
-  window.requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
 }
 
 function km50InstallGameObserver() {
   if (km50BodyObserver || !document.body) return;
-  km50BodyObserver = new MutationObserver(km50SyncGameMode);
+  km50LastGameMode = document.body.classList.contains('game-mode');
+  km50BodyObserver = new MutationObserver(() => {
+    const gameMode = document.body.classList.contains('game-mode');
+    if (gameMode !== km50LastGameMode) km50SyncGameMode();
+  });
   km50BodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 }
 
