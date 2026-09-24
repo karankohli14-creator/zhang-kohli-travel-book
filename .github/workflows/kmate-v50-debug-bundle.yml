@@ -17,12 +17,15 @@ jobs:
       - name: Check out branch
         uses: actions/checkout@v4
 
+      - name: Install deterministic chess rules dependency
+        run: npm install --no-save chess.js@1.4.0
+
       - name: Create debug bundle
-        run: tar -czf /tmp/kmate-v50-branch.tgz kmate-trainer package.json playwright.config.* 2>/dev/null || tar -czf /tmp/kmate-v50-branch.tgz kmate-trainer
+        run: tar -czf /tmp/kmate-v50-branch.tgz kmate-trainer node_modules/chess.js package.json package-lock.json 2>/dev/null || tar -czf /tmp/kmate-v50-branch.tgz kmate-trainer node_modules/chess.js
 
       - name: Upload branch bundle
         uses: actions/upload-artifact@v4
         with:
-          name: kmate-v50-branch-bundle
+          name: kmate-v50-branch-bundle-with-chess
           path: /tmp/kmate-v50-branch.tgz
           retention-days: 1
