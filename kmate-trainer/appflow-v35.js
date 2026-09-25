@@ -20,6 +20,7 @@
   }
 
   function playUiWoodTap(strength = 1) {
+    if (document.documentElement.classList.contains('kmate-unified-button-sound-v55')) return;
     if (!uiSoundsAllowed()) return;
     const nowMs = performance.now();
     if (nowMs - lastUiSoundAt < 35) return;

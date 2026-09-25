@@ -47,7 +47,7 @@ try {
   // v55 owns every non-board button tap. It is intentionally installed before
   // older interaction layers so Start training, Continue, back, green actions,
   // and every other button use the same Generate-and-start wood tap exactly once.
-  await import('./unified-button-sound-v55.js?v=55.0.0');
+  await import('./unified-button-sound-v55.js?v=55.1.0');
 } catch (error) {
   console.warn('Optional v55 unified button sound could not load.', error);
 }

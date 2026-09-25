@@ -180,6 +180,52 @@ test('every non-board button uses one Generate-and-start tap, including ordinary
   expect(result.after.legacy).toBe(result.before.legacy);
 });
 
+
+
+test('play-page menu and coach-audio buttons receive pointer events and perform their actions', async ({ page }) => {
+  test.setTimeout(120_000);
+  await prepare(page, { width: 390, height: 844 });
+  await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
+  await expect(page.locator('#gameView')).toBeVisible();
+  await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
+
+  await page.evaluate(() => {
+    window.__km55TopControlClicks = { menu: 0, audio: 0 };
+    document.querySelector('#panelToggleButton').addEventListener('click', () => {
+      window.__km55TopControlClicks.menu += 1;
+    });
+    document.querySelector('#gameCoachAudioButton').addEventListener('click', () => {
+      window.__km55TopControlClicks.audio += 1;
+    });
+  });
+
+  const before = await page.evaluate(() => ({
+    unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state().taps,
+    legacy: window.__KMATE_GAME_UX_V48__.state().softButtonTaps,
+  }));
+
+  await page.locator('#panelToggleButton').click();
+  await expect(page.locator('#panelToggleButton')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('body')).toHaveClass(/game-panel-open/);
+
+  await page.locator('#gameCoachAudioButton').click();
+  await expect.poll(
+    () => page.evaluate(() => window.__km55TopControlClicks.audio),
+    { timeout: 5_000 },
+  ).toBe(1);
+
+  const after = await page.evaluate(() => ({
+    clicks: window.__km55TopControlClicks,
+    unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state().taps,
+    legacy: window.__KMATE_GAME_UX_V48__.state().softButtonTaps,
+    voiceState: document.querySelector('#coachVoiceSetupStatus')?.dataset.state || '',
+  }));
+  expect(after.clicks).toEqual({ menu: 1, audio: 1 });
+  expect(after.unified - before.unified).toBe(2);
+  expect(after.legacy).toBe(before.legacy);
+  expect(['starting', 'speaking', 'ready', 'prepared']).toContain(after.voiceState);
+});
+
 test('desktop coaching and hints sit beside the board rather than covering it', async ({ page }) => {
   test.setTimeout(150_000);
   await prepare(page, { width: 1280, height: 820 });
