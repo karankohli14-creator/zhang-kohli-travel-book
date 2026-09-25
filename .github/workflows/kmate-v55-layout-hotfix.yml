@@ -1,0 +1,106 @@
+name: K-Mate v55 layout hotfix
+
+on:
+  push:
+    branches: [kmate-coach-ux-v55]
+    paths:
+      - ".github/workflows/kmate-v55-layout-hotfix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-layout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-coach-ux-v55
+          fetch-depth: 0
+
+      - name: Patch active mobile sizing and robust candidate reveal
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('kmate-trainer/coach-layout-v55.js')
+          text = path.read_text()
+
+          old_style = '''function km55EnsureStyle() {
+            if (document.querySelector('#kmateCoachLayoutV55Styles')) return;
+            const link = document.createElement('link');
+            link.id = 'kmateCoachLayoutV55Styles';
+            link.rel = 'stylesheet';
+            link.href = new URL(`./coach-layout-v55.css?v=${KMATE_COACH_LAYOUT_V55}`, import.meta.url).href;
+            document.head.append(link);
+          }'''.replace('          ', '')
+          new_style = '''function km55EnsureStyle() {
+            if (!document.querySelector('#kmateCoachLayoutV55Styles')) {
+              const link = document.createElement('link');
+              link.id = 'kmateCoachLayoutV55Styles';
+              link.rel = 'stylesheet';
+              link.href = new URL(`./coach-layout-v55.css?v=${KMATE_COACH_LAYOUT_V55}`, import.meta.url).href;
+              document.head.append(link);
+            }
+            if (!document.querySelector('#kmateCoachLayoutV55ActiveFit')) {
+              const style = document.createElement('style');
+              style.id = 'kmateCoachLayoutV55ActiveFit';
+              style.textContent = `
+                @media (max-width: 820px) {
+                  html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="hint"] > #boardCoachStage {
+                    width: calc(100% - 12px) !important;
+                    max-width: calc(100% - 12px) !important;
+                    justify-self: center !important;
+                  }
+                  html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="coach"] > #boardCoachStage {
+                    width: calc(100% - 20px) !important;
+                    max-width: calc(100% - 20px) !important;
+                    justify-self: center !important;
+                  }
+                }
+              `;
+              document.head.append(style);
+            }
+          }'''.replace('          ', '')
+          if old_style not in text:
+              raise SystemExit('Expected km55EnsureStyle block was not found.')
+          text = text.replace(old_style, new_style, 1)
+
+          old_hint = '''layout.querySelector('#km55HintAction')?.addEventListener('click', () => {
+              const original = document.querySelector('#showHintButton');
+              if (original instanceof HTMLButtonElement && !original.disabled) original.click();
+              km55Schedule('hint-action');
+            });'''.replace('          ', '')
+          new_hint = '''layout.querySelector('#km55HintAction')?.addEventListener('click', () => {
+              const original = document.querySelector('#showHintButton');
+              if (original instanceof HTMLButtonElement) {
+                original.dataset.kmateNoUiSound = 'true';
+                const wasDisabled = original.disabled;
+                original.disabled = false;
+                original.dispatchEvent(new MouseEvent('click', {
+                  bubbles: false,
+                  cancelable: true,
+                  composed: true,
+                  detail: 1,
+                }));
+                queueMicrotask(() => {
+                  delete original.dataset.kmateNoUiSound;
+                  if (wasDisabled && !/candidate revealed/i.test(km55Text('#hintTitle'))) original.disabled = true;
+                });
+              }
+              km55Schedule('hint-action');
+              window.setTimeout(() => km55Schedule('hint-action-120'), 120);
+              window.setTimeout(() => km55Schedule('hint-action-450'), 450);
+            });'''.replace('          ', '')
+          if old_hint not in text:
+              raise SystemExit('Expected v55 hint action block was not found.')
+          text = text.replace(old_hint, new_hint, 1)
+          path.write_text(text)
+          PY
+          git rm .github/workflows/kmate-v55-layout-hotfix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kmate-trainer/coach-layout-v55.js
+          git commit -m "Harden v55 mobile coach sizing and candidate reveal"
+          git push origin HEAD:kmate-coach-ux-v55
