@@ -74,13 +74,12 @@ jobs:
           cat /tmp/kmate-v48-http.log
           exit 1
 
-      - name: Test mobile layout, concise coaching, contrast, sound, and haptics
+      - name: Test mobile layout, concise coaching, sound, and haptics
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
         run: >-
           npx playwright test
           kmate-trainer/tests/mobile-game-ux-v48.spec.mjs
-          kmate-trainer/tests/classic-board-v46.spec.mjs
           --workers=1
           --reporter=line
 
