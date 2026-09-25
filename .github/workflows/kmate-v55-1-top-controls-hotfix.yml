@@ -1,0 +1,168 @@
+name: K-Mate v55.1 top-control hotfix
+
+on:
+  push:
+    branches: [kmate-top-controls-v55-1]
+    paths:
+      - ".github/workflows/kmate-v55-1-top-controls-hotfix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-controls:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out hotfix branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-top-controls-v55-1
+          fetch-depth: 0
+
+      - name: Restore pointer events while retaining one button sound
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # v55 must never stop the pointer event before it reaches the actual
+          # play-page button. It owns the sound, while older sound layers opt out.
+          path = Path('kmate-trainer/unified-button-sound-v55.js')
+          text = path.read_text()
+          text = text.replace("const KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.0.0';", "const KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.1.0';")
+          old = '''  // Older K-Mate layers attach their own pointerdown sounds. Stopping only the
+          // pointerdown propagation keeps the eventual click/action intact while
+          // guaranteeing that exactly one button sound is heard.
+          event.stopImmediatePropagation();
+          km55SuppressedLegacyTaps += 1;'''
+          new = '''  // Do not stop propagation: several play-page controls intentionally use
+          // pointer events before their click handlers. Legacy sound layers now
+          // detect v55 and opt out, so functionality and one-sound consistency
+          // are both preserved.
+          event.kmateUnifiedButtonSoundHandled = true;
+          km55SuppressedLegacyTaps += 1;'''
+          if old not in text:
+              raise SystemExit('Expected v55 pointer suppression block was not found.')
+          path.write_text(text.replace(old, new, 1))
+
+          # Disable the v48 soft-tap listener without blocking functional events.
+          path = Path('kmate-trainer/mobile-game-ux-v48.js')
+          text = path.read_text()
+          old = '''  document.addEventListener('pointerdown', (event) => {
+            const target = event.target instanceof Element ? event.target : null;'''
+          new = '''  document.addEventListener('pointerdown', (event) => {
+            if (document.documentElement.classList.contains('kmate-unified-button-sound-v55')) return;
+            const target = event.target instanceof Element ? event.target : null;'''
+          if old not in text:
+              raise SystemExit('Expected v48 soft-control listener was not found.')
+          path.write_text(text.replace(old, new, 1))
+
+          # The wizard and review layers have their own historical tap synths.
+          # They now remain silent whenever v55 owns button audio.
+          path = Path('kmate-trainer/appflow-v35.js')
+          text = path.read_text()
+          old = '''  function playUiWoodTap(strength = 1) {
+            if (!uiSoundsAllowed()) return;'''
+          new = '''  function playUiWoodTap(strength = 1) {
+            if (document.documentElement.classList.contains('kmate-unified-button-sound-v55')) return;
+            if (!uiSoundsAllowed()) return;'''
+          if old not in text:
+              raise SystemExit('Expected app-flow sound function was not found.')
+          path.write_text(text.replace(old, new, 1))
+
+          path = Path('kmate-trainer/review-v35-4.js')
+          text = path.read_text()
+          old = '''  function playInterfaceTap(strong = false) {
+            if (!appSoundEnabled()) return false;'''
+          new = '''  function playInterfaceTap(strong = false) {
+            if (document.documentElement.classList.contains('kmate-unified-button-sound-v55')) return false;
+            if (!appSoundEnabled()) return false;'''
+          if old not in text:
+              raise SystemExit('Expected review sound function was not found.')
+          path.write_text(text.replace(old, new, 1))
+
+          # Cache-bust the repaired controller.
+          path = Path('kmate-trainer/app-v7.js')
+          text = path.read_text().replace(
+              "./unified-button-sound-v55.js?v=55.0.0",
+              "./unified-button-sound-v55.js?v=55.1.0",
+          )
+          path.write_text(text)
+
+          path = Path('kmate-trainer/index.html')
+          text = path.read_text().replace('app-v7.js?v=55.0.0', 'app-v7.js?v=55.1.0')
+          path.write_text(text)
+
+          # Keep workflow source checks aligned with the hotfix cache key.
+          for path in Path('.github/workflows').glob('*.yml'):
+              if path.name == 'kmate-v55-1-top-controls-hotfix.yml':
+                  continue
+              text = path.read_text()
+              text = text.replace('app-v7.js?v=55.0.0', 'app-v7.js?v=55.1.0')
+              text = text.replace('unified-button-sound-v55.js?v=55.0.0', 'unified-button-sound-v55.js?v=55.1.0')
+              text = text.replace("KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.0.0'", "KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.1.0'")
+              path.write_text(text)
+
+          # Add a regression test using the real top controls. A pointerdown must
+          # reach the button and its click handler, not die at document capture.
+          path = Path('kmate-trainer/tests/coach-layout-v55.spec.mjs')
+          text = path.read_text()
+          marker = "test('desktop coaching and hints sit beside the board rather than covering it'"
+          test_block = r'''
+
+test('play-page menu and coach-audio buttons receive pointer events and perform their actions', async ({ page }) => {
+  test.setTimeout(120_000);
+  await prepare(page, { width: 390, height: 844 });
+  await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
+  await expect(page.locator('#gameView')).toBeVisible();
+  await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
+
+  await page.evaluate(() => {
+    window.__km55TopControlClicks = { menu: 0, audio: 0 };
+    document.querySelector('#panelToggleButton').addEventListener('click', () => {
+      window.__km55TopControlClicks.menu += 1;
+    });
+    document.querySelector('#gameCoachAudioButton').addEventListener('click', () => {
+      window.__km55TopControlClicks.audio += 1;
+    });
+  });
+
+  const before = await page.evaluate(() => ({
+    unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state().taps,
+    legacy: window.__KMATE_GAME_UX_V48__.state().softButtonTaps,
+  }));
+
+  await page.locator('#panelToggleButton').click();
+  await expect(page.locator('#panelToggleButton')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('body')).toHaveClass(/game-panel-open/);
+
+  await page.locator('#gameCoachAudioButton').click();
+  await expect.poll(
+    () => page.evaluate(() => window.__km55TopControlClicks.audio),
+    { timeout: 5_000 },
+  ).toBe(1);
+
+  const after = await page.evaluate(() => ({
+    clicks: window.__km55TopControlClicks,
+    unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state().taps,
+    legacy: window.__KMATE_GAME_UX_V48__.state().softButtonTaps,
+    voiceState: document.querySelector('#coachVoiceSetupStatus')?.dataset.state || '',
+  }));
+  expect(after.clicks).toEqual({ menu: 1, audio: 1 });
+  expect(after.unified - before.unified).toBe(2);
+  expect(after.legacy).toBe(before.legacy);
+  expect(['starting', 'speaking', 'ready', 'prepared']).toContain(after.voiceState);
+});
+'''
+          if 'play-page menu and coach-audio buttons receive pointer events' not in text:
+              if marker not in text:
+                  raise SystemExit('Expected v55 test insertion marker was not found.')
+              text = text.replace(marker, test_block + '\n' + marker, 1)
+          path.write_text(text)
+          PY
+
+          git rm .github/workflows/kmate-v55-1-top-controls-hotfix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kmate-trainer .github/workflows
+          git commit -m "Restore K-Mate play-page top controls"
+          git push origin HEAD:kmate-top-controls-v55-1
