@@ -174,6 +174,16 @@ try {
     console.warn('Optional adaptive learning system could not load.', error);
   }
 
+  try {
+    // v55 moves coaching and hints outside the board, keeps an always-available
+    // home button, restores audible coach narration, and draws revealed
+    // candidate moves directly on the board. Its stylesheet is loaded by the
+    // module so this remains safe even before the next index cache refresh.
+    await import('./coach-layout-v55.js?v=55.0.0');
+  } catch (error) {
+    console.warn('Optional v55 coach layout and voice layer could not load.', error);
+  }
+
   if (window.__KMATE_CLASSIC_BOARD_V46__?.state?.().active === false) {
     try {
       await import('./svg-board-v44.js?v=44.0.0');
