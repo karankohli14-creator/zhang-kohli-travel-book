@@ -85,12 +85,9 @@ async function prepare(page, viewport = { width: 390, height: 844 }) {
   );
 }
 
-async function openDemo(page) {
-  await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
-  await expect(page.locator('#gameView')).toBeVisible();
-  await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
-  await page.evaluate(() => {
-    document.querySelector('#liveCoachQualityBadge').textContent = 'Mistake';
+async function setCoachReview(page, quality = 'Mistake') {
+  await page.evaluate(({ quality }) => {
+    document.querySelector('#liveCoachRating').textContent = quality;
     document.querySelector('#liveCoachYourMove').textContent = 'Re4?';
     document.querySelector('#liveCoachWhy').textContent = 'This leaves the rook undefended and allows an immediate capture.';
     document.querySelector('#liveCoachBestMove').textContent = 'Nf6';
@@ -102,9 +99,16 @@ async function openDemo(page) {
     document.querySelector('#gameView').classList.add('live-coach-active');
     document.querySelector('#boardCoachStage').classList.add('coach-open');
     window.__KMATE_COACH_LAYOUT_V55__.refresh();
-  });
+  }, { quality });
   await expect(page.locator('#km55WhyCard')).toBeVisible();
   await expect(page.locator('#km55BestCard')).toBeVisible();
+}
+
+async function openDemo(page) {
+  await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
+  await expect(page.locator('#gameView')).toBeVisible();
+  await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
+  await setCoachReview(page);
   await expect.poll(
     () => page.evaluate(() => window.__KMATE_MOBILE_FIT_V54__.state().metrics?.rendered?.contained),
     { timeout: 15_000 },
@@ -138,7 +142,7 @@ async function closeCoachAndOpenHint(page, candidate = true) {
 test('every non-board button uses one Generate-and-start tap, including ordinary and green controls', async ({ page }) => {
   test.setTimeout(120_000);
   await prepare(page);
-  await page.evaluate(() => {
+  const result = await page.evaluate(() => {
     const fixture = document.createElement('div');
     fixture.id = 'km55SoundFixture';
     fixture.innerHTML = `
@@ -146,24 +150,34 @@ test('every non-board button uses one Generate-and-start tap, including ordinary
       <button id="km55ContinueFixture" class="btn primary" type="button">Continue</button>
       <button id="km55BackFixture" class="roundbtn" type="button">←</button>`;
     document.body.append(fixture);
+
+    const before = {
+      unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state(),
+      legacy: window.__KMATE_GAME_UX_V48__?.state?.().softButtonTaps || 0,
+    };
+    for (const id of ['km55GreenFixture', 'km55ContinueFixture', 'km55BackFixture']) {
+      const button = document.getElementById(id);
+      button.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true,
+        composed: true,
+        pointerType: 'mouse',
+        button: 0,
+      }));
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail: 1 }));
+    }
+    return {
+      before,
+      after: {
+        unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state(),
+        legacy: window.__KMATE_GAME_UX_V48__?.state?.().softButtonTaps || 0,
+      },
+    };
   });
 
-  const before = await page.evaluate(() => ({
-    unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state(),
-    legacy: window.__KMATE_GAME_UX_V48__?.state?.().softButtonTaps || 0,
-  }));
-  await page.locator('#km55GreenFixture').click();
-  await page.locator('#km55ContinueFixture').click();
-  await page.locator('#km55BackFixture').click();
-  const after = await page.evaluate(() => ({
-    unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state(),
-    legacy: window.__KMATE_GAME_UX_V48__?.state?.().softButtonTaps || 0,
-  }));
-
-  expect(after.unified.signature).toBe('generate-and-start-position');
-  expect(after.unified.taps - before.unified.taps).toBe(3);
-  expect(after.unified.suppressedLegacyTaps - before.unified.suppressedLegacyTaps).toBe(3);
-  expect(after.legacy).toBe(before.legacy);
+  expect(result.after.unified.signature).toBe('generate-and-start-position');
+  expect(result.after.unified.taps - result.before.unified.taps).toBe(3);
+  expect(result.after.unified.suppressedLegacyTaps - result.before.unified.suppressedLegacyTaps).toBe(3);
+  expect(result.after.legacy).toBe(result.before.legacy);
 });
 
 test('desktop coaching and hints sit beside the board rather than covering it', async ({ page }) => {
@@ -211,23 +225,7 @@ test('phone coaching uses top and bottom rails and shrinks the board only while 
   await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
   const normalBoard = await page.locator('.live-boardwrap').boundingBox();
 
-  await page.evaluate(() => {
-    document.querySelector('#liveCoachQualityBadge').textContent = 'Inaccuracy';
-    document.querySelector('#liveCoachYourMove').textContent = 'Re4?!';
-    document.querySelector('#liveCoachWhy').textContent = 'The rook becomes loose and the move gives your opponent a forcing tempo.';
-    document.querySelector('#liveCoachBestMove').textContent = 'Nf6';
-    document.querySelector('#liveCoachBestText').textContent = 'The stronger move protects the rook and completes development before taking action.';
-    document.querySelector('#liveCoachPrincipleList').innerHTML = '<article class="principle-diagnosis-card"><b>Improve the least active piece</b></article>';
-    const panel = document.querySelector('#liveCoachBoardPanel');
-    panel.hidden = false;
-    panel.setAttribute('aria-hidden', 'false');
-    document.querySelector('#gameView').classList.add('live-coach-active');
-    document.querySelector('#boardCoachStage').classList.add('coach-open');
-    window.__KMATE_COACH_LAYOUT_V55__.refresh();
-  });
-  await expect(page.locator('#km55WhyCard')).toBeVisible();
-  await expect(page.locator('#km55BestCard')).toBeVisible();
-
+  await setCoachReview(page, 'Inaccuracy');
   const active = await page.evaluate(() => {
     const box = (selector) => document.querySelector(selector).getBoundingClientRect();
     const board = box('.live-boardwrap');
