@@ -59,6 +59,8 @@ jobs:
           grep -Fq "X-KMate-Voice-Key" kmate-trainer/coach-layout-v55.js
           grep -Fq "HTMLElement.prototype.click.call(original)" kmate-trainer/coach-layout-v55.js
           grep -Fq "v55 active phone rail fit" kmate-trainer/coach-layout-v55.css
+          grep -Fq "km55HintCard')?.addEventListener('click'" kmate-trainer/coach-layout-v55.js
+          grep -Fq "event.stopPropagation()" kmate-trainer/coach-layout-v55.js
 
       - name: Install browser dependencies
         run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
