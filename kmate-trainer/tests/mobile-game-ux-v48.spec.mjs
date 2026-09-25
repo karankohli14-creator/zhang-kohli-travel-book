@@ -81,6 +81,8 @@ async function prepare(page) {
       && window.__KMATE_GAME_UX_V48__?.state?.().ready
       && window.__KMATE_MOVE_FEEDBACK_V48__?.state?.().ready
       && window.__KMATE_SCULPTED_PIECES_V47__?.state?.().ready
+      && window.__KMATE_COACH_LAYOUT_V55__?.state?.().ready
+      && window.__KMATE_UNIFIED_BUTTON_SOUND_V55__?.state?.().ready
     ),
     undefined,
     { timeout: 90_000 },
@@ -93,7 +95,7 @@ test.use({
   trace: 'retain-on-failure',
 });
 
-test('mobile play prioritizes the board, uses soft controls, and exposes hints from the edge', async ({ page }) => {
+test('mobile play prioritizes the board, uses one unified control sound, and exposes hints above the board', async ({ page }) => {
   test.setTimeout(120_000);
   await prepare(page);
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
@@ -119,11 +121,7 @@ test('mobile play prioritizes the board, uses soft controls, and exposes hints f
     };
   });
   expect(layout.titleDisplay).toBe('none');
-  // v50 keeps this explicit control after removing the noisy
-  // automatic startup phrase, so players can confirm or replay coach speech.
   expect(layout.coachAudioDisplay).toBe('grid');
-  // v52 deliberately reserves part of the full-width surface for the
-  // uploaded reference's substantial wooden frame and coordinate medallions.
   expect(layout.boardWidth).toBeGreaterThanOrEqual(330);
   expect(Math.abs(layout.boardWidth - layout.boardHeight)).toBeLessThan(2);
   expect(layout.menuShadow).not.toBe('none');
@@ -134,18 +132,28 @@ test('mobile play prioritizes the board, uses soft controls, and exposes hints f
   const beforeTap = await page.evaluate(() => ({
     ux: window.__KMATE_GAME_UX_V48__.state(),
     move: window.__KMATE_MOVE_FEEDBACK_V48__.state(),
+    unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state(),
   }));
   await page.locator('#kmateHintEdgeButton').click();
-  await expect(page.locator('#hintCard')).toBeVisible();
+  await expect(page.locator('#hintCard')).toBeHidden();
+  await expect(page.locator('#km55HintCard')).toBeVisible({ timeout: 45_000 });
   await expect(page.locator('#kmateHintEdgeButton')).toHaveAttribute('aria-expanded', 'true');
   const afterTap = await page.evaluate(() => ({
     ux: window.__KMATE_GAME_UX_V48__.state(),
     move: window.__KMATE_MOVE_FEEDBACK_V48__.state(),
+    unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state(),
   }));
-  expect(afterTap.ux.softButtonTaps).toBeGreaterThan(beforeTap.ux.softButtonTaps);
+  expect(afterTap.unified.taps).toBeGreaterThan(beforeTap.unified.taps);
+  expect(afterTap.ux.softButtonTaps).toBe(beforeTap.ux.softButtonTaps);
   expect(afterTap.move.plays).toBe(beforeTap.move.plays);
 
-  // The automatic startup phrase is swallowed; an explicit voice test remains available.
+  const hintPlacement = await page.evaluate(() => {
+    const hint = document.querySelector('#km55HintCard').getBoundingClientRect();
+    const board = document.querySelector('.live-boardwrap').getBoundingClientRect();
+    return { hintBottom: hint.bottom, boardTop: board.top };
+  });
+  expect(hintPlacement.hintBottom).toBeLessThanOrEqual(hintPlacement.boardTop + 1);
+
   await page.evaluate(() => window.speechSynthesis.speak(new SpeechSynthesisUtterance('Coach voice ready.')));
   await page.waitForTimeout(30);
   const voiceStartup = await page.evaluate(() => ({
@@ -162,7 +170,7 @@ test('mobile play prioritizes the board, uses soft controls, and exposes hints f
   ).toBeGreaterThan(0);
 });
 
-test('paused coaching shows only why, principle, and stronger idea with a larger board', async ({ page }) => {
+test('paused coaching keeps concise why and best-move cards outside the board', async ({ page }) => {
   test.setTimeout(120_000);
   await prepare(page);
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
@@ -181,51 +189,38 @@ test('paused coaching shows only why, principle, and stronger idea with a larger
       </article>`;
     const panel = document.querySelector('#liveCoachBoardPanel');
     panel.hidden = false;
+    panel.setAttribute('aria-hidden', 'false');
     document.querySelector('#gameView').classList.add('live-coach-active');
     document.querySelector('#boardCoachStage').classList.add('coach-open');
     window.__KMATE_GAME_UX_V48__.refresh();
+    window.__KMATE_COACH_LAYOUT_V55__.refresh();
   });
 
-  await expect(page.locator('#kmateV48Principle')).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator('#kmateV48PrincipleText')).toContainText('Loose pieces drop off');
-  await expect(page.locator('#liveCoachWhy')).not.toContainText('Concrete line');
-  await expect(page.locator('#liveCoachBestText')).not.toContainText('engine continuation');
+  await expect(page.locator('#km55WhyCard')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('#km55BestCard')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('#km55Principle')).toContainText('Loose pieces drop off');
+  await expect(page.locator('#km55WhyText')).not.toContainText('Concrete line');
+  await expect(page.locator('#km55BestText')).not.toContainText('engine continuation');
 
   const compact = await page.evaluate(() => {
-    const board = document.querySelector('#board').getBoundingClientRect();
-    const panel = document.querySelector('#liveCoachBoardPanel').getBoundingClientRect();
-    const why = document.querySelector('#liveCoachWhy');
-    const title = document.querySelector('#liveCoachTitle');
-    const legend = document.querySelector('.live-coach-board-legend');
-    const lines = document.querySelector('.live-coach-lines-grid');
-    const replay = document.querySelector('#liveCoachReplayHighlightsButton');
+    const board = document.querySelector('.live-boardwrap').getBoundingClientRect();
+    const why = document.querySelector('#km55WhyCard').getBoundingClientRect();
+    const best = document.querySelector('#km55BestCard').getBoundingClientRect();
     return {
       boardWidth: board.width,
       boardHeight: board.height,
-      panelBottom: panel.bottom,
-      viewportHeight: innerHeight,
-      whyFont: Number.parseFloat(getComputedStyle(why).fontSize),
-      titleDisplay: getComputedStyle(title).display,
-      legendDisplay: getComputedStyle(legend).display,
-      linesDisplay: getComputedStyle(lines).display,
-      replayDisplay: getComputedStyle(replay).display,
-      yourLabel: document.querySelector('.live-coach-comparison .your-move > small')?.textContent,
-      bestLabel: document.querySelector('.live-coach-comparison .best-move > small')?.textContent,
+      whyBottom: why.bottom,
+      boardTop: board.top,
+      bestTop: best.top,
+      boardBottom: board.bottom,
+      originalPanelDisplay: getComputedStyle(document.querySelector('#liveCoachBoardPanel')).display,
     };
   });
-  // v53 keeps the complete frame and notation medallions on-screen during a
-  // paused review. The inner board is therefore a few pixels narrower than the
-  // previous edge-clipping geometry while remaining large and square.
-  expect(compact.boardWidth).toBeGreaterThanOrEqual(326);
+  expect(compact.boardWidth).toBeGreaterThanOrEqual(220);
   expect(Math.abs(compact.boardWidth - compact.boardHeight)).toBeLessThan(2);
-  expect(compact.panelBottom).toBeLessThanOrEqual(compact.viewportHeight + 1);
-  expect(compact.whyFont).toBeGreaterThanOrEqual(13);
-  expect(compact.titleDisplay).toBe('none');
-  expect(compact.legendDisplay).toBe('none');
-  expect(compact.linesDisplay).toBe('none');
-  expect(compact.replayDisplay).toBe('none');
-  expect(compact.yourLabel).toBe('Why your move was bad');
-  expect(compact.bestLabel).toBe('How the best move helps');
+  expect(compact.whyBottom).toBeLessThanOrEqual(compact.boardTop + 1);
+  expect(compact.bestTop).toBeGreaterThanOrEqual(compact.boardBottom - 1);
+  expect(compact.originalPanelDisplay).toBe('none');
 
   await page.evaluate(() => {
     window.speechSynthesis.speak(new SpeechSynthesisUtterance('Mistake. Mistake. Here is a long move sequence.'));
