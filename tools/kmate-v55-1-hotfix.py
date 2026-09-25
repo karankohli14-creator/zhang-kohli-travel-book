@@ -74,22 +74,6 @@ path.write_text(
 path = Path("kmate-trainer/index.html")
 path.write_text(path.read_text().replace("app-v7.js?v=55.0.0", "app-v7.js?v=55.1.0"))
 
-# Keep workflow source checks aligned with the hotfix cache key.
-for workflow in Path(".github/workflows").glob("*.yml"):
-    if workflow.name == "kmate-v55-1-top-controls-hotfix.yml":
-        continue
-    text = workflow.read_text()
-    text = text.replace("app-v7.js?v=55.0.0", "app-v7.js?v=55.1.0")
-    text = text.replace(
-        "unified-button-sound-v55.js?v=55.0.0",
-        "unified-button-sound-v55.js?v=55.1.0",
-    )
-    text = text.replace(
-        "KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.0.0'",
-        "KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.1.0'",
-    )
-    workflow.write_text(text)
-
 # Add a regression test using the real top controls. A pointerdown must reach
 # the button and its click handler, not die at document capture.
 path = Path("kmate-trainer/tests/coach-layout-v55.spec.mjs")
