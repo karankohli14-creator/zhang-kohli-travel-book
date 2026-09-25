@@ -77,7 +77,7 @@ jobs:
           grep -Fq "repeating-linear-gradient" kmate-trainer/reference-board-v52.css
           grep -Fq "reference-board-fit-v54.css?v=54.0.0" kmate-trainer/index.html
           grep -Fq "reference-board-fit-v54.js?v=54.0.0" kmate-trainer/index.html
-          grep -Fq "app-v7.js?v=55.0.0" kmate-trainer/index.html
+          grep -Fq "app-v7.js?v=55.1.0" kmate-trainer/index.html
           grep -Fq "KMATE_MOBILE_FIT_V54 = '54.0.0'" kmate-trainer/reference-board-fit-v54.js
           grep -Fq "grid-template-rows: repeat(8" kmate-trainer/reference-board-fit-v54.css
           grep -Fq "KMATE_MOVE_SOUND_VERSION = '45.2.0'" kmate-trainer/move-sound-v45.js
