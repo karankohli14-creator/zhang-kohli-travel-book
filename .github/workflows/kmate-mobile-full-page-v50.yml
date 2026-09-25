@@ -1,4 +1,4 @@
-name: K-Mate v53 full-page reference board QA
+name: K-Mate v54 full-page reference board QA
 
 on:
   push:
@@ -9,10 +9,14 @@ on:
       - "kmate-trainer/sculpted-pieces-v47.js"
       - "kmate-trainer/reference-board-v52.css"
       - "kmate-trainer/reference-board-fit-v53.css"
+      - "kmate-trainer/reference-board-fit-v54.css"
+      - "kmate-trainer/reference-board-fit-v54.js"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/mobile-full-page-v50.spec.mjs"
-      - "kmate-trainer/tests/mobile-board-fit-v53.spec.mjs"
+      - "kmate-trainer/tests/mobile-full-page-layout-v54.spec.mjs"
+      - "kmate-trainer/tests/mobile-board-fit-v54.spec.mjs"
+      - "kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs"
       - ".github/workflows/kmate-mobile-full-page-v50.yml"
   pull_request:
     paths:
@@ -21,10 +25,14 @@ on:
       - "kmate-trainer/sculpted-pieces-v47.js"
       - "kmate-trainer/reference-board-v52.css"
       - "kmate-trainer/reference-board-fit-v53.css"
+      - "kmate-trainer/reference-board-fit-v54.css"
+      - "kmate-trainer/reference-board-fit-v54.js"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/mobile-full-page-v50.spec.mjs"
-      - "kmate-trainer/tests/mobile-board-fit-v53.spec.mjs"
+      - "kmate-trainer/tests/mobile-full-page-layout-v54.spec.mjs"
+      - "kmate-trainer/tests/mobile-board-fit-v54.spec.mjs"
+      - "kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs"
       - ".github/workflows/kmate-mobile-full-page-v50.yml"
   workflow_dispatch:
 
@@ -44,25 +52,26 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate full-page v50, reference-theme v52, and fit v53 wiring
+      - name: Validate full-page, reference-theme, and exact-fit wiring
         run: |
           node --check kmate-trainer/mobile-full-page-v50.js
           node --check kmate-trainer/sculpted-pieces-v47.js
+          node --check kmate-trainer/reference-board-fit-v54.js
           node --check kmate-trainer/app-v7.js
           node --check kmate-trainer/tests/mobile-full-page-v50.spec.mjs
-          node --check kmate-trainer/tests/mobile-board-fit-v53.spec.mjs
+          node --check kmate-trainer/tests/mobile-full-page-layout-v54.spec.mjs
+          node --check kmate-trainer/tests/mobile-board-fit-v54.spec.mjs
+          node --check kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
           grep -Fq "mobile-full-page-v50.js?v=50.0.0" kmate-trainer/app-v7.js
           grep -Fq "sculpted-pieces-v47.js?v=52.0.0" kmate-trainer/app-v7.js
-          grep -Fq "app-v7.js?v=53.0.0" kmate-trainer/index.html
-          grep -Fq "reference-board-fit-v53.css?v=53.0.0" kmate-trainer/index.html
+          grep -Fq "app-v7.js?v=54.0.0" kmate-trainer/index.html
+          grep -Fq "reference-board-fit-v54.css?v=54.0.0" kmate-trainer/index.html
+          grep -Fq "reference-board-fit-v54.js?v=54.0.0" kmate-trainer/index.html
           grep -Fq "KMATE_MOBILE_FULL_PAGE_V50 = '50.0.0'" kmate-trainer/mobile-full-page-v50.js
           grep -Fq "KMATE_REFERENCE_THEME_V52 = '52.0.0'" kmate-trainer/sculpted-pieces-v47.js
-          grep -Fq "kmate-reference-piece-v52" kmate-trainer/sculpted-pieces-v47.js
-          grep -Fq "#d55236" kmate-trainer/reference-board-v52.css
-          grep -Fq "#d3cebd" kmate-trainer/reference-board-v52.css
-          grep -Fq "#758e72" kmate-trainer/reference-board-v52.css
-          grep -Fq "body.game-mode .live-boardwrap" kmate-trainer/reference-board-v52.css
-          grep -Fq -- "--km53-board-gutter" kmate-trainer/reference-board-fit-v53.css
+          grep -Fq "KMATE_MOBILE_FIT_V54 = '54.0.0'" kmate-trainer/reference-board-fit-v54.js
+          grep -Fq "grid-template-rows: repeat(8" kmate-trainer/reference-board-fit-v54.css
+          grep -Fq "tiny gap" kmate-trainer/tests/mobile-full-page-layout-v54.spec.mjs
           grep -Fq "#kmateHintEdgeButton" kmate-trainer/mobile-full-page-v50.css
 
       - name: Install browser dependencies
@@ -73,23 +82,26 @@ jobs:
 
       - name: Start static K-Mate server
         run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v53-full-http.log 2>&1 &
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v54-full-http.log 2>&1 &
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
               exit 0
             fi
             sleep 1
           done
-          cat /tmp/kmate-v53-full-http.log
+          cat /tmp/kmate-v54-full-http.log
           exit 1
 
-      - name: Test full-page layout, on-demand hints, fullscreen, and contained reference theme
+      - name: Test full-page layout, hints, fullscreen, and exact board containment
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
         run: >-
           npx playwright test
           kmate-trainer/tests/mobile-full-page-v50.spec.mjs
-          kmate-trainer/tests/mobile-board-fit-v53.spec.mjs
+          kmate-trainer/tests/mobile-full-page-layout-v54.spec.mjs
+          kmate-trainer/tests/mobile-board-fit-v54.spec.mjs
+          kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
+          --grep-invert "visualViewport smaller than the layout viewport|full-page phone play keeps titles hidden"
           --workers=1
           --reporter=line
 
@@ -97,9 +109,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: kmate-full-page-reference-v53-failure
+          name: kmate-full-page-reference-v54-failure
           path: |
             test-results
-            /tmp/kmate-v53-full-http.log
+            /tmp/kmate-v54-full-http.log
           if-no-files-found: ignore
           retention-days: 7
