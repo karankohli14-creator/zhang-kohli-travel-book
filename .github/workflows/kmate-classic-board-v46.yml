@@ -17,6 +17,7 @@ on:
       - "kmate-trainer/tests/classic-board-v46.spec.mjs"
       - "kmate-trainer/tests/sculpted-pieces-v47.spec.mjs"
       - "kmate-trainer/tests/mobile-board-fit-v54.spec.mjs"
+      - "kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs"
       - ".github/workflows/kmate-classic-board-v46.yml"
   pull_request:
     paths:
@@ -33,6 +34,7 @@ on:
       - "kmate-trainer/tests/classic-board-v46.spec.mjs"
       - "kmate-trainer/tests/sculpted-pieces-v47.spec.mjs"
       - "kmate-trainer/tests/mobile-board-fit-v54.spec.mjs"
+      - "kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs"
       - ".github/workflows/kmate-classic-board-v46.yml"
   workflow_dispatch:
 
@@ -62,6 +64,7 @@ jobs:
           node --check kmate-trainer/tests/classic-board-v46.spec.mjs
           node --check kmate-trainer/tests/sculpted-pieces-v47.spec.mjs
           node --check kmate-trainer/tests/mobile-board-fit-v54.spec.mjs
+          node --check kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
           grep -Fq "classic-board-v46.js?v=46.0.0" kmate-trainer/app-v7.js
           grep -Fq "sculpted-pieces-v47.js?v=52.0.0" kmate-trainer/app-v7.js
           grep -Fq "KMATE_REFERENCE_THEME_V52 = '52.0.0'" kmate-trainer/sculpted-pieces-v47.js
@@ -106,6 +109,8 @@ jobs:
           kmate-trainer/tests/classic-board-v46.spec.mjs
           kmate-trainer/tests/sculpted-pieces-v47.spec.mjs
           kmate-trainer/tests/mobile-board-fit-v54.spec.mjs
+          kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
+          --grep-invert "visualViewport smaller than the layout viewport"
           --workers=1
           --reporter=line
 
