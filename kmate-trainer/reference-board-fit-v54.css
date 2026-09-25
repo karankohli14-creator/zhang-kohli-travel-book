@@ -5,12 +5,12 @@
 html.kmate-mobile-fit-v54 {
   --km54-screen-gap: 3px;
   --km54-frame-side: min(calc(100vw - 6px), calc(100dvh - 100px));
+  --km54-frame-left: 3px;
+  --km54-frame-top: 3px;
   --km54-board-inset: clamp(14px, 4.2vw, 18px);
   --km54-board-side: calc(var(--km54-frame-side) - 4px - (2 * var(--km54-board-inset)));
   --km54-coordinate-size: clamp(12px, 3.4vw, 14px);
   --km54-coordinate-anchor: -8px;
-  --km54-shift-x: 0px;
-  --km54-shift-y: 0px;
 }
 
 html.kmate-mobile-fit-v54,
@@ -27,8 +27,7 @@ html.kmate-mobile-fit-v54 body.game-mode .board-coach-stage {
 
 html.kmate-mobile-fit-v54 body.game-mode .board-coach-stage {
   position: relative !important;
-  display: grid !important;
-  place-items: center !important;
+  display: block !important;
   min-width: 0 !important;
   min-height: 0 !important;
   width: 100% !important;
@@ -38,13 +37,17 @@ html.kmate-mobile-fit-v54 body.game-mode .board-coach-stage {
   contain: layout !important;
 }
 
-/* The complete brown frame is a fixed square inside the *visible* viewport.
-   Padding is intentionally removed: the inner board is absolutely inset by an
-   exact pixel value, preventing any browser-specific box-model expansion. */
+/* The complete brown frame is placed at exact stage-local coordinates that
+   represent the intersection of the board stage and the live visual viewport.
+   This avoids relying on 100vw/100dvh behavior in iOS and embedded browsers. */
 html.kmate-reference-theme-v52.kmate-mobile-full-page-v50.kmate-mobile-fit-v54 body.game-mode #gameView .live-boardwrap {
-  position: relative !important;
+  position: absolute !important;
   display: block !important;
-  flex: 0 0 auto !important;
+  flex: none !important;
+  left: var(--km54-frame-left) !important;
+  top: var(--km54-frame-top) !important;
+  right: auto !important;
+  bottom: auto !important;
   width: var(--km54-frame-side) !important;
   height: var(--km54-frame-side) !important;
   min-width: var(--km54-frame-side) !important;
@@ -52,22 +55,20 @@ html.kmate-reference-theme-v52.kmate-mobile-full-page-v50.kmate-mobile-fit-v54 b
   max-width: var(--km54-frame-side) !important;
   max-height: var(--km54-frame-side) !important;
   aspect-ratio: auto !important;
-  margin: 0 auto !important;
+  margin: 0 !important;
   padding: 0 !important;
   border: 2px solid #1c0e07 !important;
   border-radius: 2px !important;
   box-sizing: border-box !important;
   overflow: hidden !important;
-  align-self: center !important;
-  justify-self: center !important;
-  transform: translate3d(var(--km54-shift-x), var(--km54-shift-y), 0) !important;
+  transform: none !important;
   /* Retain the rich inset wood depth, but avoid a large exterior shadow that
      can make a correctly contained frame look clipped against the screen. */
   box-shadow:
     inset 0 0 0 3px rgba(126,84,50,.72),
     inset 0 0 0 7px rgba(24,11,5,.42),
     inset 0 0 18px rgba(0,0,0,.52),
-    0 2px 4px rgba(0,0,0,.42) !important;
+    0 1px 3px rgba(0,0,0,.36) !important;
 }
 
 /* Pale trim is tied to the exact board inset and therefore cannot overlap the
@@ -173,6 +174,8 @@ html.kmate-reference-theme-v52.kmate-mobile-full-page-v50.kmate-mobile-fit-v54 b
 /* Fullscreen/CSS immersive mode uses exactly the same measured square. */
 html.kmate-reference-theme-v52.kmate-mobile-full-page-v50.kmate-mobile-fit-v54 body.game-mode.km50-immersive #gameView .live-boardwrap,
 html.kmate-reference-theme-v52.kmate-mobile-full-page-v50.kmate-mobile-fit-v54 body.game-mode:fullscreen #gameView .live-boardwrap {
+  left: var(--km54-frame-left) !important;
+  top: var(--km54-frame-top) !important;
   width: var(--km54-frame-side) !important;
   height: var(--km54-frame-side) !important;
   min-width: var(--km54-frame-side) !important;
