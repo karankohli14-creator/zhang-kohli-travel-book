@@ -95,18 +95,15 @@ function km54Geometry(stageRect, viewport) {
     km54Clamp(Math.round(frameSide * 0.034), 12, 14),
   );
   const coordinateAnchor = km54Round(-boardInset / 2);
-
   const globalLeft = visible.left + ((visible.width - frameSide) / 2);
   const globalTop = visible.top + ((visible.height - frameSide) / 2);
-  const frameLeft = km54Round(globalLeft - stageRect.left);
-  const frameTop = km54Round(globalTop - stageRect.top);
 
   return {
     version: KMATE_MOBILE_FIT_V54,
     gap,
     frameSide,
-    frameLeft,
-    frameTop,
+    frameLeft: km54Round(globalLeft - stageRect.left),
+    frameTop: km54Round(globalTop - stageRect.top),
     boardInset,
     boardSide,
     coordinateSize,
@@ -129,14 +126,8 @@ function km54Geometry(stageRect, viewport) {
 function km54RenderedMetrics(frame, board, geometry) {
   const frameRect = frame.getBoundingClientRect();
   const boardRect = board.getBoundingClientRect();
-  const squares = [...board.querySelectorAll(':scope > .sq')].map((square) => {
-    const rect = square.getBoundingClientRect();
-    return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
-  });
-  const coordinates = [...board.querySelectorAll('.coord')].map((coordinate) => {
-    const rect = coordinate.getBoundingClientRect();
-    return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
-  });
+  const squares = [...board.querySelectorAll(':scope > .sq')].map((square) => square.getBoundingClientRect());
+  const coordinates = [...board.querySelectorAll('.coord')].map((coordinate) => coordinate.getBoundingClientRect());
   const allowed = geometry.visible;
   const epsilon = 0.75;
   const frameContained = (
@@ -184,29 +175,24 @@ function km54RenderedMetrics(frame, board, geometry) {
   };
 }
 
-function km54CorrectIfNeeded(frame, board, geometry) {
-  const rendered = km54RenderedMetrics(frame, board, geometry);
-  if (rendered.contained) return rendered;
+function km54CorrectGeometry(frame, geometry, rendered) {
+  if (rendered.contained) return geometry;
+  /* A missing coordinate or square means the board is still rendering; do not
+     shrink an otherwise correct frame. The DOM observer will measure it again. */
+  if (rendered.squareCount !== 64 || rendered.coordinateCount < 16) return geometry;
 
   const frameRect = frame.getBoundingClientRect();
+  const allowed = geometry.visible;
   let frameLeft = geometry.frameLeft;
   let frameTop = geometry.frameTop;
   let frameSide = geometry.frameSide;
-  const allowed = geometry.visible;
-
-  const horizontalOverflow = Math.max(
-    0,
-    allowed.left - frameRect.left,
-    frameRect.right - allowed.right,
-  );
-  const verticalOverflow = Math.max(
-    0,
-    allowed.top - frameRect.top,
-    frameRect.bottom - allowed.bottom,
-  );
+  const horizontalOverflow = Math.max(0, allowed.left - frameRect.left, frameRect.right - allowed.right);
+  const verticalOverflow = Math.max(0, allowed.top - frameRect.top, frameRect.bottom - allowed.bottom);
   const overflow = Math.max(horizontalOverflow, verticalOverflow);
-  if (overflow > 0.25) frameSide = Math.max(KMATE_MIN_FRAME_SIDE_V54, frameSide - Math.ceil(overflow * 2) - 2);
 
+  if (overflow > 0.25) {
+    frameSide = Math.max(KMATE_MIN_FRAME_SIDE_V54, frameSide - Math.ceil(overflow * 2) - 2);
+  }
   if (frameRect.left < allowed.left) frameLeft += allowed.left - frameRect.left;
   if (frameRect.right > allowed.right) frameLeft -= frameRect.right - allowed.right;
   if (frameRect.top < allowed.top) frameTop += allowed.top - frameRect.top;
@@ -227,15 +213,7 @@ function km54CorrectIfNeeded(frame, board, geometry) {
   };
   km54Corrections += 1;
   km54ApplyVariables(corrected);
-  km54LastMetrics = { ...corrected, rendered: null, reason: `${km54LastReason}:corrected` };
-  window.requestAnimationFrame(() => {
-    km54LastMetrics = {
-      ...corrected,
-      rendered: km54RenderedMetrics(frame, board, corrected),
-      reason: `${km54LastReason}:verified`,
-    };
-  });
-  return rendered;
+  return corrected;
 }
 
 function km54Fit(reason = 'manual') {
@@ -243,51 +221,42 @@ function km54Fit(reason = 'manual') {
   km54Root.classList.add('kmate-mobile-fit-v54');
   const { stage, frame, board } = km54Elements();
   if (!document.body?.classList.contains('game-mode') || !stage || !frame || !board) {
-    km54LastMetrics = {
-      version: KMATE_MOBILE_FIT_V54,
-      ready: true,
-      active: false,
-      reason,
-    };
+    km54LastMetrics = { version: KMATE_MOBILE_FIT_V54, ready: true, active: false, reason };
     return false;
   }
 
   const stageRect = stage.getBoundingClientRect();
   if (stageRect.width < 1 || stageRect.height < 1) return false;
   const viewport = km54VisualViewportRect();
-  const geometry = km54Geometry(stageRect, viewport);
+  let geometry = km54Geometry(stageRect, viewport);
   if (!geometry) return false;
 
   const key = [
-    geometry.frameSide,
-    geometry.frameLeft,
-    geometry.frameTop,
-    geometry.boardInset,
-    geometry.boardSide,
-    geometry.coordinateSize,
-    viewport.left,
-    viewport.top,
-    viewport.width,
-    viewport.height,
+    geometry.frameSide, geometry.frameLeft, geometry.frameTop,
+    geometry.boardInset, geometry.boardSide, geometry.coordinateSize,
+    viewport.left, viewport.top, viewport.width, viewport.height,
   ].join('|');
-
   if (key !== km54LastKey) {
     km54LastKey = key;
     km54Applications += 1;
     km54ApplyVariables(geometry);
   }
 
-  km54LastMetrics = { ...geometry, ready: true, active: true, reason, rendered: null };
-  window.requestAnimationFrame(() => {
-    km54LastMetrics = {
-      ...geometry,
-      ready: true,
-      active: true,
-      reason,
-      rendered: km54RenderedMetrics(frame, board, geometry),
-    };
-    km54CorrectIfNeeded(frame, board, geometry);
-  });
+  /* Reading the rectangles forces the browser to apply the new CSS variables,
+     so the public state is never left in a transient rendered:null condition. */
+  let rendered = km54RenderedMetrics(frame, board, geometry);
+  const corrected = km54CorrectGeometry(frame, geometry, rendered);
+  if (corrected !== geometry) {
+    geometry = corrected;
+    rendered = km54RenderedMetrics(frame, board, geometry);
+  }
+  km54LastMetrics = {
+    ...geometry,
+    ready: true,
+    active: true,
+    reason,
+    rendered,
+  };
   return true;
 }
 
@@ -328,6 +297,11 @@ function km54InstallObservers() {
 }
 
 function km54State() {
+  let metrics = km54LastMetrics;
+  const { frame, board } = km54Elements();
+  if (metrics?.active && metrics.visible && frame && board) {
+    metrics = { ...metrics, rendered: km54RenderedMetrics(frame, board, metrics) };
+  }
   return {
     ready: true,
     version: KMATE_MOBILE_FIT_V54,
@@ -335,7 +309,7 @@ function km54State() {
     applications: km54Applications,
     corrections: km54Corrections,
     reason: km54LastReason,
-    metrics: km54LastMetrics,
+    metrics,
     visualViewport: km54VisualViewportRect(),
     explicitRows: true,
     screenGapPx: KMATE_SCREEN_GAP_V54,
