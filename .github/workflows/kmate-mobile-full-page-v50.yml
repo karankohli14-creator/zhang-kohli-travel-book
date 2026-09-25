@@ -15,6 +15,7 @@ on:
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/mobile-full-page-v50.spec.mjs"
       - "kmate-trainer/tests/mobile-board-fit-v54.spec.mjs"
+      - "kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs"
       - ".github/workflows/kmate-mobile-full-page-v50.yml"
   pull_request:
     paths:
@@ -29,6 +30,7 @@ on:
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/mobile-full-page-v50.spec.mjs"
       - "kmate-trainer/tests/mobile-board-fit-v54.spec.mjs"
+      - "kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs"
       - ".github/workflows/kmate-mobile-full-page-v50.yml"
   workflow_dispatch:
 
@@ -56,6 +58,7 @@ jobs:
           node --check kmate-trainer/app-v7.js
           node --check kmate-trainer/tests/mobile-full-page-v50.spec.mjs
           node --check kmate-trainer/tests/mobile-board-fit-v54.spec.mjs
+          node --check kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
           grep -Fq "mobile-full-page-v50.js?v=50.0.0" kmate-trainer/app-v7.js
           grep -Fq "sculpted-pieces-v47.js?v=52.0.0" kmate-trainer/app-v7.js
           grep -Fq "app-v7.js?v=54.0.0" kmate-trainer/index.html
@@ -92,6 +95,8 @@ jobs:
           npx playwright test
           kmate-trainer/tests/mobile-full-page-v50.spec.mjs
           kmate-trainer/tests/mobile-board-fit-v54.spec.mjs
+          kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
+          --grep-invert "visualViewport smaller than the layout viewport"
           --workers=1
           --reporter=line
 
