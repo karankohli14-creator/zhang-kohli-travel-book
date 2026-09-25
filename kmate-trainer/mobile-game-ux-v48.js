@@ -117,6 +117,7 @@ function kmateV48IsBoardControl(element) {
 
 function kmateV48BindSoftControls() {
   document.addEventListener('pointerdown', (event) => {
+    if (document.documentElement.classList.contains('kmate-unified-button-sound-v55')) return;
     const target = event.target instanceof Element ? event.target : null;
     const control = target?.closest('button,select,input[type="checkbox"],input[type="range"]');
     if (!control || control.disabled || kmateV48IsBoardControl(control)) return;

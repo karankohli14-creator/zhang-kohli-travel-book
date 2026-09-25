@@ -64,7 +64,7 @@ jobs:
           node --check kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
           grep -Fq "mobile-full-page-v50.js?v=50.0.0" kmate-trainer/app-v7.js
           grep -Fq "sculpted-pieces-v47.js?v=52.0.0" kmate-trainer/app-v7.js
-          grep -Fq "app-v7.js?v=55.0.0" kmate-trainer/index.html
+          grep -Fq "app-v7.js?v=55.1.0" kmate-trainer/index.html
           grep -Fq "reference-board-fit-v54.css?v=54.0.0" kmate-trainer/index.html
           grep -Fq "reference-board-fit-v54.js?v=54.0.0" kmate-trainer/index.html
           grep -Fq "KMATE_MOBILE_FULL_PAGE_V50 = '50.0.0'" kmate-trainer/mobile-full-page-v50.js

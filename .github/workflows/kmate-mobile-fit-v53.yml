@@ -49,7 +49,7 @@ jobs:
           grep -Fq "reference-board-fit-v53.css?v=53.0.0" kmate-trainer/index.html
           grep -Fq "reference-board-fit-v54.css?v=54.0.0" kmate-trainer/index.html
           grep -Fq "reference-board-fit-v54.js?v=54.0.0" kmate-trainer/index.html
-          grep -Fq "app-v7.js?v=55.0.0" kmate-trainer/index.html
+          grep -Fq "app-v7.js?v=55.1.0" kmate-trainer/index.html
           grep -Fq "KMATE_MOBILE_FIT_V54 = '54.0.0'" kmate-trainer/reference-board-fit-v54.js
           grep -Fq "visualViewport" kmate-trainer/reference-board-fit-v54.js
           grep -Fq "grid-template-rows: repeat(8" kmate-trainer/reference-board-fit-v54.css

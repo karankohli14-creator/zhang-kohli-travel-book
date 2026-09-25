@@ -1,4 +1,4 @@
-const KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.0.0';
+const KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.1.0';
 const KMATE_UI_TAP_SIGNATURE_V55 = 'generate-and-start-position';
 
 let km55AudioContext = null;
@@ -81,10 +81,11 @@ function km55OnPointerDown(event) {
   km55LastControl = control.id || control.getAttribute('aria-label') || control.textContent?.trim().slice(0, 80) || control.tagName;
   km55PlayUnifiedTap();
 
-  // Older K-Mate layers attach their own pointerdown sounds. Stopping only the
-  // pointerdown propagation keeps the eventual click/action intact while
-  // guaranteeing that exactly one button sound is heard.
-  event.stopImmediatePropagation();
+  // Do not stop propagation: several play-page controls intentionally use
+  // pointer events before their click handlers. Legacy sound layers now
+  // detect v55 and opt out, so functionality and one-sound consistency
+  // are both preserved.
+  event.kmateUnifiedButtonSoundHandled = true;
   km55SuppressedLegacyTaps += 1;
 }
 

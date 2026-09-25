@@ -154,6 +154,7 @@
   }
 
   function playInterfaceTap(strong = false) {
+    if (document.documentElement.classList.contains('kmate-unified-button-sound-v55')) return false;
     if (!appSoundEnabled()) return false;
     const AudioCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtor) return false;

@@ -1,4 +1,4 @@
-name: K-Mate v55 coach and interaction QA
+name: K-Mate v55.1 coach and interaction QA
 
 on:
   push:
@@ -7,6 +7,9 @@ on:
       - "kmate-trainer/unified-button-sound-v55.js"
       - "kmate-trainer/coach-layout-v55.js"
       - "kmate-trainer/coach-layout-v55.css"
+      - "kmate-trainer/mobile-game-ux-v48.js"
+      - "kmate-trainer/appflow-v35.js"
+      - "kmate-trainer/review-v35-4.js"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/coach-layout-v55.spec.mjs"
@@ -18,6 +21,9 @@ on:
       - "kmate-trainer/unified-button-sound-v55.js"
       - "kmate-trainer/coach-layout-v55.js"
       - "kmate-trainer/coach-layout-v55.css"
+      - "kmate-trainer/mobile-game-ux-v48.js"
+      - "kmate-trainer/appflow-v35.js"
+      - "kmate-trainer/review-v35-4.js"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/coach-layout-v55.spec.mjs"
@@ -42,18 +48,25 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate v55 source wiring
+      - name: Validate v55.1 source wiring
         run: |
           node --check kmate-trainer/unified-button-sound-v55.js
           node --check kmate-trainer/coach-layout-v55.js
+          node --check kmate-trainer/mobile-game-ux-v48.js
+          node --check kmate-trainer/appflow-v35.js
+          node --check kmate-trainer/review-v35-4.js
           node --check kmate-trainer/app-v7.js
           node --check kmate-trainer/tests/coach-layout-v55.spec.mjs
           node --check kmate-trainer/tests/mobile-full-page-v50.spec.mjs
           node --check kmate-trainer/tests/mobile-game-ux-v48.spec.mjs
-          grep -Fq "unified-button-sound-v55.js?v=55.0.0" kmate-trainer/app-v7.js
+          grep -Fq "unified-button-sound-v55.js?v=55.1.0" kmate-trainer/app-v7.js
           grep -Fq "coach-layout-v55.js?v=55.0.0" kmate-trainer/app-v7.js
-          grep -Fq "KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.0.0'" kmate-trainer/unified-button-sound-v55.js
+          grep -Fq "KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.1.0'" kmate-trainer/unified-button-sound-v55.js
           grep -Fq "KMATE_COACH_LAYOUT_V55 = '55.0.0'" kmate-trainer/coach-layout-v55.js
+          grep -Fq "kmate-unified-button-sound-v55" kmate-trainer/mobile-game-ux-v48.js
+          grep -Fq "kmate-unified-button-sound-v55" kmate-trainer/appflow-v35.js
+          grep -Fq "kmate-unified-button-sound-v55" kmate-trainer/review-v35-4.js
+          ! grep -Fq "event.stopImmediatePropagation()" kmate-trainer/unified-button-sound-v55.js
           grep -Fq "km55-candidate-arrow" kmate-trainer/coach-layout-v55.css
           grep -Fq "kmate-voice-api.vercel.app" kmate-trainer/coach-layout-v55.js
           grep -Fq "X-KMate-Voice-Key" kmate-trainer/coach-layout-v55.js
@@ -80,7 +93,7 @@ jobs:
           cat /tmp/kmate-v55-http.log
           exit 1
 
-      - name: Test unified button sound, coach rails, voice, hints, arrows, home, and controls
+      - name: Test unified button sound, working top controls, coach rails, voice, hints, arrows, home, and controls
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
         run: >-
