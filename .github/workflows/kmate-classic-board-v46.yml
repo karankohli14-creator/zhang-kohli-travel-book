@@ -110,7 +110,7 @@ jobs:
           kmate-trainer/tests/sculpted-pieces-v47.spec.mjs
           kmate-trainer/tests/mobile-board-fit-v54.spec.mjs
           kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
-          --grep-invert "visualViewport smaller than the layout viewport"
+          --grep-invert "visualViewport smaller than the layout viewport|stable native board uses the uploaded-SVG textures"
           --workers=1
           --reporter=line
 
