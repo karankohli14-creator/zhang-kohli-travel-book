@@ -19,75 +19,13 @@ jobs:
           ref: kmate-coach-ux-v55
           fetch-depth: 0
 
-      - name: Patch active mobile sizing and robust candidate reveal
+      - name: Apply active phone sizing and candidate reveal fixes
+        run: python3 .github/scripts/kmate-v55-hotfix.py
+
+      - name: Commit the hotfix and remove temporary files
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          js_path = Path('kmate-trainer/coach-layout-v55.js')
-          js = js_path.read_text()
-          old_hint = """    layout.querySelector('#km55HintAction')?.addEventListener('click', () => {
-              const original = document.querySelector('#showHintButton');
-              if (original instanceof HTMLButtonElement && !original.disabled) original.click();
-              km55Schedule('hint-action');
-            });"""
-          new_hint = """    layout.querySelector('#km55HintAction')?.addEventListener('click', () => {
-              const original = document.querySelector('#showHintButton');
-              const reveal = () => {
-                if (!(original instanceof HTMLButtonElement)) return false;
-                const restoreDisabled = original.disabled;
-                original.dataset.kmateNoUiSound = 'true';
-                original.disabled = false;
-                try {
-                  HTMLElement.prototype.click.call(original);
-                } finally {
-                  queueMicrotask(() => {
-                    delete original.dataset.kmateNoUiSound;
-                    if (restoreDisabled && !/candidate revealed/i.test(km55Text('#hintTitle'))) {
-                      original.disabled = true;
-                    }
-                  });
-                }
-                return true;
-              };
-              reveal();
-              km55Schedule('hint-action');
-              window.setTimeout(() => {
-                if (/strategic hint/i.test(km55Text('#hintTitle'))) reveal();
-                km55Schedule('hint-action-120');
-              }, 120);
-              window.setTimeout(() => km55Schedule('hint-action-450'), 450);
-            });"""
-          if old_hint in js:
-              js = js.replace(old_hint, new_hint, 1)
-          elif "const reveal = () =>" not in js:
-              raise SystemExit('Expected v55 hint action block was not found.')
-          js_path.write_text(js)
-
-          css_path = Path('kmate-trainer/coach-layout-v55.css')
-          css = css_path.read_text()
-          marker = '/* v55 active phone rail fit */'
-          if marker not in css:
-              css += """
-
-/* v55 active phone rail fit */
-@media (max-width: 820px) {
-  html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="hint"] > #boardCoachStage {
-    width: calc(100% - 12px) !important;
-    max-width: calc(100% - 12px) !important;
-    justify-self: center !important;
-  }
-
-  html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="coach"] > #boardCoachStage {
-    width: calc(100% - 20px) !important;
-    max-width: calc(100% - 20px) !important;
-    justify-self: center !important;
-  }
-}
-"""
-          css_path.write_text(css)
-          PY
           git rm .github/workflows/kmate-v55-layout-hotfix.yml
+          git rm .github/scripts/kmate-v55-hotfix.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add kmate-trainer/coach-layout-v55.js kmate-trainer/coach-layout-v55.css
