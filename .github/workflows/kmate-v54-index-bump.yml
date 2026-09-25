@@ -1,0 +1,55 @@
+name: K-Mate v54 index wiring
+
+on:
+  push:
+    branches: [kmate-mobile-fit-v54]
+    paths:
+      - ".github/workflows/kmate-v54-index-bump.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  wire-index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-mobile-fit-v54
+          fetch-depth: 0
+
+      - name: Add v54 CSS and controller, bump cache key, and remove this workflow
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('kmate-trainer/index.html')
+          text = path.read_text()
+
+          v53_link = '  <link rel="stylesheet" href="./reference-board-fit-v53.css?v=53.0.0">'
+          v54_link = '  <link rel="stylesheet" href="./reference-board-fit-v54.css?v=54.0.0">'
+          if v54_link not in text:
+              if v53_link not in text:
+                  raise SystemExit('Expected v53 stylesheet marker was not found.')
+              text = text.replace(v53_link, f'{v53_link}\n{v54_link}')
+
+          text = text.replace('app-v7.js?v=53.0.0', 'app-v7.js?v=54.0.0')
+          app_script = '  <script type="module" src="./app-v7.js?v=54.0.0"></script>'
+          fit_script = '  <script type="module" src="./reference-board-fit-v54.js?v=54.0.0"></script>'
+          if fit_script not in text:
+              if app_script not in text:
+                  raise SystemExit('Expected v54 app-loader marker was not found.')
+              text = text.replace(app_script, f'{app_script}\n{fit_script}')
+
+          path.write_text(text)
+          PY
+          git rm .github/workflows/kmate-v54-index-bump.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kmate-trainer/index.html
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Wire K-Mate v54 exact mobile fit"
+          git push origin HEAD:kmate-mobile-fit-v54
