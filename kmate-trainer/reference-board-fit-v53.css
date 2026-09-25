@@ -1,0 +1,153 @@
+/* K-Mate v53 — contain the complete framed board on every phone viewport.
+   This is a geometry-only refinement of the v52 uploaded-SVG theme. */
+
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 {
+  --km53-board-gutter: clamp(7px, 2vw, 11px);
+  --km52-frame-size: clamp(16px, 4.45vw, 24px);
+  --km52-coordinate-size: clamp(13px, 3.55vw, 18px);
+  --km52-coordinate-shift: clamp(-12px, -2.25vw, -8px);
+}
+
+/* Reserve a real outer gutter. The v52 frame previously used virtually the
+   entire viewport width, so its edge and shadows could be clipped by the
+   full-page container on phones. */
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode .board-coach-stage {
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode #gameView .live-boardwrap {
+  width: min(
+    calc(100% - var(--km53-board-gutter) - var(--km53-board-gutter)),
+    calc(
+      100dvh
+      - env(safe-area-inset-top, 0px)
+      - env(safe-area-inset-bottom, 0px)
+      - 94px
+      - var(--km53-board-gutter)
+      - var(--km53-board-gutter)
+    )
+  ) !important;
+  max-width: calc(100% - var(--km53-board-gutter) - var(--km53-board-gutter)) !important;
+  max-height: calc(100% - var(--km53-board-gutter) - var(--km53-board-gutter)) !important;
+  height: auto !important;
+  aspect-ratio: 1 / 1 !important;
+  margin: 0 auto !important;
+  padding: var(--km52-frame-size) !important;
+  border-width: 2px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  align-self: center !important;
+  justify-self: center !important;
+}
+
+/* The board's declared 100% size must include its border. Without border-box,
+   the grid becomes slightly larger than the frame's content box and the last
+   row/column can sit beyond the pale trim or outside the viewport. */
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode #gameView .live-boardwrap > #board {
+  display: grid !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  border-width: 1px !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  transform: none !important;
+}
+
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode #board > .sq {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Keep both trim lines inside the brown frame rather than letting either one
+   cross the board grid or the outer screen edge. */
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode #gameView .live-boardwrap::before {
+  inset: calc(var(--km52-frame-size) - 5px) !important;
+  border-width: 2px !important;
+  box-sizing: border-box !important;
+}
+
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode #gameView .live-boardwrap::after {
+  inset: 5px !important;
+  box-sizing: border-box !important;
+}
+
+/* Smaller medallions, centered in the wooden margin. The coordinate center is
+   roughly half a frame-width beyond the board edge; the reduced diameter now
+   stays entirely inside the frame and aligns with the corresponding square. */
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode #board .coord {
+  width: var(--km52-coordinate-size) !important;
+  height: var(--km52-coordinate-size) !important;
+  min-width: var(--km52-coordinate-size) !important;
+  min-height: var(--km52-coordinate-size) !important;
+  border-width: 1px !important;
+  font-size: clamp(7px, 2.05vw, 10px) !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  box-sizing: border-box !important;
+}
+
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode #board .coord.rank {
+  left: var(--km52-coordinate-shift) !important;
+  top: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode #board .coord.file {
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: var(--km52-coordinate-shift) !important;
+  transform: translate(-50%, 50%) !important;
+}
+
+/* Immersive mode follows the same contained geometry instead of reverting to
+   an edge-to-edge frame that can be clipped by iOS or an embedded browser. */
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode.km50-immersive #gameView .live-boardwrap,
+html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode:fullscreen #gameView .live-boardwrap {
+  width: min(
+    calc(100% - var(--km53-board-gutter) - var(--km53-board-gutter)),
+    calc(
+      100dvh
+      - env(safe-area-inset-top, 0px)
+      - env(safe-area-inset-bottom, 0px)
+      - 94px
+      - var(--km53-board-gutter)
+      - var(--km53-board-gutter)
+    )
+  ) !important;
+  max-width: calc(100% - var(--km53-board-gutter) - var(--km53-board-gutter)) !important;
+  max-height: calc(100% - var(--km53-board-gutter) - var(--km53-board-gutter)) !important;
+}
+
+@media (max-width: 430px) {
+  html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 {
+    --km53-board-gutter: clamp(7px, 2vw, 9px);
+    --km52-frame-size: clamp(16px, 4.35vw, 19px);
+    --km52-coordinate-size: clamp(13px, 3.45vw, 15px);
+    --km52-coordinate-shift: clamp(-10px, -2.3vw, -8px);
+  }
+}
+
+@media (max-width: 350px) {
+  html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 {
+    --km53-board-gutter: 6px;
+    --km52-frame-size: 15px;
+    --km52-coordinate-size: 12px;
+    --km52-coordinate-shift: -7.5px;
+  }
+  html.kmate-reference-theme-v52.kmate-mobile-full-page-v50 body.game-mode #board .coord {
+    font-size: 7px !important;
+  }
+}

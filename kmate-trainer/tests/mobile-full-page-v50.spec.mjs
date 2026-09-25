@@ -84,8 +84,8 @@ test('full-page phone play keeps titles hidden while showing the complete framed
     return {
       appbar: getComputedStyle(document.querySelector('.appbar')).display,
       shell: { top: shell.top, left: shell.left, width: shell.width, height: shell.height },
-      wrap: { width: wrap.width, height: wrap.height },
-      board: { width: board.width, height: board.height },
+      wrap: { left: wrap.left, right: wrap.right, width: wrap.width, height: wrap.height },
+      board: { left: board.left, right: board.right, width: board.width, height: board.height },
       engineTop: engineBar.top,
       userBottom: userBar.bottom,
       titleDisplay: getComputedStyle(title).display,
@@ -100,11 +100,17 @@ test('full-page phone play keeps titles hidden while showing the complete framed
   expect(layout.shell.left).toBeLessThanOrEqual(2);
   expect(layout.shell.width).toBeGreaterThanOrEqual(388);
   expect(layout.shell.height).toBeGreaterThanOrEqual(842);
-  expect(layout.wrap.width).toBeGreaterThanOrEqual(382);
+  // v53 deliberately leaves a small gutter so the complete brown frame and
+  // every notation circle remain inside the phone viewport.
+  expect(layout.wrap.width).toBeGreaterThanOrEqual(368);
+  expect(layout.wrap.left).toBeGreaterThanOrEqual(6);
+  expect(layout.wrap.right).toBeLessThanOrEqual(384);
   expect(Math.abs(layout.wrap.width - layout.wrap.height)).toBeLessThan(2);
   expect(layout.board.width).toBeGreaterThanOrEqual(330);
+  expect(layout.board.left).toBeGreaterThan(layout.wrap.left);
+  expect(layout.board.right).toBeLessThan(layout.wrap.right);
   expect(Math.abs(layout.board.width - layout.board.height)).toBeLessThan(2);
-  expect(layout.framePadding).toBeGreaterThanOrEqual(18);
+  expect(layout.framePadding).toBeGreaterThanOrEqual(16);
   expect(layout.engineTop).toBeLessThanOrEqual(4);
   expect(layout.userBottom).toBeGreaterThanOrEqual(838);
   expect(layout.titleDisplay).toBe('none');

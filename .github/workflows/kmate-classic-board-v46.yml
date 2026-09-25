@@ -1,4 +1,4 @@
-name: K-Mate v52 uploaded-SVG board theme QA
+name: K-Mate v53 uploaded-SVG board theme QA
 
 on:
   push:
@@ -8,11 +8,13 @@ on:
       - "kmate-trainer/classic-board-v46.css"
       - "kmate-trainer/sculpted-pieces-v47.js"
       - "kmate-trainer/reference-board-v52.css"
+      - "kmate-trainer/reference-board-fit-v53.css"
       - "kmate-trainer/move-sound-v45.js"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/classic-board-v46.spec.mjs"
       - "kmate-trainer/tests/sculpted-pieces-v47.spec.mjs"
+      - "kmate-trainer/tests/mobile-board-fit-v53.spec.mjs"
       - ".github/workflows/kmate-classic-board-v46.yml"
   pull_request:
     paths:
@@ -20,11 +22,13 @@ on:
       - "kmate-trainer/classic-board-v46.css"
       - "kmate-trainer/sculpted-pieces-v47.js"
       - "kmate-trainer/reference-board-v52.css"
+      - "kmate-trainer/reference-board-fit-v53.css"
       - "kmate-trainer/move-sound-v45.js"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/classic-board-v46.spec.mjs"
       - "kmate-trainer/tests/sculpted-pieces-v47.spec.mjs"
+      - "kmate-trainer/tests/mobile-board-fit-v53.spec.mjs"
       - ".github/workflows/kmate-classic-board-v46.yml"
   workflow_dispatch:
 
@@ -34,7 +38,7 @@ permissions:
 jobs:
   reference-theme-browser-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -44,7 +48,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate v52 source wiring
+      - name: Validate v52 theme and v53 fit wiring
         run: |
           node --check kmate-trainer/classic-board-v46.js
           node --check kmate-trainer/sculpted-pieces-v47.js
@@ -52,6 +56,7 @@ jobs:
           node --check kmate-trainer/app-v7.js
           node --check kmate-trainer/tests/classic-board-v46.spec.mjs
           node --check kmate-trainer/tests/sculpted-pieces-v47.spec.mjs
+          node --check kmate-trainer/tests/mobile-board-fit-v53.spec.mjs
           grep -Fq "classic-board-v46.js?v=46.0.0" kmate-trainer/app-v7.js
           grep -Fq "sculpted-pieces-v47.js?v=52.0.0" kmate-trainer/app-v7.js
           grep -Fq "KMATE_REFERENCE_THEME_V52 = '52.0.0'" kmate-trainer/sculpted-pieces-v47.js
@@ -62,7 +67,9 @@ jobs:
           grep -Fq -- "--km52-dark-square: #758e72" kmate-trainer/reference-board-v52.css
           grep -Fq -- "--km52-coordinate: #d55236" kmate-trainer/reference-board-v52.css
           grep -Fq "repeating-linear-gradient" kmate-trainer/reference-board-v52.css
-          grep -Fq "app-v7.js?v=52.0.0" kmate-trainer/index.html
+          grep -Fq "reference-board-fit-v53.css?v=53.0.0" kmate-trainer/index.html
+          grep -Fq "app-v7.js?v=53.0.0" kmate-trainer/index.html
+          grep -Fq -- "--km53-board-gutter" kmate-trainer/reference-board-fit-v53.css
           grep -Fq "KMATE_MOVE_SOUND_VERSION = '45.2.0'" kmate-trainer/move-sound-v45.js
           grep -Fq "legacySvg" kmate-trainer/app-v7.js
 
@@ -74,23 +81,24 @@ jobs:
 
       - name: Start static K-Mate server
         run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v52-http.log 2>&1 &
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v53-http.log 2>&1 &
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
               exit 0
             fi
             sleep 1
           done
-          cat /tmp/kmate-v52-http.log
+          cat /tmp/kmate-v53-http.log
           exit 1
 
-      - name: Test detailed pieces, square texture, wooden frame, coordinates, and movement
+      - name: Test detailed pieces, texture, frame, coordinates, fit, and movement
         env:
           KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
         run: >-
           npx playwright test
           kmate-trainer/tests/classic-board-v46.spec.mjs
           kmate-trainer/tests/sculpted-pieces-v47.spec.mjs
+          kmate-trainer/tests/mobile-board-fit-v53.spec.mjs
           --workers=1
           --reporter=line
 
@@ -98,9 +106,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: kmate-reference-theme-v52-failure
+          name: kmate-reference-theme-v53-failure
           path: |
             test-results
-            /tmp/kmate-v52-http.log
+            /tmp/kmate-v53-http.log
           if-no-files-found: ignore
           retention-days: 7

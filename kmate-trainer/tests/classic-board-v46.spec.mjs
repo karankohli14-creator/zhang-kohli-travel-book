@@ -136,7 +136,9 @@ test('stable native board uses the uploaded-SVG textures, frame, coordinates, an
   expect(appearance.lightImage).toContain('repeating-linear-gradient');
   expect(appearance.darkImage).toContain('repeating-linear-gradient');
   expect(appearance.frameImage).toContain('repeating-linear-gradient');
-  expect(appearance.framePadding).toBeGreaterThanOrEqual(18);
+  // v53 reduces the frame proportion slightly on phones so the entire frame,
+  // coordinate medallions, and all 64 squares stay inside the viewport.
+  expect(appearance.framePadding).toBeGreaterThanOrEqual(16);
   expect(appearance.frameBorder).toBe('rgb(28, 14, 7)');
   expect(appearance.trimContent).not.toBe('none');
   expect(appearance.boardContain).not.toContain('paint');
