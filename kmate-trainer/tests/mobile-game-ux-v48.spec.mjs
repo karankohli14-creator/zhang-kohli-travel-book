@@ -213,7 +213,10 @@ test('paused coaching shows only why, principle, and stronger idea with a larger
       bestLabel: document.querySelector('.live-coach-comparison .best-move > small')?.textContent,
     };
   });
-  expect(compact.boardWidth).toBeGreaterThanOrEqual(330);
+  // v53 keeps the complete frame and notation medallions on-screen during a
+  // paused review. The inner board is therefore a few pixels narrower than the
+  // previous edge-clipping geometry while remaining large and square.
+  expect(compact.boardWidth).toBeGreaterThanOrEqual(326);
   expect(Math.abs(compact.boardWidth - compact.boardHeight)).toBeLessThan(2);
   expect(compact.panelBottom).toBeLessThanOrEqual(compact.viewportHeight + 1);
   expect(compact.whyFont).toBeGreaterThanOrEqual(13);
