@@ -44,8 +44,17 @@ try {
 }
 
 try {
-  // v48 installs the concise bad-move comparison card, consistent soft UI tap,
-  // sculpted-piece contrast foundation, and the uniform wooden movement cue.
+  // v55 owns every non-board button tap. It is intentionally installed before
+  // older interaction layers so Start training, Continue, back, green actions,
+  // and every other button use the same Generate-and-start wood tap exactly once.
+  await import('./unified-button-sound-v55.js?v=55.0.0');
+} catch (error) {
+  console.warn('Optional v55 unified button sound could not load.', error);
+}
+
+try {
+  // v48 installs the concise bad-move comparison foundation and the uniform
+  // wooden piece-movement cue. v55 suppresses only its legacy button tap.
   await import('./mobile-game-ux-v48.js?v=48.0.0');
 } catch (error) {
   console.warn('Optional v48 mobile game and coaching layer could not load.', error);
