@@ -28,6 +28,24 @@ html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout {
   align-items: center;
 }
 
+/* Do not reserve empty side columns during ordinary play. Side space appears
+   only while a hint or coach review is actually visible. */
+html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="play"] {
+  grid-template-columns: minmax(0,1fr);
+  grid-template-areas: "board";
+  gap: 0;
+}
+
+html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="hint"] {
+  grid-template-columns: minmax(205px,.62fr) minmax(300px,1.5fr);
+  grid-template-areas: "top board";
+}
+
+html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="coach"] {
+  grid-template-columns: minmax(205px,.62fr) minmax(300px,1.5fr) minmax(205px,.62fr);
+  grid-template-areas: "top board bottom";
+}
+
 html.kmate-coach-layout-v55 body.game-mode .km55-top-rail {
   grid-area: top;
 }
@@ -291,7 +309,10 @@ html.kmate-coach-layout-v55 .km55-dialog-home {
     --km55-rail-gap: 4px;
   }
 
-  html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout {
+  html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout,
+  html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="play"],
+  html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="hint"],
+  html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="coach"] {
     grid-template-columns: minmax(0,1fr);
     grid-template-rows: auto minmax(0,1fr) auto;
     grid-template-areas:
@@ -299,6 +320,13 @@ html.kmate-coach-layout-v55 .km55-dialog-home {
       "board"
       "bottom";
     align-items: stretch;
+    gap: var(--km55-rail-gap);
+  }
+
+  html.kmate-coach-layout-v55 body.game-mode .km55-coach-layout[data-state="play"] {
+    grid-template-rows: minmax(0,1fr);
+    grid-template-areas: "board";
+    gap: 0;
   }
 
   html.kmate-coach-layout-v55 body.game-mode .km55-rail {
