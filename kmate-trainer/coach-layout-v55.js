@@ -144,6 +144,9 @@ function km55EnsureLayout() {
     stage.parentNode?.insertBefore(layout, stage);
     layout.insertBefore(stage, layout.querySelector('#km55BottomRail'));
 
+    layout.querySelector('#km55HintCard')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
     layout.querySelector('#km55HintAction')?.addEventListener('click', () => {
       const original = document.querySelector('#showHintButton');
       const reveal = () => {
