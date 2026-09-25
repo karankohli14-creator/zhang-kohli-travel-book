@@ -4,7 +4,6 @@ const KMATE_UI_TAP_SIGNATURE_V55 = 'generate-and-start-position';
 let km55AudioContext = null;
 let km55TapCount = 0;
 let km55SuppressedLegacyTaps = 0;
-let km55LastTapAt = 0;
 let km55LastControl = '';
 
 function km55SoundsAllowed() {
@@ -29,10 +28,6 @@ function km55ButtonFromEvent(event) {
 
 function km55PlayUnifiedTap() {
   if (!km55SoundsAllowed()) return false;
-  const nowMs = performance.now();
-  if (nowMs - km55LastTapAt < 34) return false;
-  km55LastTapAt = nowMs;
-
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) return false;
 
