@@ -77,7 +77,12 @@ function km55SetVoiceEnabled(enabled) {
   store.settings ||= {};
   store.settings.coachVoice = next;
   km55WriteStore(store);
-  if (!next) km55StopVoice();
+  if (!next) {
+    km55StopVoice();
+  } else {
+    km55LastNarrationKey = '';
+    window.setTimeout(() => km55ScheduleAutomaticNarration(km55CoachCopy()), 20);
+  }
 }
 
 function km55CoachOpen() {
@@ -172,7 +177,7 @@ function km55PrincipleText() {
 
 function km55CoachCopy() {
   return {
-    quality: km55Text('#liveCoachQualityBadge'),
+    quality: km55Text('#liveCoachRating') || km55Text('#liveCoachQualityBadge'),
     whyMove: km55Text('#liveCoachYourMove'),
     why: km55CleanCoachText(km55Text('#liveCoachWhy')),
     principle: km55CleanCoachText(km55PrincipleText(), 180),
@@ -415,9 +420,12 @@ function km55ScheduleAutomaticNarration(copy) {
   if (!text || text === km55LastNarrationKey) return;
   window.clearTimeout(km55NarrationTimer);
   km55NarrationTimer = window.setTimeout(() => {
-    // Let the existing coach layer speak first when it is healthy. v55 takes
-    // over only when nothing audible has started, fixing the silent state.
-    if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) return;
+    // Let the existing coach layer speak first when it is healthy. If it has
+    // already started, mark this review handled so v55 never duplicates it.
+    if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
+      km55LastNarrationKey = text;
+      return;
+    }
     void km55SpeakCoach(false);
   }, 720);
 }
@@ -455,6 +463,14 @@ function km55EnsureVoiceAccessControl() {
   anchor.insertAdjacentElement('afterend', button);
 }
 
+function km55SilentClick(element) {
+  if (!(element instanceof HTMLElement)) return;
+  element.dataset.kmateNoUiSound = 'true';
+  try { element.click(); } finally {
+    queueMicrotask(() => delete element.dataset.kmateNoUiSound);
+  }
+}
+
 function km55Home() {
   km55HomeUses += 1;
   km55StopVoice();
@@ -462,11 +478,11 @@ function km55Home() {
     try { dialog.close(); } catch { dialog.removeAttribute('open'); }
   });
   if (document.body?.classList.contains('game-mode')) {
-    document.querySelector('#backButton')?.click();
+    km55SilentClick(document.querySelector('#backButton'));
   }
   window.setTimeout(() => {
-    document.querySelector('.topnav [data-view="setup"]')?.click();
-    document.querySelector('#brandButton')?.click();
+    km55SilentClick(document.querySelector('.topnav [data-view="setup"]'));
+    km55SilentClick(document.querySelector('#brandButton'));
     window.__KMATE__?.showSetupPage?.('welcome');
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, 0);
