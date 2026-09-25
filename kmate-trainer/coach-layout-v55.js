@@ -146,8 +146,30 @@ function km55EnsureLayout() {
 
     layout.querySelector('#km55HintAction')?.addEventListener('click', () => {
       const original = document.querySelector('#showHintButton');
-      if (original instanceof HTMLButtonElement && !original.disabled) original.click();
+      const reveal = () => {
+        if (!(original instanceof HTMLButtonElement)) return false;
+        const restoreDisabled = original.disabled;
+        original.dataset.kmateNoUiSound = 'true';
+        original.disabled = false;
+        try {
+          HTMLElement.prototype.click.call(original);
+        } finally {
+          queueMicrotask(() => {
+            delete original.dataset.kmateNoUiSound;
+            if (restoreDisabled && !/candidate revealed/i.test(km55Text('#hintTitle'))) {
+              original.disabled = true;
+            }
+          });
+        }
+        return true;
+      };
+      reveal();
       km55Schedule('hint-action');
+      window.setTimeout(() => {
+        if (/strategic hint/i.test(km55Text('#hintTitle'))) reveal();
+        km55Schedule('hint-action-120');
+      }, 120);
+      window.setTimeout(() => km55Schedule('hint-action-450'), 450);
     });
     layout.querySelector('#km55VoiceToggle')?.addEventListener('click', () => {
       km55SetVoiceEnabled(!km55VoiceEnabled());
