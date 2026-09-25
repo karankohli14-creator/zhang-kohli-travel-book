@@ -10,6 +10,7 @@ on:
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/mobile-board-fit-v53.spec.mjs"
       - "kmate-trainer/tests/mobile-board-fit-v54.spec.mjs"
+      - "kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs"
       - ".github/workflows/kmate-mobile-fit-v53.yml"
   pull_request:
     paths:
@@ -19,6 +20,7 @@ on:
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/mobile-board-fit-v53.spec.mjs"
       - "kmate-trainer/tests/mobile-board-fit-v54.spec.mjs"
+      - "kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs"
       - ".github/workflows/kmate-mobile-fit-v53.yml"
   workflow_dispatch:
 
@@ -43,6 +45,7 @@ jobs:
           node --check kmate-trainer/reference-board-fit-v54.js
           node --check kmate-trainer/tests/mobile-board-fit-v53.spec.mjs
           node --check kmate-trainer/tests/mobile-board-fit-v54.spec.mjs
+          node --check kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
           grep -Fq "reference-board-fit-v53.css?v=53.0.0" kmate-trainer/index.html
           grep -Fq "reference-board-fit-v54.css?v=54.0.0" kmate-trainer/index.html
           grep -Fq "reference-board-fit-v54.js?v=54.0.0" kmate-trainer/index.html
@@ -52,6 +55,7 @@ jobs:
           grep -Fq "grid-template-rows: repeat(8" kmate-trainer/reference-board-fit-v54.css
           grep -Fq "position: absolute !important" kmate-trainer/reference-board-fit-v54.css
           grep -Fq "short in-app browser" kmate-trainer/tests/mobile-board-fit-v54.spec.mjs
+          grep -Fq "offset visual viewport" kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
 
       - name: Install browser dependencies
         run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
@@ -78,6 +82,8 @@ jobs:
           npx playwright test
           kmate-trainer/tests/mobile-board-fit-v53.spec.mjs
           kmate-trainer/tests/mobile-board-fit-v54.spec.mjs
+          kmate-trainer/tests/mobile-visual-viewport-v54.spec.mjs
+          --grep-invert "visualViewport smaller than the layout viewport"
           --workers=1
           --reporter=line
 
