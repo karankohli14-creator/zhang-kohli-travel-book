@@ -195,9 +195,10 @@ html.kmate-coach-layout-v55 .km55-hint-action:active {
 }
 
 /* The originals remain the application state source, but are never permitted
-   to cover the board. The v55 cards mirror their content beside the board. */
-html.kmate-coach-layout-v55 body.game-mode #liveCoachBoardPanel,
-html.kmate-coach-layout-v55 body.game-mode #hintCard {
+   to cover the board. These selectors intentionally outrank v48/v50 overlay
+   rules, including their !important declarations. */
+html.kmate-coach-layout-v55 body.game-mode #gameView .boardcol #hintCard,
+html.kmate-coach-layout-v55 body.game-mode #gameView #boardCoachStage #liveCoachBoardPanel {
   display: none !important;
   position: absolute !important;
   inset: auto !important;
