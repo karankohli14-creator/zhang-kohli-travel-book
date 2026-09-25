@@ -1,0 +1,32 @@
+name: K-Mate v55.1 top-control hotfix
+
+on:
+  push:
+    branches: [kmate-top-controls-v55-1]
+    paths:
+      - "tools/kmate-v55-1-hotfix.py"
+      - ".github/workflows/kmate-v55-1-top-controls-hotfix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-controls:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out hotfix branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-top-controls-v55-1
+          fetch-depth: 0
+
+      - name: Apply the hotfix
+        run: python3 tools/kmate-v55-1-hotfix.py
+
+      - name: Commit the repaired controls
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kmate-trainer
+          git commit -m "Restore K-Mate play-page top controls"
+          git push origin HEAD:kmate-top-controls-v55-1
