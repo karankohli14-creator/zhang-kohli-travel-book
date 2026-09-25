@@ -7,6 +7,8 @@ on:
       - "kmate-trainer/training-plans-v43*"
       - "kmate-trainer/personalization-v42*"
       - "kmate-trainer/learning/training-*-v43.json"
+      - "kmate-trainer/coach-layout-v55.js"
+      - "kmate-trainer/coach-layout-v55.css"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/training-plans-v43.spec.mjs"
@@ -16,6 +18,8 @@ on:
       - "kmate-trainer/training-plans-v43*"
       - "kmate-trainer/personalization-v42*"
       - "kmate-trainer/learning/training-*-v43.json"
+      - "kmate-trainer/coach-layout-v55.js"
+      - "kmate-trainer/coach-layout-v55.css"
       - "kmate-trainer/app-v7.js"
       - "kmate-trainer/index.html"
       - "kmate-trainer/tests/training-plans-v43.spec.mjs"
@@ -45,7 +49,9 @@ jobs:
           node --check /tmp/kmate-training-plans-v43.js
           cat kmate-trainer/personalization-v42-part{1..12}.txt > /tmp/kmate-personalization-v43.js
           node --check /tmp/kmate-personalization-v43.js
+          node --check kmate-trainer/coach-layout-v55.js
           node --check kmate-trainer/tests/training-plans-v43.spec.mjs
+          grep -A8 -F "html.kmate-coach-layout-v55 .km55-dialog-home {" kmate-trainer/coach-layout-v55.css | grep -Fq "left: 10px"
           node - <<'NODE'
           const fs = require('node:fs');
           const definitions = JSON.parse(fs.readFileSync('kmate-trainer/learning/training-plans-v43.json', 'utf8'));

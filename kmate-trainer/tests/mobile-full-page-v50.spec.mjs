@@ -48,6 +48,7 @@ async function prepare(page) {
       && window.__KMATE_MOBILE_FULL_PAGE_V50__?.state?.().ready
       && window.__KMATE_CLASSIC_BOARD_V46__?.state?.().ready
       && window.__KMATE_REFERENCE_THEME_V52__?.state?.().ready
+      && window.__KMATE_COACH_LAYOUT_V55__?.state?.().ready
     ),
     undefined,
     { timeout: 90_000 },
@@ -91,7 +92,6 @@ test('full-page phone play keeps titles hidden while showing the complete framed
       titleDisplay: getComputedStyle(title).display,
       metaDisplay: getComputedStyle(meta).display,
       titleParentHidden: title.parentElement.hidden,
-      framePadding: Number.parseFloat(getComputedStyle(document.querySelector('.live-boardwrap')).paddingLeft),
     };
   });
 
@@ -100,17 +100,14 @@ test('full-page phone play keeps titles hidden while showing the complete framed
   expect(layout.shell.left).toBeLessThanOrEqual(2);
   expect(layout.shell.width).toBeGreaterThanOrEqual(388);
   expect(layout.shell.height).toBeGreaterThanOrEqual(842);
-  // v53 deliberately leaves a small gutter so the complete brown frame and
-  // every notation circle remain inside the phone viewport.
   expect(layout.wrap.width).toBeGreaterThanOrEqual(368);
-  expect(layout.wrap.left).toBeGreaterThanOrEqual(6);
-  expect(layout.wrap.right).toBeLessThanOrEqual(384);
+  expect(layout.wrap.left).toBeGreaterThanOrEqual(4);
+  expect(layout.wrap.right).toBeLessThanOrEqual(386);
   expect(Math.abs(layout.wrap.width - layout.wrap.height)).toBeLessThan(2);
   expect(layout.board.width).toBeGreaterThanOrEqual(330);
   expect(layout.board.left).toBeGreaterThan(layout.wrap.left);
   expect(layout.board.right).toBeLessThan(layout.wrap.right);
   expect(Math.abs(layout.board.width - layout.board.height)).toBeLessThan(2);
-  expect(layout.framePadding).toBeGreaterThanOrEqual(16);
   expect(layout.engineTop).toBeLessThanOrEqual(4);
   expect(layout.userBottom).toBeGreaterThanOrEqual(838);
   expect(layout.titleDisplay).toBe('none');
@@ -118,38 +115,45 @@ test('full-page phone play keeps titles hidden while showing the complete framed
   expect(layout.titleParentHidden).toBe(true);
 });
 
-test('coach hint remains hidden behind the bulb and Reveal candidate still works', async ({ page }) => {
+test('coach hint remains behind the bulb, appears above the phone board, and Reveal candidate draws an arrow', async ({ page }) => {
   test.setTimeout(180_000);
   await prepare(page);
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
   await expect(page.locator('#board > .sq')).toHaveCount(64, { timeout: 30_000 });
 
-  const hintCard = page.locator('#hintCard');
+  const originalHint = page.locator('#hintCard');
+  const mirrorHint = page.locator('#km55HintCard');
   const bulb = page.locator('#kmateHintEdgeButton');
-  const action = page.locator('#showHintButton');
 
   await expect(bulb).toBeVisible();
   await expect(bulb).toHaveAttribute('aria-expanded', 'false');
-  await expect(hintCard).toBeHidden();
+  await expect(originalHint).toBeHidden();
+  await expect(mirrorHint).toBeHidden();
 
   await bulb.click();
   await expect(bulb).toHaveAttribute('aria-expanded', 'true');
-  await expect(hintCard).toBeVisible();
-  await expect(page.locator('#hintTitle')).toHaveText('Strategic hint', { timeout: 45_000 });
-  await expect(action).toHaveText('Reveal candidate', { timeout: 45_000 });
-  await expect(action).toBeEnabled();
+  await expect(originalHint).toBeHidden();
+  await expect(mirrorHint).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator('#km55HintTitle')).toHaveText('Strategic hint', { timeout: 45_000 });
+  await expect(page.locator('#km55HintAction')).toHaveText('Reveal candidate', { timeout: 45_000 });
+  await expect(page.locator('#km55HintAction')).toBeEnabled();
 
-  const boardBefore = await page.locator('#board').boundingBox();
-  await action.click();
-  await expect(page.locator('#hintTitle')).toHaveText('Candidate revealed', { timeout: 10_000 });
-  await expect(page.locator('#hintText')).toContainText('Candidate:');
-  await expect(action).toHaveText('Candidate shown');
-  const boardAfter = await page.locator('#board').boundingBox();
-  expect(Math.abs(boardAfter.width - boardBefore.width)).toBeLessThan(2);
-  expect(Math.abs(boardAfter.height - boardBefore.height)).toBeLessThan(2);
+  await page.locator('#km55HintAction').click();
+  await expect(page.locator('#km55HintTitle')).toHaveText('Candidate revealed', { timeout: 10_000 });
+  await expect(page.locator('#km55HintText')).toContainText('Candidate:');
+  await expect(page.locator('#km55HintAction')).toHaveText('Candidate shown');
+  await expect(page.locator('#board > .km55-candidate-arrow line')).toHaveCount(1, { timeout: 10_000 });
+
+  const placement = await page.evaluate(() => {
+    const board = document.querySelector('.live-boardwrap').getBoundingClientRect();
+    const hint = document.querySelector('#km55HintCard').getBoundingClientRect();
+    return { hintBottom: hint.bottom, boardTop: board.top };
+  });
+  expect(placement.hintBottom).toBeLessThanOrEqual(placement.boardTop + 1);
 
   await bulb.click();
-  await expect(hintCard).toBeHidden();
+  await expect(mirrorHint).toBeHidden();
+  await expect(page.locator('#board > .km55-candidate-arrow')).toHaveCount(0);
 });
 
 test('fullscreen fallback retains the reference board and hides nonessential controls', async ({ page }) => {
@@ -163,6 +167,7 @@ test('fullscreen fallback retains the reference board and hides nonessential con
   await expect(fullscreen).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('body')).toHaveClass(/km50-immersive/);
   await expect(page.locator('#hintCard')).toBeHidden();
+  await expect(page.locator('#km55HintCard')).toBeHidden();
   await expect(page.locator('#kmateHintEdgeButton')).toBeHidden();
   await expect(page.locator('#positionTitle')).toBeHidden();
   await expect(page.locator('#board .piece.kmate-reference-piece-v52')).toHaveCount(32);

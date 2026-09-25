@@ -1,0 +1,103 @@
+name: K-Mate v55 coach and interaction QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kmate-trainer/unified-button-sound-v55.js"
+      - "kmate-trainer/coach-layout-v55.js"
+      - "kmate-trainer/coach-layout-v55.css"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/index.html"
+      - "kmate-trainer/tests/coach-layout-v55.spec.mjs"
+      - "kmate-trainer/tests/mobile-full-page-v50.spec.mjs"
+      - "kmate-trainer/tests/mobile-game-ux-v48.spec.mjs"
+      - ".github/workflows/kmate-coach-ux-v55.yml"
+  pull_request:
+    paths:
+      - "kmate-trainer/unified-button-sound-v55.js"
+      - "kmate-trainer/coach-layout-v55.js"
+      - "kmate-trainer/coach-layout-v55.css"
+      - "kmate-trainer/app-v7.js"
+      - "kmate-trainer/index.html"
+      - "kmate-trainer/tests/coach-layout-v55.spec.mjs"
+      - "kmate-trainer/tests/mobile-full-page-v50.spec.mjs"
+      - "kmate-trainer/tests/mobile-game-ux-v48.spec.mjs"
+      - ".github/workflows/kmate-coach-ux-v55.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coach-interaction-browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate v55 source wiring
+        run: |
+          node --check kmate-trainer/unified-button-sound-v55.js
+          node --check kmate-trainer/coach-layout-v55.js
+          node --check kmate-trainer/app-v7.js
+          node --check kmate-trainer/tests/coach-layout-v55.spec.mjs
+          node --check kmate-trainer/tests/mobile-full-page-v50.spec.mjs
+          node --check kmate-trainer/tests/mobile-game-ux-v48.spec.mjs
+          grep -Fq "unified-button-sound-v55.js?v=55.0.0" kmate-trainer/app-v7.js
+          grep -Fq "coach-layout-v55.js?v=55.0.0" kmate-trainer/app-v7.js
+          grep -Fq "KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.0.0'" kmate-trainer/unified-button-sound-v55.js
+          grep -Fq "KMATE_COACH_LAYOUT_V55 = '55.0.0'" kmate-trainer/coach-layout-v55.js
+          grep -Fq "km55-candidate-arrow" kmate-trainer/coach-layout-v55.css
+          grep -Fq "kmate-voice-api.vercel.app" kmate-trainer/coach-layout-v55.js
+          grep -Fq "X-KMate-Voice-Key" kmate-trainer/coach-layout-v55.js
+          grep -Fq "HTMLElement.prototype.click.call(original)" kmate-trainer/coach-layout-v55.js
+          grep -Fq "v55 active phone rail fit" kmate-trainer/coach-layout-v55.css
+          grep -Fq "km55HintCard')?.addEventListener('click'" kmate-trainer/coach-layout-v55.js
+          grep -Fq "event.stopPropagation()" kmate-trainer/coach-layout-v55.js
+
+      - name: Install browser dependencies
+        run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start static K-Mate server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-v55-http.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/kmate-v55-http.log
+          exit 1
+
+      - name: Test unified button sound, coach rails, voice, hints, arrows, home, and controls
+        env:
+          KMATE_APP_URL: http://127.0.0.1:4173/kmate-trainer/?nativeBoard=1
+        run: >-
+          npx playwright test
+          kmate-trainer/tests/coach-layout-v55.spec.mjs
+          kmate-trainer/tests/mobile-full-page-v50.spec.mjs
+          kmate-trainer/tests/mobile-game-ux-v48.spec.mjs
+          --workers=1
+          --reporter=line
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmate-coach-ux-v55-failure
+          path: |
+            test-results
+            /tmp/kmate-v55-http.log
+          if-no-files-found: ignore
+          retention-days: 7

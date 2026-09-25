@@ -44,8 +44,17 @@ try {
 }
 
 try {
-  // v48 installs the concise bad-move comparison card, consistent soft UI tap,
-  // sculpted-piece contrast foundation, and the uniform wooden movement cue.
+  // v55 owns every non-board button tap. It is intentionally installed before
+  // older interaction layers so Start training, Continue, back, green actions,
+  // and every other button use the same Generate-and-start wood tap exactly once.
+  await import('./unified-button-sound-v55.js?v=55.0.0');
+} catch (error) {
+  console.warn('Optional v55 unified button sound could not load.', error);
+}
+
+try {
+  // v48 installs the concise bad-move comparison foundation and the uniform
+  // wooden piece-movement cue. v55 suppresses only its legacy button tap.
   await import('./mobile-game-ux-v48.js?v=48.0.0');
 } catch (error) {
   console.warn('Optional v48 mobile game and coaching layer could not load.', error);
@@ -163,6 +172,16 @@ try {
     // Learning content is optional; core play remains usable if a catalog or
     // interface module cannot load.
     console.warn('Optional adaptive learning system could not load.', error);
+  }
+
+  try {
+    // v55 moves coaching and hints outside the board, keeps an always-available
+    // home button, restores audible coach narration, and draws revealed
+    // candidate moves directly on the board. Its stylesheet is loaded by the
+    // module so this remains safe even before the next index cache refresh.
+    await import('./coach-layout-v55.js?v=55.0.0');
+  } catch (error) {
+    console.warn('Optional v55 coach layout and voice layer could not load.', error);
   }
 
   if (window.__KMATE_CLASSIC_BOARD_V46__?.state?.().active === false) {
