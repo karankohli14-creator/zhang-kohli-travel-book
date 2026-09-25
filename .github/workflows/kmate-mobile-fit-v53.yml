@@ -40,7 +40,7 @@ jobs:
           grep -Fq -- "--km53-board-gutter" kmate-trainer/reference-board-fit-v53.css
           grep -Fq "box-sizing: border-box !important" kmate-trainer/reference-board-fit-v53.css
           grep -Fq "overflow: hidden !important" kmate-trainer/reference-board-fit-v53.css
-          grep -Fq "--km52-coordinate-size: clamp(13px" kmate-trainer/reference-board-fit-v53.css
+          grep -Fq -- "--km52-coordinate-size: clamp(13px" kmate-trainer/reference-board-fit-v53.css
           grep -Fq "phone landscape" kmate-trainer/tests/mobile-board-fit-v53.spec.mjs
 
       - name: Install browser dependencies
