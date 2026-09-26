@@ -1,0 +1,41 @@
+name: K-Mate v56 app loader cache bump
+
+on:
+  push:
+    branches: [kmate-soft-buttons-menu-v56]
+    paths:
+      - ".github/workflows/kmate-v56-index-bump.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  bump-loader:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: kmate-soft-buttons-menu-v56
+          fetch-depth: 0
+
+      - name: Update the public app loader to v56
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('kmate-trainer/index.html')
+          text = path.read_text()
+          old = 'app-v7.js?v=55.1.0'
+          new = 'app-v7.js?v=56.0.0'
+          if old not in text and new not in text:
+              raise SystemExit('Expected K-Mate app loader marker was not found.')
+          path.write_text(text.replace(old, new))
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kmate-trainer/index.html
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Bump K-Mate app loader to v56"
+          git push origin HEAD:kmate-soft-buttons-menu-v56
