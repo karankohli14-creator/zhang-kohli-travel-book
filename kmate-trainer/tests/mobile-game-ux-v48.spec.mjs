@@ -83,6 +83,7 @@ async function prepare(page) {
       && window.__KMATE_SCULPTED_PIECES_V47__?.state?.().ready
       && window.__KMATE_COACH_LAYOUT_V55__?.state?.().ready
       && window.__KMATE_UNIFIED_BUTTON_SOUND_V55__?.state?.().ready
+      && window.__KMATE_TOP_CONTROLS_V56__?.state?.().ready
     ),
     undefined,
     { timeout: 90_000 },
@@ -161,12 +162,14 @@ test('mobile play prioritizes the board, uses one unified control sound, and exp
     ux: window.__KMATE_GAME_UX_V48__.state(),
     v49: window.__KMATE_BOARD_FOCUS_V49__?.state?.() || null,
     v50: window.__KMATE_MOBILE_FULL_PAGE_V50__?.state?.() || null,
+    v56: window.__KMATE_TOP_CONTROLS_V56__?.state?.() || null,
   }));
   expect(voiceStartup.spoken.some((text) => /^coach voice ready/i.test(text))).toBe(false);
   expect(
     (voiceStartup.ux.suppressedReadyPrompts || 0)
     + (voiceStartup.v49?.suppressedReadyPrompts || 0)
-    + (voiceStartup.v50?.suppressedReadyPrompts || 0),
+    + (voiceStartup.v50?.suppressedReadyPrompts || 0)
+    + (voiceStartup.v56?.suppressedReadySpeech || 0),
   ).toBeGreaterThan(0);
 });
 
