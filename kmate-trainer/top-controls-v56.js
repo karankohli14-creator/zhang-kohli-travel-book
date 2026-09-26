@@ -1,6 +1,7 @@
 const KMATE_TOP_CONTROLS_V56 = '56.0.0';
 const KMATE_STORE_KEY_V56 = 'kmate-position-v7';
-const KMATE_READY_SPEECH_V56 = /^(?:coach voice ready\.?|k\s*mate coach audio is ready\b)/i;
+const KMATE_AUTOMATIC_READY_SPEECH_V56 = /^coach voice ready\.?$/i;
+const KMATE_PLAY_READY_SPEECH_V56 = /(?:k\s*mate coach audio is ready|you will hear both live coaching and post[ -]?game reviews)/i;
 
 let km56Observer = null;
 let km56SpeechPatched = false;
@@ -8,6 +9,7 @@ let km56SuppressedReadySpeech = 0;
 let km56MenuToggles = 0;
 let km56VoiceToggles = 0;
 let km56LastTouchMenuAt = 0;
+let km56RefreshFrame = 0;
 
 function km56InstallStyles() {
   if (document.querySelector('#kmateTopControlsV56Styles')) return;
@@ -33,6 +35,24 @@ function km56WriteStore(store) {
   } catch {}
 }
 
+function km56SetAttribute(element, name, value) {
+  if (!(element instanceof Element)) return;
+  const next = String(value);
+  if (element.getAttribute(name) !== next) element.setAttribute(name, next);
+}
+
+function km56SetText(element, value) {
+  if (!element) return;
+  const next = String(value);
+  if (element.textContent !== next) element.textContent = next;
+}
+
+function km56ToggleClass(element, name, enabled) {
+  if (!element?.classList) return;
+  const next = Boolean(enabled);
+  if (element.classList.contains(name) !== next) element.classList.toggle(name, next);
+}
+
 function km56VoiceCheckbox() {
   return document.querySelector('#liveCoachVoice');
 }
@@ -46,21 +66,24 @@ function km56VoiceEnabled() {
 function km56UpdateVoiceButton(button = document.querySelector('#gameCoachAudioButton')) {
   if (!(button instanceof HTMLButtonElement)) return;
   const enabled = km56VoiceEnabled();
-  button.textContent = enabled ? '🔊' : '🔇';
-  button.setAttribute('aria-pressed', String(enabled));
-  button.setAttribute('aria-label', enabled ? 'Turn coach voice off' : 'Turn coach voice on');
-  button.title = button.getAttribute('aria-label');
-  button.classList.toggle('audio-ready', enabled);
-  button.classList.toggle('muted', !enabled);
+  km56SetText(button, enabled ? '🔊' : '🔇');
+  km56SetAttribute(button, 'aria-pressed', enabled);
+  km56SetAttribute(button, 'aria-label', enabled ? 'Turn coach voice off' : 'Turn coach voice on');
+  const title = button.getAttribute('aria-label') || '';
+  if (button.title !== title) button.title = title;
+  km56ToggleClass(button, 'audio-ready', enabled);
+  km56ToggleClass(button, 'muted', !enabled);
 }
 
 function km56SetVoiceEnabled(enabled) {
   const next = Boolean(enabled);
   const checkbox = km56VoiceCheckbox();
   if (checkbox instanceof HTMLInputElement) {
-    checkbox.checked = next;
-    checkbox.dispatchEvent(new Event('input', { bubbles: true }));
-    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    if (checkbox.checked !== next) {
+      checkbox.checked = next;
+      checkbox.dispatchEvent(new Event('input', { bubbles: true }));
+      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    }
   } else {
     const store = km56ReadStore() || { version: 7, sessions: [], legacy: {}, settings: {} };
     store.settings ||= {};
@@ -74,18 +97,18 @@ function km56SetVoiceEnabled(enabled) {
 
   const liveToggle = document.querySelector('#liveCoachVoiceToggle');
   if (liveToggle instanceof HTMLButtonElement) {
-    liveToggle.textContent = next ? '🔊 Voice on' : '🔇 Voice off';
-    liveToggle.setAttribute('aria-pressed', String(next));
+    km56SetText(liveToggle, next ? '🔊 Voice on' : '🔇 Voice off');
+    km56SetAttribute(liveToggle, 'aria-pressed', next);
   }
   const coachCardToggle = document.querySelector('#km55VoiceToggle');
   if (coachCardToggle instanceof HTMLButtonElement) {
-    coachCardToggle.textContent = next ? '🔊' : '🔇';
-    coachCardToggle.setAttribute('aria-pressed', String(next));
+    km56SetText(coachCardToggle, next ? '🔊' : '🔇');
+    km56SetAttribute(coachCardToggle, 'aria-pressed', next);
   }
   const status = document.querySelector('#coachVoiceSetupStatus');
   if (status) {
-    status.textContent = next ? 'Coach voice is on.' : 'Coach voice is off.';
-    status.dataset.state = next ? 'ready' : 'off';
+    km56SetText(status, next ? 'Coach voice is on.' : 'Coach voice is off.');
+    if (status.dataset.state !== (next ? 'ready' : 'off')) status.dataset.state = next ? 'ready' : 'off';
   }
 
   km56VoiceToggles += 1;
@@ -111,24 +134,27 @@ function km56SetPanelOpen(open) {
   const gameMode = document.body?.classList.contains('game-mode');
   const narrow = window.matchMedia('(max-width: 980px)').matches;
   const next = Boolean(open && gameMode && narrow);
+  const changed = Boolean(document.body?.classList.contains('game-panel-open')) !== next;
 
-  document.body?.classList.toggle('game-panel-open', next);
+  if (changed) document.body?.classList.toggle('game-panel-open', next);
   if (button) {
-    button.setAttribute('aria-expanded', String(next));
-    button.setAttribute('aria-label', next ? 'Close game details' : 'Open game details');
-    button.title = next ? 'Close game details' : 'Game details';
+    km56SetAttribute(button, 'aria-expanded', next);
+    km56SetAttribute(button, 'aria-label', next ? 'Close game details' : 'Open game details');
+    const title = next ? 'Close game details' : 'Game details';
+    if (button.title !== title) button.title = title;
   }
   if (backdrop instanceof HTMLElement) {
-    backdrop.hidden = !next;
-    backdrop.setAttribute('aria-hidden', String(!next));
+    if (backdrop.hidden === next) backdrop.hidden = !next;
+    km56SetAttribute(backdrop, 'aria-hidden', !next);
   }
   if (panel instanceof HTMLElement) {
-    panel.toggleAttribute('inert', !next && narrow);
-    panel.setAttribute('aria-hidden', String(!next && narrow));
-    panel.dataset.kmatePanelOpen = String(next);
+    const inert = !next && narrow;
+    if (panel.hasAttribute('inert') !== inert) panel.toggleAttribute('inert', inert);
+    km56SetAttribute(panel, 'aria-hidden', inert);
+    if (panel.dataset.kmatePanelOpen !== String(next)) panel.dataset.kmatePanelOpen = String(next);
   }
 
-  km56MenuToggles += 1;
+  if (changed) km56MenuToggles += 1;
   return next;
 }
 
@@ -206,8 +232,9 @@ function km56InstallSpeechFilter() {
   const upstreamSpeak = synth.speak.bind(synth);
   const filteredSpeak = function km56Speak(utterance) {
     const text = String(utterance?.text || '').replace(/\s+/g, ' ').trim();
-    const readinessPrompt = KMATE_READY_SPEECH_V56.test(text)
-      || (document.body?.classList.contains('game-mode') && /you will hear both live coaching and post[ -]?game reviews/i.test(text));
+    const inGame = Boolean(document.body?.classList.contains('game-mode'));
+    const readinessPrompt = KMATE_AUTOMATIC_READY_SPEECH_V56.test(text)
+      || (inGame && KMATE_PLAY_READY_SPEECH_V56.test(text));
     if (!readinessPrompt) return upstreamSpeak(utterance);
 
     km56SuppressedReadySpeech += 1;
@@ -237,13 +264,17 @@ function km56Refresh() {
     km56SetPanelOpen(false);
   } else if (!document.body.classList.contains('game-panel-open')) {
     const { backdrop, panel } = km56PanelElements();
-    if (backdrop instanceof HTMLElement) backdrop.hidden = true;
-    if (panel instanceof HTMLElement) panel.toggleAttribute('inert', true);
+    if (backdrop instanceof HTMLElement && !backdrop.hidden) backdrop.hidden = true;
+    if (panel instanceof HTMLElement && !panel.hasAttribute('inert')) panel.toggleAttribute('inert', true);
   }
 }
 
 function km56ScheduleRefresh() {
-  window.requestAnimationFrame(km56Refresh);
+  if (km56RefreshFrame) return;
+  km56RefreshFrame = window.requestAnimationFrame(() => {
+    km56RefreshFrame = 0;
+    km56Refresh();
+  });
 }
 
 function km56InstallObservers() {
@@ -253,7 +284,7 @@ function km56InstallObservers() {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['class', 'hidden', 'aria-pressed'],
+      attributeFilter: ['class', 'hidden'],
     });
   }
   document.addEventListener('change', (event) => {
@@ -273,7 +304,7 @@ function km56State() {
     version: KMATE_TOP_CONTROLS_V56,
     menuOpen: Boolean(document.body?.classList.contains('game-panel-open')),
     menuExpanded: button?.getAttribute('aria-expanded') === 'true',
-    panelVisible: Boolean(panel && getComputedStyle(panel).display !== 'none' && !panel.inert),
+    panelVisible: Boolean(panel && getComputedStyle(panel).display !== 'none' && !panel.hasAttribute('inert')),
     backdropVisible: Boolean(backdrop && !backdrop.hidden),
     voiceEnabled: km56VoiceEnabled(),
     voiceButtonPressed: document.querySelector('#gameCoachAudioButton')?.getAttribute('aria-pressed') === 'true',
