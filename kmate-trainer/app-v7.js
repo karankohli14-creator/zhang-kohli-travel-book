@@ -44,17 +44,16 @@ try {
 }
 
 try {
-  // v55 owns every non-board button tap. It is intentionally installed before
-  // older interaction layers so Start training, Continue, back, green actions,
-  // and every other button use the same Generate-and-start wood tap exactly once.
-  await import('./unified-button-sound-v55.js?v=55.1.0');
+  // v56 gives every non-board button the same original soft K-Mate tap. Older
+  // button-sound layers stay silent, while chess moves retain their own wood cue.
+  await import('./unified-button-sound-v55.js?v=56.0.0');
 } catch (error) {
-  console.warn('Optional v55 unified button sound could not load.', error);
+  console.warn('Optional v56 unified soft button sound could not load.', error);
 }
 
 try {
   // v48 installs the concise bad-move comparison foundation and the uniform
-  // wooden piece-movement cue. v55 suppresses only its legacy button tap.
+  // wooden piece-movement cue. v56 suppresses only its legacy button tap.
   await import('./mobile-game-ux-v48.js?v=48.0.0');
 } catch (error) {
   console.warn('Optional v48 mobile game and coaching layer could not load.', error);
@@ -177,11 +176,19 @@ try {
   try {
     // v55 moves coaching and hints outside the board, keeps an always-available
     // home button, restores audible coach narration, and draws revealed
-    // candidate moves directly on the board. Its stylesheet is loaded by the
-    // module so this remains safe even before the next index cache refresh.
+    // candidate moves directly on the board.
     await import('./coach-layout-v55.js?v=55.0.0');
   } catch (error) {
     console.warn('Optional v55 coach layout and voice layer could not load.', error);
+  }
+
+  try {
+    // v56 replaces the play-page audio test with a silent voice on/off toggle,
+    // suppresses readiness announcements, and owns a reliable mobile details
+    // drawer so the three-line control always exposes Resign and other tools.
+    await import('./top-controls-v56.js?v=56.0.0');
+  } catch (error) {
+    console.warn('Optional v56 play-page top controls could not load.', error);
   }
 
   if (window.__KMATE_CLASSIC_BOARD_V46__?.state?.().active === false) {
