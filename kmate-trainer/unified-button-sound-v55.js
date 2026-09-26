@@ -1,5 +1,13 @@
-const KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.1.0';
-const KMATE_UI_TAP_SIGNATURE_V55 = 'generate-and-start-position';
+const KMATE_UNIFIED_BUTTON_SOUND_V55 = '56.0.0';
+const KMATE_UI_TAP_SIGNATURE_V55 = 'original-soft-button';
+const KMATE_UI_TAP_PROFILE_V55 = Object.freeze({
+  oscillator: 'sine',
+  startFrequency: 405,
+  endFrequency: 225,
+  filterFrequency: 1750,
+  peakGain: 0.025,
+  durationMs: 58,
+});
 
 let km55AudioContext = null;
 let km55TapCount = 0;
@@ -32,42 +40,35 @@ function km55PlayUnifiedTap() {
   if (!AudioContextClass) return false;
 
   try {
-    km55AudioContext ||= new AudioContextClass();
+    km55AudioContext ||= new AudioContextClass({ latencyHint: 'interactive' });
     const context = km55AudioContext;
     void context.resume?.();
-    const now = context.currentTime;
-    const master = context.createGain();
-    master.gain.setValueAtTime(0.0001, now);
-    master.gain.exponentialRampToValueAtTime(0.0594, now + 0.004);
-    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
-    master.connect(context.destination);
+    const now = context.currentTime + 0.002;
+    const oscillator = context.createOscillator();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
 
-    // This is the exact tactile wood-tap profile used by the existing
-    // Generate and start position / Start training controls.
-    const body = context.createOscillator();
-    const bodyGain = context.createGain();
-    body.type = 'triangle';
-    body.frequency.setValueAtTime(185, now);
-    body.frequency.exponentialRampToValueAtTime(112, now + 0.065);
-    bodyGain.gain.setValueAtTime(0.9, now);
-    bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.072);
-    body.connect(bodyGain).connect(master);
-    body.start(now);
-    body.stop(now + 0.08);
+    // Preserve the original K-Mate soft interface tap. Every visual button—
+    // green, gray, icon-only, dialog, setup, and in-game—uses this identical
+    // profile. Chess-piece movement continues to use its separate wood sample.
+    oscillator.type = KMATE_UI_TAP_PROFILE_V55.oscillator;
+    oscillator.frequency.setValueAtTime(KMATE_UI_TAP_PROFILE_V55.startFrequency, now);
+    oscillator.frequency.exponentialRampToValueAtTime(KMATE_UI_TAP_PROFILE_V55.endFrequency, now + 0.046);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(KMATE_UI_TAP_PROFILE_V55.filterFrequency, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(KMATE_UI_TAP_PROFILE_V55.peakGain, now + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.052);
 
-    const click = context.createOscillator();
-    const clickGain = context.createGain();
-    click.type = 'square';
-    click.frequency.setValueAtTime(1180, now);
-    click.frequency.exponentialRampToValueAtTime(520, now + 0.018);
-    clickGain.gain.setValueAtTime(0.16, now);
-    clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
-    click.connect(clickGain).connect(master);
-    click.start(now);
-    click.stop(now + 0.026);
+    oscillator.connect(filter);
+    filter.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(now);
+    oscillator.stop(now + KMATE_UI_TAP_PROFILE_V55.durationMs / 1000);
 
     km55TapCount += 1;
     document.documentElement.dataset.kmateUnifiedTapCount = String(km55TapCount);
+    document.documentElement.dataset.kmateUnifiedTapProfile = KMATE_UI_TAP_SIGNATURE_V55;
     return true;
   } catch (error) {
     console.debug('K-Mate unified button sound is unavailable.', error);
@@ -79,12 +80,11 @@ function km55OnPointerDown(event) {
   const control = km55ButtonFromEvent(event);
   if (!control) return;
   km55LastControl = control.id || control.getAttribute('aria-label') || control.textContent?.trim().slice(0, 80) || control.tagName;
+  control.dataset.kmateUiTapProfile = KMATE_UI_TAP_SIGNATURE_V55;
   km55PlayUnifiedTap();
 
-  // Do not stop propagation: several play-page controls intentionally use
-  // pointer events before their click handlers. Legacy sound layers now
-  // detect v55 and opt out, so functionality and one-sound consistency
-  // are both preserved.
+  // Never stop the functional pointer event. Older interface-sound layers opt
+  // out whenever the compatibility v55 class is present, leaving one soft tap.
   event.kmateUnifiedButtonSoundHandled = true;
   km55SuppressedLegacyTaps += 1;
 }
@@ -94,6 +94,7 @@ function km55OnKeyboardClick(event) {
   const control = km55ButtonFromEvent(event);
   if (!control) return;
   km55LastControl = control.id || control.getAttribute('aria-label') || control.textContent?.trim().slice(0, 80) || control.tagName;
+  control.dataset.kmateUiTapProfile = KMATE_UI_TAP_SIGNATURE_V55;
   km55PlayUnifiedTap();
 }
 
@@ -102,6 +103,7 @@ function km55State() {
     ready: true,
     version: KMATE_UNIFIED_BUTTON_SOUND_V55,
     signature: KMATE_UI_TAP_SIGNATURE_V55,
+    profile: { ...KMATE_UI_TAP_PROFILE_V55 },
     taps: km55TapCount,
     suppressedLegacyTaps: km55SuppressedLegacyTaps,
     lastControl: km55LastControl,
@@ -109,7 +111,7 @@ function km55State() {
   };
 }
 
-document.documentElement.classList.add('kmate-unified-button-sound-v55');
+document.documentElement.classList.add('kmate-unified-button-sound-v55', 'kmate-unified-button-sound-v56');
 document.addEventListener('pointerdown', km55OnPointerDown, { capture: true, passive: true });
 document.addEventListener('click', km55OnKeyboardClick, { capture: true, passive: true });
 window.__KMATE_UNIFIED_BUTTON_SOUND_V55__ = {
@@ -117,3 +119,4 @@ window.__KMATE_UNIFIED_BUTTON_SOUND_V55__ = {
   play: km55PlayUnifiedTap,
   state: km55State,
 };
+window.__KMATE_UNIFIED_BUTTON_SOUND_V56__ = window.__KMATE_UNIFIED_BUTTON_SOUND_V55__;
