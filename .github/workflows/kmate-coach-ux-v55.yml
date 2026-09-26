@@ -76,7 +76,8 @@ jobs:
           grep -Fq "KMATE_TOP_CONTROLS_V56 = '56.0.0'" kmate-trainer/top-controls-v56.js
           grep -Fq "km56SetPanelOpen" kmate-trainer/top-controls-v56.js
           grep -Fq "km56SetVoiceEnabled" kmate-trainer/top-controls-v56.js
-          grep -Fq "KMATE_READY_SPEECH_V56" kmate-trainer/top-controls-v56.js
+          grep -Fq "KMATE_AUTOMATIC_READY_SPEECH_V56" kmate-trainer/top-controls-v56.js
+          grep -Fq "KMATE_PLAY_READY_SPEECH_V56" kmate-trainer/top-controls-v56.js
           grep -Fq "body.game-mode.game-panel-open .sidepanel" kmate-trainer/top-controls-v56.css
           grep -Fq "kmate-unified-button-sound-v55" kmate-trainer/mobile-game-ux-v48.js
           grep -Fq "kmate-unified-button-sound-v55" kmate-trainer/appflow-v35.js
