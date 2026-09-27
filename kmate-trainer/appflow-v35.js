@@ -151,7 +151,7 @@
         </div>
         <footer class="wizard-footer wizard-welcome-footer wizard-bottom-dock">
           <button class="wizard-button wizard-secondary" id="wizardInsightsButton" type="button"><span aria-hidden="true">◎</span><b>My insights</b></button>
-          <button class="wizard-button wizard-next wizard-primary" type="button" data-wizard-next="position"><b>Start training</b><span aria-hidden="true">→</span></button>
+          <button class="wizard-button wizard-next wizard-primary" type="button" data-wizard-next="position"><b>Play a position</b><span aria-hidden="true">→</span></button>
         </footer>
       </section>
       ${pageMarkup('position', 'Choose your position', 1)}

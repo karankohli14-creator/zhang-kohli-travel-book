@@ -44,10 +44,8 @@ try {
 }
 
 try {
-  // v55 owns every non-board button tap. It is intentionally installed before
-  // older interaction layers so Start training, Continue, back, green actions,
-  // and every other button use the same Generate-and-start wood tap exactly once.
-  await import('./unified-button-sound-v55.js?v=55.1.0');
+  // Every non-board control uses the original quiet interface tap once.
+  await import('./unified-button-sound-v55.js?v=56.0.0');
 } catch (error) {
   console.warn('Optional v55 unified button sound could not load.', error);
 }
@@ -68,7 +66,7 @@ try {
   console.warn('Optional v45 move-sound compatibility layer could not load.', error);
 }
 
-const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((number) => `./app-v7-part${number}.txt?v=42.0.0`);
+const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((number) => `./app-v7-part${number}.txt?v=56.0.0`);
 const responses = await Promise.all(partUrls.map(async (url) => {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Unable to load ${url}: ${response.status}`);
@@ -157,7 +155,7 @@ try {
     try {
       await import('./personalization-v42.js?v=43.0.0');
       try {
-        await import('./training-plans-v43.js?v=43.0.0');
+        await import('./training-plans-v43.js?v=56.0.0');
       } catch (error) {
         // Training Plans are an optional structured curriculum layer. Core
         // personalized learning and puzzle practice remain available.

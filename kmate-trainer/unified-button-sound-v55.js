@@ -1,5 +1,5 @@
-const KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.1.0';
-const KMATE_UI_TAP_SIGNATURE_V55 = 'generate-and-start-position';
+const KMATE_UNIFIED_BUTTON_SOUND_V55 = '56.0.0';
+const KMATE_UI_TAP_SIGNATURE_V55 = 'soft-interface-tap';
 
 let km55AudioContext = null;
 let km55TapCount = 0;
@@ -8,7 +8,9 @@ let km55LastControl = '';
 
 function km55SoundsAllowed() {
   const toggle = document.querySelector('#soundToggle');
-  return !toggle || !toggle.classList.contains('muted');
+  let storedSound = true;
+  try { storedSound = JSON.parse(localStorage.getItem('kmate-position-v7') || 'null')?.settings?.sound !== false; } catch {}
+  return (!toggle || !toggle.classList.contains('muted')) && storedSound;
 }
 
 function km55IsBoardInput(control) {
@@ -19,9 +21,9 @@ function km55IsBoardInput(control) {
 
 function km55ButtonFromEvent(event) {
   const target = event.target instanceof Element ? event.target : null;
-  const control = target?.closest?.('button, [role="button"]');
+  const control = target?.closest?.('button, [role="button"], select, input[type="checkbox"], input[type="range"]');
   if (!control || control.disabled || control.getAttribute('aria-disabled') === 'true') return null;
-  if (km55IsBoardInput(control)) return null;
+  if (km55IsBoardInput(control) || control.closest('#board,#km42PuzzleBoard,.replay-board,.promos')) return null;
   if (control.matches('[data-kmate-no-ui-sound]')) return null;
   return control;
 }
@@ -36,35 +38,21 @@ function km55PlayUnifiedTap() {
     const context = km55AudioContext;
     void context.resume?.();
     const now = context.currentTime;
-    const master = context.createGain();
-    master.gain.setValueAtTime(0.0001, now);
-    master.gain.exponentialRampToValueAtTime(0.0594, now + 0.004);
-    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
-    master.connect(context.destination);
-
-    // This is the exact tactile wood-tap profile used by the existing
-    // Generate and start position / Start training controls.
-    const body = context.createOscillator();
-    const bodyGain = context.createGain();
-    body.type = 'triangle';
-    body.frequency.setValueAtTime(185, now);
-    body.frequency.exponentialRampToValueAtTime(112, now + 0.065);
-    bodyGain.gain.setValueAtTime(0.9, now);
-    bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.072);
-    body.connect(bodyGain).connect(master);
-    body.start(now);
-    body.stop(now + 0.08);
-
-    const click = context.createOscillator();
-    const clickGain = context.createGain();
-    click.type = 'square';
-    click.frequency.setValueAtTime(1180, now);
-    click.frequency.exponentialRampToValueAtTime(520, now + 0.018);
-    clickGain.gain.setValueAtTime(0.16, now);
-    clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
-    click.connect(clickGain).connect(master);
-    click.start(now);
-    click.stop(now + 0.026);
+    // Match the original quiet interface tap, including the gray controls.
+    const oscillator = context.createOscillator();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(405, now);
+    oscillator.frequency.exponentialRampToValueAtTime(225, now + 0.046);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1750, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.025, now + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.052);
+    oscillator.connect(filter).connect(gain).connect(context.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.058);
 
     km55TapCount += 1;
     document.documentElement.dataset.kmateUnifiedTapCount = String(km55TapCount);
@@ -90,7 +78,7 @@ function km55OnPointerDown(event) {
 }
 
 function km55OnKeyboardClick(event) {
-  if (event.detail !== 0) return;
+  if (event.detail !== 0 || event.target?.dataset?.kmateNoUiSound) return;
   const control = km55ButtonFromEvent(event);
   if (!control) return;
   km55LastControl = control.id || control.getAttribute('aria-label') || control.textContent?.trim().slice(0, 80) || control.tagName;

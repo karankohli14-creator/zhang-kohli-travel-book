@@ -1109,12 +1109,12 @@ function syncGameViewportLayout() {
 }
 
 function setGamePanelOpen(open = !gamePanelOpen) {
-  const narrow = window.matchMedia('(max-width:980px)').matches;
-  gamePanelOpen = Boolean(open && narrow && document.body.classList.contains('game-mode'));
+  gamePanelOpen = Boolean(open && document.body.classList.contains('game-mode'));
   document.body.classList.toggle('game-panel-open', gamePanelOpen);
   const button = $('#panelToggleButton');
   if (button) {
     button.setAttribute('aria-expanded', String(gamePanelOpen));
+    button.setAttribute('aria-label', gamePanelOpen ? 'Close game details' : 'Open game details');
     button.title = gamePanelOpen ? 'Close game details' : 'Game details';
   }
   const backdrop = $('#gamePanelBackdrop');
@@ -3142,7 +3142,7 @@ function testCoachVoice() {
 
   const launch = (useSelectedVoice = true) => {
     if (serial !== coachAudioTestSerial) return;
-    const utterance = new SpeechSynthesisUtterance('K Mate coach audio is ready. You will hear both live coaching and post game reviews on this device.');
+    const utterance = new SpeechSynthesisUtterance('Coach voice is on.');
     const voice = useSelectedVoice ? chooseCoachVoice() : null;
     utterance.lang = voice?.lang || 'en-GB';
     utterance.rate = Math.max(0.84, Math.min(1.02, Number(settings.coachVoiceRate) || 0.92));

@@ -60,16 +60,12 @@ function tpEnsureNavigation() {
   if (welcome && !tp$('#wizardTrainingPlanButton')) {
     const button = document.createElement('button');
     button.id = 'wizardTrainingPlanButton';
-    button.className = 'tp-welcome-card';
+    button.className = 'wizard-button wizard-secondary tp-welcome-card';
     button.type = 'button';
     button.innerHTML = `
-      <span aria-hidden="true">✦</span>
-      <div><b>Training Plan</b><small>Follow a custom curriculum or focus on one chess skill</small></div>
-      <i aria-hidden="true">→</i>`;
+      <span aria-hidden="true">✦</span><b>Training Plan</b>`;
     button.addEventListener('click', () => tpOpen());
-    const path = tp$('.wizard-path', welcome);
-    if (path) path.insertAdjacentElement('afterend', button);
-    else welcome.append(button);
+    (tp$('.wizard-welcome-footer') || welcome).append(button);
   }
 
   const learningActions = tp$('#learningView .learning-hero-actions');
@@ -100,7 +96,8 @@ function tpHideOtherViews() {
     if (view) view.hidden = true;
   }
   document.documentElement.classList.remove('game-mode');
-  document.body.classList.remove('game-mode', 'board-focus', 'game-panel-open', 'setup-wizard-mode');
+  document.documentElement.classList.add('training-plans-open');
+  document.body.classList.remove('game-mode', 'board-focus', 'game-panel-open', 'setup-wizard-mode', 'km41-puzzle-open');
   document.documentElement.classList.remove('setup-wizard-root');
 }
 
@@ -135,6 +132,7 @@ function tpBindExistingNavigation() {
     button.addEventListener('click', () => {
       const view = tp$('#trainingPlanView');
       if (view) view.hidden = true;
+      document.documentElement.classList.remove('training-plans-open');
     }, { capture: true });
   }
   for (const button of [tp$('#brandButton'), tp$('#wizardInsightsButton')].filter(Boolean)) {
@@ -143,6 +141,7 @@ function tpBindExistingNavigation() {
     button.addEventListener('click', () => {
       const view = tp$('#trainingPlanView');
       if (view) view.hidden = true;
+      document.documentElement.classList.remove('training-plans-open');
     }, { capture: true });
   }
 }

@@ -1,0 +1,38 @@
+/* One family of actions on the welcome screen; the green action stays distinct. */
+body.setup-wizard-mode .wizard-welcome{grid-template-rows:minmax(0,1fr) auto}
+body.setup-wizard-mode .wizard-welcome-footer,
+body.setup-wizard-mode .wizard-welcome-footer.kmate-learning-footer.kmate-import-footer,
+body.setup-wizard-mode .wizard-welcome-footer.kmate-learning-footer:not(.kmate-import-footer){
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;width:min(1060px,100%);margin-inline:auto;
+}
+body.setup-wizard-mode .wizard-welcome-footer .wizard-button,
+body.setup-wizard-mode .wizard-welcome-footer #wizardLearningButton,
+body.setup-wizard-mode .wizard-welcome-footer .tp-welcome-card{
+  display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:58px;min-height:58px;
+  margin:0;padding:0 12px;border-radius:15px;font-size:clamp(12px,1.25vw,16px);line-height:1.15;
+  box-shadow:inset 0 2px 0 #ffffff30,inset 0 -5px 0 #0b100c,0 10px 20px #0006;
+}
+body.setup-wizard-mode .wizard-welcome-footer .wizard-button b{font-size:inherit;white-space:normal}
+body.setup-wizard-mode .wizard-welcome-footer .wizard-button span{flex:none;font-size:1.15em}
+body.setup-wizard-mode .wizard-welcome-footer #wizardLearningButton{border-color:#91c7a365;background:linear-gradient(180deg,#30483a,#192d22);color:#dcf5e2}
+body.setup-wizard-mode .wizard-welcome-footer .tp-welcome-card{border-color:#d6bb7a70;background:linear-gradient(180deg,#463e2d,#292a20);color:#fff2d8;text-align:center}
+body.setup-wizard-mode .wizard-welcome-footer .wizard-primary{order:5}
+html.training-plans-open,html.training-plans-open body{height:auto!important;min-height:100%;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:auto!important}
+html.training-plans-open body .shell{position:relative!important;inset:auto!important;height:auto!important;min-height:0!important;overflow:visible!important}
+html.training-plans-open #trainingPlanView{height:auto!important;max-height:none!important;overflow:visible!important}
+body.game-mode .panel-toggle-button{display:grid}
+@media(min-width:981px){
+  body.game-mode.game-panel-open .sidepanel{position:fixed;top:12px;right:12px;bottom:12px;z-index:76;width:min(380px,calc(100vw - 24px));height:auto;box-shadow:0 28px 90px #000d}
+  body.game-mode .game-panel-backdrop{position:fixed;inset:0;z-index:75;border:0;background:#0009;cursor:pointer}
+  body.game-mode.game-panel-open .game-panel-backdrop{display:block}
+}
+@media(max-width:760px){
+  body.setup-wizard-mode .wizard-welcome{overflow-y:auto;grid-template-rows:minmax(0,1fr) auto}
+  body.setup-wizard-mode .wizard-welcome-footer,
+  body.setup-wizard-mode .wizard-welcome-footer.kmate-learning-footer.kmate-import-footer,
+  body.setup-wizard-mode .wizard-welcome-footer.kmate-learning-footer:not(.kmate-import-footer){grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  body.setup-wizard-mode .wizard-welcome-footer .wizard-button,
+  body.setup-wizard-mode .wizard-welcome-footer #wizardLearningButton,
+  body.setup-wizard-mode .wizard-welcome-footer .tp-welcome-card{height:46px;min-height:46px;padding:0 8px;font-size:13px}
+  body.setup-wizard-mode .wizard-welcome-footer .wizard-primary{grid-column:1/-1}
+}
