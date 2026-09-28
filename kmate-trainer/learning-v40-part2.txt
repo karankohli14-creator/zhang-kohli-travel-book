@@ -120,7 +120,13 @@ function ensureLearningNav() {
     existing.addEventListener('click', () => {
       const view = $('#learningView');
       if (view) view.hidden = true;
+      document.documentElement.classList.remove('learning-page-open');
     }, { capture: true });
+  }
+  const brand = $('#brandButton');
+  if (brand && !brand.dataset.learningHideBound) {
+    brand.dataset.learningHideBound = LEARNING_VERSION;
+    brand.addEventListener('click', () => document.documentElement.classList.remove('learning-page-open'), { capture: true });
   }
   return button;
 }
@@ -137,7 +143,9 @@ function openLearningView() {
   $('#insightsView').hidden = true;
   view.hidden = false;
   document.documentElement.classList.remove('game-mode');
-  document.body.classList.remove('game-mode', 'board-focus', 'game-panel-open');
+  document.documentElement.classList.add('learning-page-open');
+  document.body.classList.remove('game-mode', 'board-focus', 'game-panel-open', 'setup-wizard-mode');
+  document.documentElement.classList.remove('setup-wizard-root');
   $$('.navbutton').forEach((button) => button.classList.toggle('active', button.dataset.view === 'learning'));
   window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   void renderLearningView();

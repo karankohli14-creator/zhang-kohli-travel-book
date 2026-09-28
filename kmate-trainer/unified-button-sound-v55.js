@@ -1,4 +1,4 @@
-const KMATE_UNIFIED_BUTTON_SOUND_V55 = '56.0.0';
+const KMATE_UNIFIED_BUTTON_SOUND_V55 = '57.0.0';
 const KMATE_UI_TAP_SIGNATURE_V55 = 'soft-interface-tap';
 
 let km55AudioContext = null;
@@ -78,7 +78,8 @@ function km55OnPointerDown(event) {
 }
 
 function km55OnKeyboardClick(event) {
-  if (event.detail !== 0 || event.target?.dataset?.kmateNoUiSound) return;
+  // Programmatic navigation clicks are not a second user action.
+  if (event.detail !== 0 || !event.isTrusted) return;
   const control = km55ButtonFromEvent(event);
   if (!control) return;
   km55LastControl = control.id || control.getAttribute('aria-label') || control.textContent?.trim().slice(0, 80) || control.tagName;

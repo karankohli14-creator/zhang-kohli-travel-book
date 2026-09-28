@@ -44,13 +44,6 @@ try {
 }
 
 try {
-  // Every non-board control uses the original quiet interface tap once.
-  await import('./unified-button-sound-v55.js?v=56.0.0');
-} catch (error) {
-  console.warn('Optional v55 unified button sound could not load.', error);
-}
-
-try {
   // v48 installs the concise bad-move comparison foundation and the uniform
   // wooden piece-movement cue. v55 suppresses only its legacy button tap.
   await import('./mobile-game-ux-v48.js?v=48.0.0');
@@ -131,7 +124,7 @@ try {
   }
 
   try {
-    await import('./learning-v40.js?v=40.1.1');
+    await import('./learning-v40.js?v=57.0.0');
     try {
       await import('./learning-library-v40.js?v=40.1.1');
     } catch (error) {
@@ -155,7 +148,7 @@ try {
     try {
       await import('./personalization-v42.js?v=43.0.0');
       try {
-        await import('./training-plans-v43.js?v=56.0.0');
+        await import('./training-plans-v43.js?v=57.0.0');
       } catch (error) {
         // Training Plans are an optional structured curriculum layer. Core
         // personalized learning and puzzle practice remain available.

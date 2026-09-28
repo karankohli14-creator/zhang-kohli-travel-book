@@ -229,6 +229,7 @@ function observeApp() {
     const gameView = $('#gameView');
     const learningView = $('#learningView');
     if (gameView && !gameView.hidden && learningView && !learningView.hidden) learningView.hidden = true;
+    document.documentElement.classList.toggle('learning-page-open', Boolean(learningView && !learningView.hidden));
   });
   appObserver.observe(document.body, {
     childList: true,

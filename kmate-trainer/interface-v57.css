@@ -1,0 +1,36 @@
+/* The Learning page is a document, not a fixed setup wizard. */
+html.learning-page-open,html.learning-page-open body{
+  height:auto!important;min-height:100%;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:auto!important;
+}
+html.learning-page-open body .shell{position:relative!important;inset:auto!important;height:auto!important;min-height:0!important;overflow:visible!important}
+html.learning-page-open #learningView{height:auto!important;max-height:none!important;overflow:visible!important}
+
+/* Give puzzle practice the same wooden frame and external coordinates as play. */
+html.kmate-reference-theme-v52 .km41-boardwrap{
+  position:relative!important;padding:var(--km52-frame-size)!important;border:2px solid #1c0e07!important;
+  border-radius:2px!important;overflow:visible!important;box-sizing:border-box!important;
+  background-color:var(--km52-frame-mid)!important;
+  background-image:linear-gradient(145deg,rgba(255,255,255,.18),transparent 18%,transparent 74%,rgba(0,0,0,.38)),repeating-linear-gradient(0deg,transparent 0 3px,rgba(15,6,2,.12) 3px 4px,transparent 4px 8px),repeating-linear-gradient(2deg,rgba(145,91,50,.07) 0 1px,transparent 1px 13px),linear-gradient(90deg,var(--km52-frame-light),var(--km52-frame-mid) 48%,var(--km52-frame-dark))!important;
+  background-repeat:no-repeat,repeat,repeat,no-repeat!important;background-size:100% 100%,auto,auto,100% 100%!important;
+  box-shadow:inset 0 0 0 3px rgba(126,84,50,.72),inset 0 0 0 8px rgba(24,11,5,.42),inset 0 0 22px rgba(0,0,0,.58),0 14px 34px rgba(0,0,0,.55)!important;
+}
+html.kmate-reference-theme-v52 .km41-boardwrap::before{content:"";position:absolute;z-index:1;inset:calc(var(--km52-frame-size) - 6px);border:3px solid var(--km52-trim);box-shadow:0 0 0 1px #6c6d66,inset 0 0 0 1px rgba(255,255,255,.92),0 0 7px rgba(0,0,0,.58);pointer-events:none}
+html.kmate-reference-theme-v52 .km41-boardwrap::after{content:"";position:absolute;z-index:1;inset:7px;border:1px solid rgba(191,139,91,.38);box-shadow:inset 0 0 0 1px rgba(12,5,2,.52);pointer-events:none}
+html.kmate-reference-theme-v52 #km41PuzzleBoard{position:relative!important;z-index:2!important;width:100%!important;overflow:visible!important;border-radius:0!important;box-shadow:none!important}
+html.kmate-reference-theme-v52 #km41PuzzleBoard>.sq.light{
+  background-color:var(--km52-light-square)!important;
+  background-image:linear-gradient(90deg,rgba(255,255,255,.10),transparent 23%,rgba(83,72,52,.035) 52%,transparent 78%,rgba(255,255,255,.08)),repeating-linear-gradient(90deg,transparent 0 3px,rgba(105,92,69,.045) 3px 4px,transparent 4px 8px),repeating-linear-gradient(88deg,transparent 0 19px,rgba(118,101,75,.035) 20px 21px,transparent 22px 37px)!important;
+}
+html.kmate-reference-theme-v52 #km41PuzzleBoard>.sq.dark{
+  background-color:var(--km52-dark-square)!important;
+  background-image:linear-gradient(90deg,rgba(255,255,255,.07),transparent 23%,rgba(29,51,37,.09) 52%,transparent 78%,rgba(255,255,255,.05)),repeating-linear-gradient(90deg,transparent 0 3px,rgba(25,46,29,.045) 3px 4px,transparent 4px 8px)!important;
+}
+html.kmate-reference-theme-v52 #km41PuzzleBoard .coord{
+  z-index:20!important;display:grid!important;place-items:center!important;width:var(--km52-coordinate-size)!important;height:var(--km52-coordinate-size)!important;
+  margin:0!important;padding:0!important;border:1px solid var(--km52-coordinate-edge)!important;border-radius:50%!important;
+  background:var(--km52-coordinate)!important;color:var(--km52-coordinate-text)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.36),0 1px 0 rgba(255,139,93,.23),0 2px 4px rgba(0,0,0,.38)!important;
+  font:850 clamp(10px,2.8vw,15px)/1 ui-rounded,system-ui,sans-serif!important;opacity:1!important;pointer-events:none!important;box-sizing:border-box!important;
+}
+html.kmate-reference-theme-v52 #km41PuzzleBoard .coord.rank{left:var(--km52-coordinate-shift)!important;top:50%!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%)!important}
+html.kmate-reference-theme-v52 #km41PuzzleBoard .coord.file{left:50%!important;right:auto!important;top:auto!important;bottom:var(--km52-coordinate-shift)!important;transform:translate(-50%,50%)!important}

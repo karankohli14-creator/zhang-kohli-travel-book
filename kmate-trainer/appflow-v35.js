@@ -151,6 +151,9 @@
         </div>
         <footer class="wizard-footer wizard-welcome-footer wizard-bottom-dock">
           <button class="wizard-button wizard-secondary" id="wizardInsightsButton" type="button"><span aria-hidden="true">◎</span><b>My insights</b></button>
+          <button class="wizard-button wizard-secondary" id="wizardImportPositionButton" type="button" aria-label="Import a FEN, picture, or completed Chess.com game"><span aria-hidden="true">▧</span><b>Import</b></button>
+          <button class="wizard-button wizard-secondary" id="wizardLearningButton" type="button" aria-label="Open puzzles and instructional videos"><span aria-hidden="true">◈</span><b>Puzzles &amp; videos</b></button>
+          <button class="wizard-button wizard-secondary tp-welcome-card" id="wizardTrainingPlanButton" type="button"><span aria-hidden="true">✦</span><b>Training Plan</b></button>
           <button class="wizard-button wizard-next wizard-primary" type="button" data-wizard-next="position"><b>Play a position</b><span aria-hidden="true">→</span></button>
         </footer>
       </section>
@@ -244,7 +247,31 @@
 
     $('#wizardInsightsButton')?.addEventListener('click', () => {
       const insightsButton = $('.topnav [data-view="insights"]');
-      insightsButton?.click();
+      if (insightsButton) {
+        insightsButton.dataset.kmateNoUiSound = 'true';
+        try { insightsButton.click(); } finally { delete insightsButton.dataset.kmateNoUiSound; }
+      }
+    });
+    const openWhenReady = (button, feature, open, attempts = 0) => {
+      if (feature()) { button.dataset.pending = ''; open(); return; }
+      if (attempts >= 150) { button.dataset.pending = ''; return; }
+      button.dataset.pending = 'true';
+      window.setTimeout(() => openWhenReady(button, feature, open, attempts + 1), 100);
+    };
+    $('#wizardImportPositionButton')?.addEventListener('click', (event) => {
+      if (event.currentTarget.dataset.pending) return;
+      openWhenReady(event.currentTarget, () => window.__KMATE_POSITION_IMPORTERS__?.open,
+        () => window.__KMATE_POSITION_IMPORTERS__.open('manual'));
+    });
+    $('#wizardLearningButton')?.addEventListener('click', (event) => {
+      if (event.currentTarget.dataset.pending) return;
+      openWhenReady(event.currentTarget, () => window.__KMATE_LEARNING__?.open,
+        () => window.__KMATE_LEARNING__.open());
+    });
+    $('#wizardTrainingPlanButton')?.addEventListener('click', (event) => {
+      if (event.currentTarget.dataset.pending) return;
+      openWhenReady(event.currentTarget, () => window.__KMATE_TRAINING_PLANS__?.open,
+        () => window.__KMATE_TRAINING_PLANS__.open());
     });
 
     $('.topnav [data-view="setup"]')?.addEventListener('click', () => showPage('welcome', { focus: false }));

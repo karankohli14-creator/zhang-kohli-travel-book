@@ -96,6 +96,7 @@ function tpHideOtherViews() {
     if (view) view.hidden = true;
   }
   document.documentElement.classList.remove('game-mode');
+  document.documentElement.classList.remove('learning-page-open');
   document.documentElement.classList.add('training-plans-open');
   document.body.classList.remove('game-mode', 'board-focus', 'game-panel-open', 'setup-wizard-mode', 'km41-puzzle-open');
   document.documentElement.classList.remove('setup-wizard-root');
