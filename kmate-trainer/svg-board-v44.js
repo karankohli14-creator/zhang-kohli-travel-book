@@ -297,6 +297,7 @@ function svg44Render(board) {
 
     const boardLayer = svg44Node('g', { 'clip-path': `url(#${clipId})`, class: 'svg44-board-layer' });
     const overlayLayer = svg44Node('g', { 'clip-path': `url(#${clipId})`, class: 'svg44-state-layer' });
+    const coordinateLayer = svg44Node('g', { class: 'svg44-external-coordinates' });
     const pieceLayer = svg44Node('g', { 'clip-path': `url(#${clipId})`, class: 'svg44-piece-layer' });
     const arrowLayer = svg44Node('g', { 'clip-path': `url(#${clipId})`, class: 'svg44-arrow-layer' });
     const hitLayer = svg44Node('g', { 'clip-path': `url(#${clipId})`, class: 'svg44-hit-layer' });
@@ -321,14 +322,14 @@ function svg44Render(board) {
         pieceLayer.append(pieceGroup);
       }
       if (svg44Settings.coordinates) {
-        if (index % 8 === 0) { const rank = svg44Node('text', { x: x + 7, y: y + 17, class: `svg44-coordinate ${light ? 'on-light' : 'on-dark'}` }); rank.textContent = square[1]; overlayLayer.append(rank); }
-        if (index >= 56) { const file = svg44Node('text', { x: x + 90, y: y + 94, 'text-anchor': 'end', class: `svg44-coordinate ${light ? 'on-light' : 'on-dark'}` }); file.textContent = square[0]; overlayLayer.append(file); }
+        if (index % 8 === 0) { const cy = y + 50; coordinateLayer.append(svg44Node('circle', { cx: -26, cy, r: 21, class: 'svg44-coordinate-badge' })); const rank = svg44Node('text', { x: -26, y: cy + 5, 'text-anchor': 'middle', class: 'svg44-coordinate' }); rank.textContent = square[1]; coordinateLayer.append(rank); }
+        if (index >= 56) { const cx = x + 50; coordinateLayer.append(svg44Node('circle', { cx, cy: 826, r: 21, class: 'svg44-coordinate-badge' })); const file = svg44Node('text', { x: cx, y: 831, 'text-anchor': 'middle', class: 'svg44-coordinate' }); file.textContent = square[0]; coordinateLayer.append(file); }
       }
       hitLayer.append(svg44Node('rect', { x, y, width: 100, height: 100, fill: 'transparent', class: 'svg44-hit', tabindex: 0, role: 'gridcell', 'aria-label': button.getAttribute('aria-label') || square, 'data-svg-square': square, 'data-movable': svg44IsMovable(board, button) ? 'true' : 'false' }));
     });
 
     svg44RenderAnnotations(overlayLayer, state, defs); svg44RenderCoachArrows(arrowLayer, state, squares, defs);
-    overlay.append(boardLayer, overlayLayer, pieceLayer, arrowLayer, hitLayer);
+    overlay.append(boardLayer, overlayLayer, pieceLayer, arrowLayer, hitLayer, coordinateLayer);
     overlay.append(svg44Node('rect', { x: 3, y: 3, width: 794, height: 794, rx: 14, fill: 'none', stroke: theme.frame, 'stroke-width': 7, class: 'svg44-frame', 'pointer-events': 'none' }));
   } finally { state.rendering = false; svg44ObserveBoard(board, state); }
 }
