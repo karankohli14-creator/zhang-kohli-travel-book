@@ -10,71 +10,6 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 
-  let uiAudioContext = null;
-  let lastUiSoundAt = 0;
-  let uiSoundCount = 0;
-
-  function uiSoundsAllowed() {
-    const toggle = document.querySelector('#soundToggle');
-    return !toggle || !toggle.classList.contains('muted');
-  }
-
-  function playUiWoodTap(strength = 1) {
-    if (document.documentElement.classList.contains('kmate-unified-button-sound-v55')) return;
-    if (!uiSoundsAllowed()) return;
-    const nowMs = performance.now();
-    if (nowMs - lastUiSoundAt < 35) return;
-    lastUiSoundAt = nowMs;
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-    try {
-      uiAudioContext ||= new AudioContextClass();
-      const context = uiAudioContext;
-      context.resume?.();
-      const now = context.currentTime;
-      const master = context.createGain();
-      master.gain.setValueAtTime(0.0001, now);
-      master.gain.exponentialRampToValueAtTime(0.055 * Math.max(0.65, Math.min(1.15, strength)), now + 0.004);
-      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
-      master.connect(context.destination);
-
-      const body = context.createOscillator();
-      const bodyGain = context.createGain();
-      body.type = 'triangle';
-      body.frequency.setValueAtTime(185, now);
-      body.frequency.exponentialRampToValueAtTime(112, now + 0.065);
-      bodyGain.gain.setValueAtTime(0.9, now);
-      bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.072);
-      body.connect(bodyGain).connect(master);
-      body.start(now);
-      body.stop(now + 0.08);
-
-      const click = context.createOscillator();
-      const clickGain = context.createGain();
-      click.type = 'square';
-      click.frequency.setValueAtTime(1180, now);
-      click.frequency.exponentialRampToValueAtTime(520, now + 0.018);
-      clickGain.gain.setValueAtTime(0.16, now);
-      clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
-      click.connect(clickGain).connect(master);
-      click.start(now);
-      click.stop(now + 0.026);
-      uiSoundCount += 1;
-      document.documentElement.dataset.uiTapCount = String(uiSoundCount);
-    } catch (error) {
-      console.debug('K-Mate UI sound unavailable.', error);
-    }
-  }
-
-  function bindUiSounds(root) {
-    root.addEventListener('pointerdown', (event) => {
-      const control = event.target.closest('button, select, input[type="checkbox"], input[type="range"]');
-      if (!control || control.disabled) return;
-      const prominent = Boolean(control.closest('.wizard-bottom-dock') || control.matches('.phase-seg button'));
-      playUiWoodTap(prominent ? 1.08 : 0.82);
-    }, { passive: true });
-  }
-
   function setViewportHeight() {
     const height = Math.max(480, Math.round(window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 0));
     document.documentElement.style.setProperty('--kmate-app-height', `${height}px`);
@@ -306,7 +241,6 @@
       setViewportHeight();
       const wizard = buildWizard();
       bindWizard(wizard);
-      bindUiSounds(wizard);
       showPage('welcome', { focus: false });
       syncAppMode();
 

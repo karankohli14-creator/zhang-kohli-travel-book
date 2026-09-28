@@ -20,7 +20,6 @@
   let replayRefreshTimer = null;
   let firstDecisionIndex = null;
   let detailedMode = false;
-  let audioContext = null;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -143,46 +142,8 @@
       ${pending}`;
   }
 
-  function appSoundEnabled() {
-    try {
-      const state = window.__KMATE__?.state?.();
-      if (state?.sound) return state.sound.enabled !== false;
-      return readStore()?.settings?.sound !== false;
-    } catch {
-      return true;
-    }
-  }
-
-  function playInterfaceTap(strong = false) {
-    if (document.documentElement.classList.contains('kmate-unified-button-sound-v55')) return false;
-    if (!appSoundEnabled()) return false;
-    const AudioCtor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtor) return false;
-    try {
-      audioContext ||= new AudioCtor();
-      audioContext.resume?.();
-      const now = audioContext.currentTime + 0.004;
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      const filter = audioContext.createBiquadFilter();
-      oscillator.type = 'triangle';
-      oscillator.frequency.setValueAtTime(strong ? 250 : 315, now);
-      oscillator.frequency.exponentialRampToValueAtTime(strong ? 105 : 145, now + (strong ? 0.075 : 0.055));
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(strong ? 1450 : 1850, now);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(strong ? 0.12 : 0.075, now + 0.003);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + (strong ? 0.085 : 0.064));
-      oscillator.connect(filter);
-      filter.connect(gain);
-      gain.connect(audioContext.destination);
-      oscillator.start(now);
-      oscillator.stop(now + 0.1);
-      return true;
-    } catch {
-      return false;
-    }
-  }
+  // The early unified handler owns button sounds, including review controls.
+  function playInterfaceTap() { return false; }
 
   function principleParts(card) {
     const title = card.querySelector('b')?.textContent?.trim() || '';

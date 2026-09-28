@@ -9,9 +9,6 @@ const KMATE_MOVE_URL_V48 = new URL(
 ).href;
 const kmateV48NativeFetch = window.fetch.bind(window);
 
-let kmateV48UiAudioContext = null;
-let kmateV48UiTapCount = 0;
-let kmateV48LastUiTapAt = 0;
 let kmateV48MoveContext = null;
 let kmateV48MoveBuffer = null;
 let kmateV48MoveLoadPromise = null;
@@ -73,61 +70,6 @@ function kmateV48SoundEnabled() {
   const toggle = document.querySelector('#soundToggle');
   if (toggle?.classList.contains('muted') || String(toggle?.textContent || '').includes('🔇')) return false;
   return kmateV48ReadStore()?.settings?.sound !== false;
-}
-
-function kmateV48PlaySoftTap(strong = false) {
-  if (!kmateV48SoundEnabled()) return false;
-  const nowMs = performance.now();
-  if (nowMs - kmateV48LastUiTapAt < 32) return false;
-  kmateV48LastUiTapAt = nowMs;
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) return false;
-  try {
-    kmateV48UiAudioContext ||= new AudioContextClass({ latencyHint: 'interactive' });
-    const context = kmateV48UiAudioContext;
-    void context.resume?.();
-    const now = context.currentTime + 0.002;
-    const oscillator = context.createOscillator();
-    const filter = context.createBiquadFilter();
-    const gain = context.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(strong ? 345 : 405, now);
-    oscillator.frequency.exponentialRampToValueAtTime(strong ? 185 : 225, now + 0.046);
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(strong ? 1450 : 1750, now);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(strong ? 0.035 : 0.025, now + 0.003);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.052);
-    oscillator.connect(filter);
-    filter.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start(now);
-    oscillator.stop(now + 0.058);
-    kmateV48UiTapCount += 1;
-    document.documentElement.dataset.kmateSoftTapCount = String(kmateV48UiTapCount);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function kmateV48IsBoardControl(element) {
-  return Boolean(element?.closest?.('#board,#km42PuzzleBoard,.replay-board,.promos'));
-}
-
-function kmateV48BindSoftControls() {
-  document.addEventListener('pointerdown', (event) => {
-    if (document.documentElement.classList.contains('kmate-unified-button-sound-v55')) return;
-    const target = event.target instanceof Element ? event.target : null;
-    const control = target?.closest('button,select,input[type="checkbox"],input[type="range"]');
-    if (!control || control.disabled || kmateV48IsBoardControl(control)) return;
-    if (control.matches('#previewSoundButton,#previewCaptureButton')) return;
-    // Prevent the older wizard/review pointer listeners from layering a wooden
-    // knock on top of this one soft interface tap. Click/default behavior remains.
-    event.stopPropagation();
-    const prominent = control.matches('#startButton,#principlesStartButton,#liveCoachContinueButton,#fullscreenButton,.wizard-primary');
-    kmateV48PlaySoftTap(prominent);
-  }, true);
 }
 
 function kmateV48MoveAudioContext() {
@@ -505,7 +447,7 @@ function kmateV48ExposeDiagnostics() {
       ready: true,
       version: KMATE_GAME_UX_V48,
       softButtonSound: true,
-      softButtonTaps: kmateV48UiTapCount,
+      softButtonTaps: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__?.state?.().taps || 0,
       hiddenAutomaticCoachReady: true,
       suppressedReadyPrompts: kmateV48SuppressedReadyPrompts,
       conciseCoachNarrations: kmateV48ConciseNarrations,
@@ -544,7 +486,7 @@ function kmateV48Initialize() {
   kmateV48InstallStyles();
   kmateV48LockLegacyWoodPlayer();
   kmateV48PatchSpeech();
-  kmateV48BindSoftControls();
+  // Button audio belongs exclusively to the early unified sound handler.
   kmateV48BindClicks();
   kmateV48EnsureHintButton();
   kmateV48ObserveBoards();

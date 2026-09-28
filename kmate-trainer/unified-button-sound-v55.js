@@ -1,4 +1,4 @@
-const KMATE_UNIFIED_BUTTON_SOUND_V55 = '57.0.0';
+const KMATE_UNIFIED_BUTTON_SOUND_V55 = '58.0.0';
 const KMATE_UI_TAP_SIGNATURE_V55 = 'soft-interface-tap';
 
 let km55AudioContext = null;

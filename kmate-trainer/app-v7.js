@@ -46,7 +46,7 @@ try {
 try {
   // v48 installs the concise bad-move comparison foundation and the uniform
   // wooden piece-movement cue. v55 suppresses only its legacy button tap.
-  await import('./mobile-game-ux-v48.js?v=48.0.0');
+  await import('./mobile-game-ux-v48.js?v=58.0.0');
 } catch (error) {
   console.warn('Optional v48 mobile game and coaching layer could not load.', error);
 }
