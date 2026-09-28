@@ -54,12 +54,12 @@ try {
 try {
   // This compatibility bootstrap suppresses the core sound library. v48/v50
   // own the single quieter wooden movement sample used by the production board.
-  await import('./move-sound-v45.js?v=45.2.0');
+  await import('./move-sound-v45.js?v=59.0.0');
 } catch (error) {
   console.warn('Optional v45 move-sound compatibility layer could not load.', error);
 }
 
-const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((number) => `./app-v7-part${number}.txt?v=56.0.0`);
+const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((number) => `./app-v7-part${number}.txt?v=59.0.0`);
 const responses = await Promise.all(partUrls.map(async (url) => {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Unable to load ${url}: ${response.status}`);

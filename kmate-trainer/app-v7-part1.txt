@@ -689,7 +689,7 @@ async function unlockMoveAudio(audible = false) {
     audio.pause();
     audio.currentTime = segment.start;
     audio.muted = false;
-    audio.volume = audible ? segment.volume : 0.01;
+    audio.volume = audible ? segment.volume : 0;
     const promise = audio.play();
     if (promise?.then) await promise;
     htmlAudioUnlocked = true;
@@ -779,14 +779,6 @@ function playMoveSound(kind = 'move') {
     else playSynthMoveSound(kind);
   });
 }
-
-const primeSoundFromGesture = (event) => {
-  if (event?.target?.closest?.('#soundToggle')) return;
-  unlockMoveAudio(false);
-};
-document.addEventListener('pointerdown', primeSoundFromGesture, { capture: true, once: true });
-document.addEventListener('touchstart', primeSoundFromGesture, { capture: true, once: true, passive: true });
-document.addEventListener('keydown', primeSoundFromGesture, { capture: true, once: true });
 
 function updateSoundToggle() {
   const button = $('#soundToggle');

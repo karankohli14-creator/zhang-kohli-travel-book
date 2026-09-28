@@ -225,7 +225,7 @@ async function kmateMoveSoundPrime() {
   try {
     kmateMoveSoundPrimer.pause();
     kmateMoveSoundPrimer.currentTime = 0;
-    kmateMoveSoundPrimer.volume = 0.001;
+    kmateMoveSoundPrimer.volume = 0;
     // Start both APIs before awaiting so Safari and embedded iPhone browsers
     // still treat the unlock as part of the user's gesture.
     playPromise = kmateMoveSoundPrimer.play();
@@ -381,10 +381,8 @@ function kmateMoveSoundUpdateInterface() {
 function kmateMoveSoundFinishMigration() {
   if (!kmateMoveSoundMigrationPending()) return true;
   kmateMoveSoundMigrateSettings({ reinforce: true });
-  const toggle = document.querySelector('#soundToggle');
-  if (kmateMoveSoundOwnEnabled() && toggle instanceof HTMLButtonElement && toggle.textContent?.includes('🔇')) {
-    toggle.click();
-  }
+  // Migration must never synthesize a click on the sound control: that click
+  // plays a wooden speaker test while the user is pressing an unrelated button.
   kmateMoveSoundUpdateInterface();
 
   const stored = kmateMoveSoundStoredSettings();
@@ -412,9 +410,14 @@ function kmateMoveSoundInitialize() {
   kmateMoveSoundFinishMigration();
   window.setTimeout(() => window.clearInterval(updateTimer), 15000);
 
-  window.addEventListener('pointerdown', () => { void kmateMoveSoundPrime(); }, { capture: true, passive: true });
-  window.addEventListener('touchstart', () => { void kmateMoveSoundPrime(); }, { capture: true, passive: true });
-  window.addEventListener('keydown', () => { void kmateMoveSoundPrime(); }, { capture: true });
+  const primeFromBoard = (event) => {
+    if (event.target instanceof Element && event.target.closest('#board,.live-boardwrap,.replay-board,#km41PuzzleBoard,#km42PuzzleBoard')) {
+      void kmateMoveSoundPrime();
+    }
+  };
+  window.addEventListener('pointerdown', primeFromBoard, { capture: true, passive: true });
+  window.addEventListener('touchstart', primeFromBoard, { capture: true, passive: true });
+  window.addEventListener('keydown', primeFromBoard, { capture: true });
   window.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest('#previewSoundButton,#previewCaptureButton')) {
