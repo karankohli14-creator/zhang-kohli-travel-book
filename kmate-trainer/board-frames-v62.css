@@ -1,0 +1,94 @@
+/* v61: Every active board uses the positional board's wood frame and external labels. */
+html.kmate-reference-theme-v52 :is(.km41-boardwrap,.km42-boardwrap,.replay-boardwrap,.learning-puzzle-board-wrap,.km-import-board) {
+  position: relative !important;
+  padding: var(--km52-frame-size) !important;
+  border: 2px solid #1c0e07 !important;
+  border-radius: 2px !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  background-color: var(--km52-frame-mid) !important;
+  background-image: linear-gradient(145deg,rgba(255,255,255,.18),transparent 18%,transparent 74%,rgba(0,0,0,.38)),repeating-linear-gradient(0deg,transparent 0 3px,rgba(15,6,2,.12) 3px 4px,transparent 4px 8px),repeating-linear-gradient(2deg,rgba(145,91,50,.07) 0 1px,transparent 1px 13px),linear-gradient(90deg,var(--km52-frame-light),var(--km52-frame-mid) 48%,var(--km52-frame-dark)) !important;
+  background-repeat: no-repeat,repeat,repeat,no-repeat !important;
+  background-size: 100% 100%,auto,auto,100% 100% !important;
+  box-shadow: inset 0 0 0 3px rgba(126,84,50,.72),inset 0 0 0 8px rgba(24,11,5,.42),inset 0 0 22px rgba(0,0,0,.58),0 14px 34px rgba(0,0,0,.55) !important;
+}
+html.kmate-reference-theme-v52 :is(.km41-boardwrap,.km42-boardwrap,.replay-boardwrap,.learning-puzzle-board-wrap,.km-import-board)::before {
+  content: ""; position:absolute; z-index:1; inset:calc(var(--km52-frame-size) - 6px);
+  border:3px solid var(--km52-trim); box-shadow:0 0 0 1px #6c6d66,inset 0 0 0 1px rgba(255,255,255,.92),0 0 7px rgba(0,0,0,.58); pointer-events:none;
+}
+html.kmate-reference-theme-v52 :is(.km41-boardwrap,.km42-boardwrap,.replay-boardwrap,.learning-puzzle-board-wrap,.km-import-board)::after {
+  content:""; position:absolute; z-index:1; inset:7px; border:1px solid rgba(191,139,91,.38);
+  box-shadow:inset 0 0 0 1px rgba(12,5,2,.52); pointer-events:none;
+}
+html.kmate-reference-theme-v52 :is(#km41PuzzleBoard,#km42PuzzleBoard,#replayBoard,#learningPuzzleBoard,.km-import-board) {
+  overflow:visible !important; border-radius:0 !important;
+}
+html.kmate-reference-theme-v52 :is(#km41PuzzleBoard,#km42PuzzleBoard,#replayBoard,#learningPuzzleBoard) {
+  position:relative !important; z-index:2 !important; width:100% !important;
+  border:1px solid var(--km52-grid) !important;
+  box-shadow:0 0 0 2px rgba(242,242,234,.92),0 0 0 4px rgba(77,78,70,.92),0 2px 6px rgba(0,0,0,.48) !important;
+}
+html.kmate-reference-theme-v52 .km-import-board {
+  height:auto !important; aspect-ratio:auto !important;
+  box-shadow:inset 0 0 0 3px rgba(126,84,50,.72),inset 0 0 0 8px rgba(24,11,5,.42),0 14px 34px rgba(0,0,0,.55) !important;
+}
+html.kmate-reference-theme-v52 :is(#km41PuzzleBoard,#km42PuzzleBoard,#replayBoard,#learningPuzzleBoard) > :is(.sq,.learning-puzzle-square),
+html.kmate-reference-theme-v52 .km-import-square { overflow:visible !important; }
+html.kmate-reference-theme-v52 :is(#km41PuzzleBoard,#km42PuzzleBoard,#replayBoard,#learningPuzzleBoard,.km-import-board) :is(.coord,.learning-puzzle-coordinate,.km-import-coordinate) {
+  position:absolute !important; z-index:20 !important; display:grid !important; place-items:center !important;
+  width:var(--km52-coordinate-size) !important; height:var(--km52-coordinate-size) !important;
+  margin:0 !important; padding:0 !important; border:1px solid var(--km52-coordinate-edge) !important;
+  border-radius:50% !important; background:var(--km52-coordinate) !important;
+  color:var(--km52-coordinate-text) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.36),0 1px 0 rgba(255,139,93,.23),0 2px 4px rgba(0,0,0,.38) !important;
+  font:850 clamp(10px,2.8vw,15px)/1 ui-rounded,system-ui,sans-serif !important;
+  opacity:1 !important; pointer-events:none !important; box-sizing:border-box !important;
+}
+html.kmate-reference-theme-v52 :is(#km41PuzzleBoard,#km42PuzzleBoard,#replayBoard,#learningPuzzleBoard,.km-import-board) :is(.coord,.learning-puzzle-coordinate,.km-import-coordinate).rank {
+  left:var(--km52-coordinate-shift) !important; top:50% !important;
+  right:auto !important; bottom:auto !important; transform:translate(-50%,-50%) !important;
+}
+html.kmate-reference-theme-v52 :is(#km41PuzzleBoard,#km42PuzzleBoard,#replayBoard,#learningPuzzleBoard,.km-import-board) :is(.coord,.learning-puzzle-coordinate,.km-import-coordinate).file {
+  left:50% !important; right:auto !important; top:auto !important;
+  bottom:var(--km52-coordinate-shift) !important; transform:translate(-50%,50%) !important;
+}
+/* Small previews retain the same frame proportions without crowding the pieces. */
+html.kmate-reference-theme-v52 :is(.km-import-board,.replay-boardwrap) {
+  --km52-frame-size:clamp(19px,4vw,30px);
+  --km52-coordinate-size:clamp(17px,3vw,23px);
+  --km52-coordinate-shift:clamp(-17px,-2.5vw,-11px);
+}
+
+/* The opt-in legacy SVG board also places its labels on the external wood. */
+html.kmate-reference-theme-v52 :is(#board,#km42PuzzleBoard).svg44-enabled { overflow:visible !important; }
+.svg44-external-coordinates { pointer-events:none; }
+.svg44-coordinate-badge { fill:#d55236; stroke:#742918; stroke-width:2; filter:drop-shadow(0 2px 3px rgba(0,0,0,.4)); }
+.svg44-external-coordinates .svg44-coordinate { fill:#fff1dd !important; font-size:25px; font-weight:850; }
+
+/* v46 applies paint containment to custom puzzles and replay, which clipped
+   labels even though their own overflow was visible. Keep layout containment
+   without clipping the wooden frame. */
+html.kmate-reference-theme-v52 :is(#km41PuzzleBoard,#km42PuzzleBoard,#replayBoard,#learningPuzzleBoard,.km-import-board) {
+  contain: layout !important;
+}
+/* Explicitly beat the later-loaded v52 secondary badge dimensions and the
+   v46 square-ink colors, so every frame uses positional-play medallions. */
+html.kmate-reference-theme-v52 :is(.km41-boardwrap,.km42-boardwrap,.replay-boardwrap,.learning-puzzle-board-wrap,.km-import-board) :is(.coord,.learning-puzzle-coordinate,.km-import-coordinate) {
+  width:var(--km52-coordinate-size) !important;
+  height:var(--km52-coordinate-size) !important;
+  color:var(--km52-coordinate-text) !important;
+  opacity:1 !important;
+}
+
+/* The reference theme is injected after page CSS. Match its board IDs with
+   extra square specificity so its 17px fallback cannot shrink frame labels. */
+html.kmate-reference-theme-v52 :is(.km41-boardwrap,.km42-boardwrap,.replay-boardwrap,.learning-puzzle-board-wrap) :is(#km41PuzzleBoard,#km42PuzzleBoard,#replayBoard,#learningPuzzleBoard) > :is(.sq,.learning-puzzle-square) :is(.coord,.learning-puzzle-coordinate),
+html.kmate-reference-theme-v52 .km-import-board > .km-import-square > .km-import-coordinate {
+  width:var(--km52-coordinate-size) !important;
+  height:var(--km52-coordinate-size) !important;
+  min-width:var(--km52-coordinate-size) !important;
+  min-height:var(--km52-coordinate-size) !important;
+  color:var(--km52-coordinate-text) !important;
+  font:850 clamp(10px,2.8vw,15px)/1 ui-rounded,system-ui,sans-serif !important;
+  opacity:1 !important;
+}
