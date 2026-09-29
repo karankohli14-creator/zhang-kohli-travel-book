@@ -735,7 +735,7 @@ function km41RenderPuzzleShell() {
       <div class="eyebrow">Best continuation</div>
       <h2 class="km41-puzzle-instruction" id="km41PuzzleInstruction">Find the best move</h2>
       <p class="km41-puzzle-subtext">Play the complete line. The opponent’s forced replies appear automatically.</p>
-      <div class="km41-puzzle-why"><small>Why this puzzle is in your set</small><b id="km41PuzzleWhyTitle">Move-level match</b><span id="km41PuzzleWhyText">K-Mate is matching this position to your latest decisions.</span></div>
+      <div class="km41-puzzle-why"><small>Your weakness this puzzle works on:</small><b id="km41PuzzleWhyTitle">Calculation</b></div>
       <div class="km41-puzzle-meta" id="km41PuzzleMeta"></div>
       <div class="km41-puzzle-actions">
         <button class="btn" id="km41PuzzleHint" type="button">Hint</button>
@@ -743,7 +743,7 @@ function km41RenderPuzzleShell() {
         <button class="btn primary wide" id="km41PuzzleNext" type="button" hidden>Next</button>
       </div>
       <a class="km41-puzzle-source" id="km41PuzzleSource" target="_blank" rel="noopener noreferrer">Source game on Lichess</a>
-      <details class="km41-mobile-details"><summary>Why this puzzle?</summary><div id="km41PuzzleMobileWhy"></div></details>
+      <details class="km41-mobile-details"><summary>More about this puzzle</summary><div id="km41PuzzleMobileWhy"></div></details>
     </aside>`;
   km41$('#km41PuzzleHint')?.addEventListener('click', km41RevealPuzzleMove);
   km41$('#km41PuzzleSkip')?.addEventListener('click', km41SkipPuzzle);
@@ -866,11 +866,12 @@ function km41LoadPuzzleAtIndex() {
   km41$('#km41PuzzlePlayerSkill').textContent = slot.skill || 'Move-matched practice';
   km41$('#km41PuzzlePlayerAvatar').textContent = km41Puzzle.game.turn() === 'w' ? '♙' : '♟';
   km41$('#km41PuzzleInstruction').textContent = `${side} to move · find the best continuation`;
-  km41$('#km41PuzzleWhyTitle').textContent = slot.sourceMove ? `Because of ${slot.sourceMove}` : `${slot.focusLabel || 'Selected'} practice`;
+  km41$('#km41PuzzleWhyTitle').textContent = slot.focusLabel || km41Puzzle.recommendation?.focus?.label || 'Calculation';
   const why = slot.sourceMove
     ? `${slot.reason || ''}${matchedThemes.length ? ` This position reinforces ${matchedThemes.map(km41ThemeLabel).join(' and ')}.` : ''}`
     : slot.reason || km41Puzzle.recommendation?.relevance?.summary || '';
-  km41$('#km41PuzzleWhyText').textContent = why;
+  // Keep the detailed rationale in the optional details panel, not the main weakness callout.
+  km41$('#km41PuzzleWhyText')?.remove();
   km41$('#km41PuzzleMobileWhy').textContent = why;
   km41$('#km41PuzzleMeta').innerHTML = [
     `Rating ${puzzle.rating}`,

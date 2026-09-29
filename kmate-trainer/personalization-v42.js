@@ -1,4 +1,4 @@
-const KM42_LOADER_VERSION = '43.0.0';
+const KM42_LOADER_VERSION = '63.0.0';
 const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((number) => `./personalization-v42-part${number}.txt?v=${KM42_LOADER_VERSION}`);
 const responses = await Promise.all(partUrls.map(async (url) => {
   const response = await fetch(url, { cache: 'no-store' });

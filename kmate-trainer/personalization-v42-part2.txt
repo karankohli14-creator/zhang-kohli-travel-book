@@ -229,7 +229,7 @@ function km42EnsurePuzzleMode() {
           <h2 id="km42PuzzleInstruction">White to move</h2>
           <p class="km42-puzzle-help">Tap a piece and then a destination, or drag the piece directly.</p>
           <details class="km42-why" open>
-            <summary>Why K-Mate chose this puzzle</summary>
+            <summary>Your weakness this puzzle works on:</summary>
             <div><b id="km42PuzzleWhyTitle">Custom match</b><span id="km42PuzzleWhyText"></span></div>
           </details>
           <div class="km42-puzzle-meta" id="km42PuzzleMeta"></div>
@@ -385,9 +385,9 @@ function km42LoadPuzzleAtIndex({ preserveAttempt = false } = {}) {
   km42$('#km42PuzzleSkill').textContent = slot.skill || 'Custom practice';
   km42$('#km42PuzzlePlayerAvatar').textContent = km42Puzzle.game.turn() === 'w' ? '♙' : '♟';
   km42$('#km42PuzzleInstruction').textContent = `${side} to move · find the best continuation`;
-  km42$('#km42PuzzleWhyTitle').textContent = slot.sourceMove ? `Reinforces ${slot.sourceMove}` : (slot.sourceLabel || `${slot.focusLabel || 'Selected'} practice`);
+  km42$('#km42PuzzleWhyTitle').textContent = slot.focusLabel || km42Puzzle.recommendation?.focus?.label || 'Calculation';
   const why = `${slot.reason || km42Puzzle.recommendation?.customization?.summary || ''}${matchedThemes.length ? ` The position matches ${matchedThemes.map(km42ThemeLabel).join(', ')}.` : ''}`.trim();
-  km42$('#km42PuzzleWhyText').textContent = why;
+  km42$('#km42PuzzleWhyText').textContent = ''; // Detailed rationale remains in puzzle metadata.
   km42$('#km42PuzzleMeta').innerHTML = [
     `Rating ${puzzle.rating}`,
     ...matchedThemes.map(km42ThemeLabel),
