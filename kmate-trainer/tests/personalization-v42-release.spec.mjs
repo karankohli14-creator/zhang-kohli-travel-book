@@ -304,12 +304,14 @@ test('v42 phone puzzle board supports tap–tap movement and protects safe areas
   );
 
   const layout = await page.evaluate(() => {
-    const mode = document.querySelector('#km42PuzzleMode').getBoundingClientRect();
+    const mode = document.querySelector('#km42PuzzleMode .km42-puzzle-shell').getBoundingClientRect();
+    const topbar = document.querySelector('#km42PuzzleMode .km42-puzzle-topbar').getBoundingClientRect();
+    const main = document.querySelector('#km42PuzzleMode .km42-puzzle-main').getBoundingClientRect();
     const board = document.querySelector('#km42PuzzleBoard').getBoundingClientRect();
-    return { mode, board, viewportHeight: innerHeight };
+    return { mode, topbar, main, board, viewportHeight: innerHeight };
   });
-  expect(layout.mode.top).toBeGreaterThanOrEqual(46);
-  expect(layout.mode.bottom).toBeLessThanOrEqual(layout.viewportHeight - 33);
+  expect(layout.topbar.top).toBeGreaterThanOrEqual(46);
+  expect(layout.main.bottom).toBeLessThanOrEqual(layout.viewportHeight - 33);
   expect(layout.board.width).toBeGreaterThanOrEqual(350);
   expect(Math.abs(layout.board.width - layout.board.height)).toBeLessThan(2);
   expect(await page.locator('#km42PuzzleBoard .svg44-piece').count()).toBeGreaterThan(1);

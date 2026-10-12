@@ -47,7 +47,7 @@ jobs:
           node --check kmate-trainer/tests/mobile-game-ux-v48.spec.mjs
           node --check kmate-trainer/tests/classic-board-v46.spec.mjs
           node --check kmate-trainer/tests/audio-latency-v45.spec.mjs
-          grep -Fq "mobile-game-ux-v48.js?v=48.0.0" kmate-trainer/app-v7.js
+          grep -Eq "mobile-game-ux-v48\\.js\\?v=[^']+" kmate-trainer/app-v7.js
           grep -Fq "KMATE_MOVE_VOLUME_V48 = 0.24" kmate-trainer/mobile-game-ux-v48.js
           grep -Fq "KMATE_MOVE_VIBRATION_MS_V48 = 8" kmate-trainer/mobile-game-ux-v48.js
           grep -Fiq "coach voice ready" kmate-trainer/mobile-game-ux-v48.js

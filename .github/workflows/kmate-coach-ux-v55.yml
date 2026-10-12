@@ -59,13 +59,12 @@ jobs:
           node --check kmate-trainer/tests/coach-layout-v55.spec.mjs
           node --check kmate-trainer/tests/mobile-full-page-v50.spec.mjs
           node --check kmate-trainer/tests/mobile-game-ux-v48.spec.mjs
-          grep -Fq "unified-button-sound-v55.js?v=55.1.0" kmate-trainer/app-v7.js
+          grep -Eq '<script src="\./unified-button-sound-v55\.js\?v=[^"]+" defer>' kmate-trainer/index.html
           grep -Fq "coach-layout-v55.js?v=55.0.0" kmate-trainer/app-v7.js
-          grep -Fq "KMATE_UNIFIED_BUTTON_SOUND_V55 = '55.1.0'" kmate-trainer/unified-button-sound-v55.js
+          grep -Fq "KMATE_UNIFIED_BUTTON_SOUND_V55 = '58.0.0'" kmate-trainer/unified-button-sound-v55.js
           grep -Fq "KMATE_COACH_LAYOUT_V55 = '55.0.0'" kmate-trainer/coach-layout-v55.js
-          grep -Fq "kmate-unified-button-sound-v55" kmate-trainer/mobile-game-ux-v48.js
-          grep -Fq "kmate-unified-button-sound-v55" kmate-trainer/appflow-v35.js
-          grep -Fq "kmate-unified-button-sound-v55" kmate-trainer/review-v35-4.js
+          grep -Fq "Button audio belongs exclusively to the early unified sound handler" kmate-trainer/mobile-game-ux-v48.js
+          grep -Fq "early unified handler owns button sounds" kmate-trainer/review-v35-4.js
           ! grep -Fq "event.stopImmediatePropagation()" kmate-trainer/unified-button-sound-v55.js
           grep -Fq "km55-candidate-arrow" kmate-trainer/coach-layout-v55.css
           grep -Fq "kmate-voice-api.vercel.app" kmate-trainer/coach-layout-v55.js
