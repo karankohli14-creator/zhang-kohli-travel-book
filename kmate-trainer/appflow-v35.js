@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const FLOW_VERSION = '35.4-summary-first';
+  const FLOW_VERSION = '64.0.0-polished-setup';
   const PAGE_ORDER = ['welcome', 'position', 'challenge', 'coaching'];
   let activePage = 'welcome';
   let initialized = false;
@@ -24,7 +24,7 @@
             <i data-progress="position"></i><i data-progress="challenge"></i><i data-progress="coaching"></i>
           </div>
         </header>
-        <h1 class="wizard-title">${title}</h1>
+        <h1 class="wizard-title" tabindex="-1">${title}</h1>
         <div class="wizard-content wizard-${name}-content" data-wizard-slot="${name}"></div>
         <footer class="wizard-footer wizard-bottom-dock">
           <button class="wizard-button wizard-back" type="button" data-wizard-back><span aria-hidden="true">←</span><b>Back</b></button>
@@ -76,7 +76,7 @@
         <div class="wizard-welcome-main">
           <div class="wizard-welcome-brand"><span>♞</span><b>K-Mate</b></div>
           <div class="wizard-kicker">Practice the part that decides the game</div>
-          <h1>Play better positions.<br>Make better decisions.</h1>
+          <h1 tabindex="-1">Play better positions.<br>Make better decisions.</h1>
           <p>Choose a middlegame or endgame, set the strength and clock, then learn from the decisions that actually change the position.</p>
           <div class="wizard-path" aria-label="How K-Mate works">
             <div><i>1</i><b>Choose</b><span>a real position</span></div>
@@ -139,6 +139,7 @@
       page.hidden = !active;
       page.inert = !active;
       page.setAttribute('aria-hidden', String(!active));
+      if (active) page.querySelector('.wizard-content')?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }
     for (const dot of $$('[data-progress]', wizard)) {
       const currentIndex = PAGE_ORDER.indexOf(name);
@@ -146,6 +147,8 @@
       dot.classList.toggle('active', dotIndex === currentIndex);
       dot.classList.toggle('complete', dotIndex > 0 && dotIndex < currentIndex);
     }
+    const progress = $('.wizard-page:not([hidden]) .wizard-progress', wizard);
+    if (progress) progress.setAttribute('aria-label', `Setup progress: step ${PAGE_ORDER.indexOf(name)} of 3, ${name}`);
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     if (focus) {
       window.requestAnimationFrame(() => {

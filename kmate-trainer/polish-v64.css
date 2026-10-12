@@ -1,0 +1,59 @@
+/* A restrained polish layer for navigation and reading. Board geometry is untouched. */
+body.setup-wizard-mode .wizard-page .wizard-content {
+  align-content:start!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  padding:3px 4px 12px;
+}
+body.setup-wizard-mode .wizard-coaching-content #km42CoachingBlueprint {
+  grid-column:1/-1;
+  margin:0;
+}
+body.setup-wizard-mode .wizard-coaching-content #km42CoachingBlueprint .km42-blueprint-list {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+body.setup-wizard-mode .wizard-page .km42-blueprint-head small,
+body.setup-wizard-mode .wizard-page .km42-blueprint-head > span {font-size:11px}
+body.setup-wizard-mode .wizard-page .km42-blueprint-card > p {font-size:12px;line-height:1.45}
+body.setup-wizard-mode .wizard-page .km42-blueprint-principle b {font-size:14px;line-height:1.3}
+body.setup-wizard-mode .wizard-page .km42-blueprint-principle span {font-size:12px;line-height:1.45}
+body.setup-wizard-mode .wizard-page .km42-blueprint-principle small {font-size:11px;line-height:1.4}
+body.setup-wizard-mode .wizard-toggle {height:auto!important;min-height:76px!important;cursor:pointer}
+body.setup-wizard-mode .wizard-toggle b {font-size:15px;line-height:1.3}
+body.setup-wizard-mode .wizard-toggle small {
+  overflow:visible!important;
+  white-space:normal!important;
+  text-overflow:clip!important;
+  font-size:12px!important;
+  line-height:1.4!important;
+}
+body.setup-wizard-mode .wizard-audio-check span {
+  overflow:visible;
+  white-space:normal;
+  text-overflow:clip;
+  font-size:12px;
+  line-height:1.4;
+}
+/* A consistent, visible keyboard focus throughout the app. */
+:where(button,a,input,select,summary,[tabindex]):focus-visible {
+  outline:3px solid #ffe49a!important;
+  outline-offset:3px!important;
+  box-shadow:0 0 0 6px #101812!important;
+}
+.wizard-title:focus-visible,.wizard-welcome h1:focus-visible {outline:none!important;box-shadow:none!important}
+@media(max-width:760px){
+  body.setup-wizard-mode .wizard-page .wizard-content {scrollbar-gutter:auto;padding:2px 2px 10px}
+  body.setup-wizard-mode .wizard-coaching-content #km42CoachingBlueprint .km42-blueprint-list {grid-template-columns:1fr}
+  body.setup-wizard-mode .wizard-toggle {min-height:0!important;padding:11px!important}
+  body.setup-wizard-mode .wizard-toggle b {font-size:14px}
+  body.setup-wizard-mode .wizard-toggle small {font-size:11px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .wizard-page *, .wizard-page *::before, .wizard-page *::after {
+    scroll-behavior:auto!important;
+    animation-duration:.01ms!important;
+    transition-duration:.01ms!important;
+  }
+}
