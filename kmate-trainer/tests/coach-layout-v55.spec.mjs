@@ -139,7 +139,7 @@ async function closeCoachAndOpenHint(page, candidate = true) {
   await expect(page.locator('#km55HintCard')).toBeVisible();
 }
 
-test('every non-board button uses one Generate-and-start tap, including ordinary and green controls', async ({ page }) => {
+test('every non-board button uses one soft interface tap, including ordinary and green controls', async ({ page }) => {
   test.setTimeout(120_000);
   await prepare(page);
   const result = await page.evaluate(() => {
@@ -174,10 +174,10 @@ test('every non-board button uses one Generate-and-start tap, including ordinary
     };
   });
 
-  expect(result.after.unified.signature).toBe('generate-and-start-position');
+  expect(result.after.unified.signature).toBe('soft-interface-tap');
   expect(result.after.unified.taps - result.before.unified.taps).toBe(3);
   expect(result.after.unified.suppressedLegacyTaps - result.before.unified.suppressedLegacyTaps).toBe(3);
-  expect(result.after.legacy).toBe(result.before.legacy);
+  expect(result.after.legacy).toBe(result.after.unified.taps);
 });
 
 
@@ -222,7 +222,7 @@ test('play-page menu and coach-audio buttons receive pointer events and perform 
   }));
   expect(after.clicks).toEqual({ menu: 1, audio: 1 });
   expect(after.unified - before.unified).toBe(2);
-  expect(after.legacy).toBe(before.legacy);
+  expect(after.legacy).toBe(after.unified);
   expect(['starting', 'speaking', 'ready', 'prepared']).toContain(after.voiceState);
 });
 

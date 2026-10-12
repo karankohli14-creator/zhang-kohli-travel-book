@@ -143,8 +143,8 @@ test('mobile play prioritizes the board, uses one unified control sound, and exp
     move: window.__KMATE_MOVE_FEEDBACK_V48__.state(),
     unified: window.__KMATE_UNIFIED_BUTTON_SOUND_V55__.state(),
   }));
-  expect(afterTap.unified.taps).toBeGreaterThan(beforeTap.unified.taps);
-  expect(afterTap.ux.softButtonTaps).toBe(beforeTap.ux.softButtonTaps);
+  expect(afterTap.unified.taps).toBe(beforeTap.unified.taps + 1);
+  expect(afterTap.ux.softButtonTaps).toBe(afterTap.unified.taps);
   expect(afterTap.move.plays).toBe(beforeTap.move.plays);
 
   const hintPlacement = await page.evaluate(() => {
