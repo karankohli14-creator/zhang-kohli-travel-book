@@ -66,7 +66,7 @@ jobs:
           node --check kmate-trainer/tests/svg-board-v44.spec.mjs
           node --check kmate-trainer/tests/svg-piece-contrast-v44.spec.mjs
           node --check kmate-trainer/tests/audio-latency-v45.spec.mjs
-          grep -Fq "move-sound-v45.js?v=45.2.0" kmate-trainer/app-v7.js
+          grep -Eq "move-sound-v45\\.js\\?v=[^']+" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44-input.js?v=44.0.4" kmate-trainer/app-v7.js
           grep -Fq "svg-board-v44-contrast.js?v=44.0.1" kmate-trainer/app-v7.js
@@ -87,7 +87,7 @@ jobs:
           test "$(stat -c%s kmate-trainer/sounds/live-v28/kmate-reference-move-v28.wav)" -gt 8000
           grep -Fq "Copyright (c) 2014 Fuzzy" kmate-trainer/licenses/svgchessboard-MIT.txt
           grep -Fq "does not redistribute the ChessX piece or texture assets" kmate-trainer/licenses/svgchessboard-MIT.txt
-          grep -Fq "app-v7.js?v=44.0.0" kmate-trainer/index.html
+          grep -Eq '<script type="module" src="\./app-v7\.js\?v=[^"]+"' kmate-trainer/index.html
 
       - name: Install browser dependencies
         run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0

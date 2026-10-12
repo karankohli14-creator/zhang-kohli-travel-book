@@ -257,12 +257,13 @@ test('the same SVG presentation plays a real puzzle by tap on a phone viewport',
   // above; measure the persistent puzzle container rather than racing a
   // transient overlay that production v46 no longer loads.
   const safeLayout = await page.evaluate(() => {
-    const mode = document.querySelector('#km42PuzzleMode').getBoundingClientRect();
+    const topbar = document.querySelector('#km42PuzzleMode .km42-puzzle-topbar').getBoundingClientRect();
+    const main = document.querySelector('#km42PuzzleMode .km42-puzzle-main').getBoundingClientRect();
     const board = document.querySelector('#km42PuzzleBoard').getBoundingClientRect();
-    return { mode, board, viewportHeight: innerHeight, viewportWidth: innerWidth };
+    return { topbar, main, board, viewportHeight: innerHeight, viewportWidth: innerWidth };
   });
-  expect(safeLayout.mode.top).toBeGreaterThanOrEqual(46);
-  expect(safeLayout.mode.bottom).toBeLessThanOrEqual(safeLayout.viewportHeight - 33);
+  expect(safeLayout.topbar.top).toBeGreaterThanOrEqual(46);
+  expect(safeLayout.main.bottom).toBeLessThanOrEqual(safeLayout.viewportHeight - 33);
   expect(safeLayout.board.right).toBeLessThanOrEqual(safeLayout.viewportWidth + 1);
   expect(safeLayout.board.width).toBeGreaterThan(250);
 });

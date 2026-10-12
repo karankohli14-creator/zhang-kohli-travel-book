@@ -242,6 +242,34 @@ test('pregame principles visibly change with goal, phase, clock, side, and chall
   expect(recommendation.puzzlePlan.some((slot) => slot.sourceType === 'move-evidence')).toBe(true);
 });
 
+test('coaching setup stays readable and resets its own scroll on return', async ({ page }) => {
+  test.setTimeout(120_000);
+  await prepare(page);
+  await page.evaluate(() => window.__KMATE__.showSetupPage('coaching'));
+  const content = page.locator('.wizard-page[data-wizard-page="coaching"] .wizard-content');
+  const geometry = await content.evaluate((element) => {
+    const heading = element.parentElement.querySelector('.wizard-title').getBoundingClientRect();
+    const first = element.firstElementChild.getBoundingClientRect();
+    const area = element.getBoundingClientRect();
+    return { headingBottom: heading.bottom, firstTop: first.top, areaTop: area.top,
+      scrollHeight: element.scrollHeight, clientHeight: element.clientHeight };
+  });
+  expect(geometry.firstTop).toBeGreaterThanOrEqual(geometry.areaTop - 1);
+  expect(geometry.firstTop).toBeGreaterThanOrEqual(geometry.headingBottom);
+  expect(await content.evaluate((element) => getComputedStyle(element).overflowY)).toBe('auto');
+  expect(geometry.scrollHeight).toBeGreaterThanOrEqual(geometry.clientHeight);
+  const lastReachable = await content.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    return element.lastElementChild.getBoundingClientRect().bottom <= element.getBoundingClientRect().bottom + 1;
+  });
+  expect(lastReachable).toBe(true);
+  await content.evaluate((element) => { element.scrollTop = 200; });
+  await page.locator('.wizard-page[data-wizard-page="coaching"] [data-wizard-back]').click();
+  await page.locator('.wizard-page[data-wizard-page="challenge"] [data-wizard-next]').click();
+  expect(await content.evaluate((element) => element.scrollTop)).toBe(0);
+  await expect(page.locator('.wizard-page[data-wizard-page="coaching"] .wizard-footer')).toBeVisible();
+});
+
 test('instructional lessons cover separate mistakes and the chosen setup before playback', async ({ page }) => {
   test.setTimeout(120_000);
   await prepare(page);

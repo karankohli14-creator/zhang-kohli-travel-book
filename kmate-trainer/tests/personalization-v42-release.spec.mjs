@@ -273,6 +273,30 @@ test('v42 shows five diverse lessons tied to different moves and the chosen goal
   await expect(page.locator('#km42VideoDialog')).not.toBeVisible();
 });
 
+test('a finished position offers review and opens its custom puzzle workout', async ({ page }) => {
+  test.setTimeout(120_000);
+  await prepare(page);
+  await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
+  await expect(page.locator('#gameView')).toBeVisible();
+  await expect(page.locator('#board [data-svg-square]')).toHaveCount(64);
+  await page.locator('#board [data-svg-square="e2"]').click({ timeout: 10_000 });
+  await page.locator('#board [data-svg-square="e4"]').click({ timeout: 10_000 });
+  await expect(page.locator('#board > .sq[data-square="e4"] .piece')).toHaveCount(1);
+  await page.locator('#panelToggleButton').click();
+  await expect(page.locator('#resignButton')).toBeVisible();
+  await page.locator('#resignButton').click();
+  await expect(page.locator('#resultDialog')).toBeVisible();
+  await expect(page.locator('#kmateResultSummary')).toBeVisible();
+  await expect(page.locator('#km42ResultCard')).toBeVisible();
+  await expect(page.locator('#km42ResultSummary')).not.toBeEmpty();
+
+  await page.locator('#km42ResultPuzzles').click();
+  await expect(page.locator('#resultDialog')).not.toBeVisible();
+  await expect(page.locator('#km42PuzzleMode')).toBeVisible();
+  await expect(page.locator('#km42PuzzleBoard .sq')).toHaveCount(64, { timeout: 60_000 });
+  await expect(page.locator('#km42PuzzleWhyTitle')).not.toBeEmpty();
+});
+
 test('v42 phone puzzle board supports tap–tap movement and protects safe areas', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -304,12 +328,14 @@ test('v42 phone puzzle board supports tap–tap movement and protects safe areas
   );
 
   const layout = await page.evaluate(() => {
-    const mode = document.querySelector('#km42PuzzleMode').getBoundingClientRect();
+    const mode = document.querySelector('#km42PuzzleMode .km42-puzzle-shell').getBoundingClientRect();
+    const topbar = document.querySelector('#km42PuzzleMode .km42-puzzle-topbar').getBoundingClientRect();
+    const main = document.querySelector('#km42PuzzleMode .km42-puzzle-main').getBoundingClientRect();
     const board = document.querySelector('#km42PuzzleBoard').getBoundingClientRect();
-    return { mode, board, viewportHeight: innerHeight };
+    return { mode, topbar, main, board, viewportHeight: innerHeight };
   });
-  expect(layout.mode.top).toBeGreaterThanOrEqual(46);
-  expect(layout.mode.bottom).toBeLessThanOrEqual(layout.viewportHeight - 33);
+  expect(layout.topbar.top).toBeGreaterThanOrEqual(46);
+  expect(layout.main.bottom).toBeLessThanOrEqual(layout.viewportHeight - 33);
   expect(layout.board.width).toBeGreaterThanOrEqual(350);
   expect(Math.abs(layout.board.width - layout.board.height)).toBeLessThan(2);
   expect(await page.locator('#km42PuzzleBoard .svg44-piece').count()).toBeGreaterThan(1);

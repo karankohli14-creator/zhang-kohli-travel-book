@@ -1,0 +1,43 @@
+name: K-Mate setup polish QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'kmate-trainer/appflow-v35.js'
+      - 'kmate-trainer/polish-v64.css'
+      - 'kmate-trainer/index.html'
+      - 'kmate-trainer/tests/personalization-v42.spec.mjs'
+      - '.github/workflows/kmate-setup-polish-v64.yml'
+  pull_request:
+    paths:
+      - 'kmate-trainer/**'
+      - '.github/workflows/kmate-setup-polish-v64.yml'
+
+jobs:
+  setup-scroll-and-accessibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check source syntax
+        run: |
+          node --check kmate-trainer/appflow-v35.js
+          node --check kmate-trainer/tests/personalization-v42.spec.mjs
+      - name: Install browser-test dependencies
+        run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start static app server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-polish-http.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Verify coaching setup scroll and navigation
+        run: npx playwright test kmate-trainer/tests/personalization-v42.spec.mjs --grep 'coaching setup stays readable' --reporter=line
