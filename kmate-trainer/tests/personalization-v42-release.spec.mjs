@@ -273,6 +273,24 @@ test('v42 shows five diverse lessons tied to different moves and the chosen goal
   await expect(page.locator('#km42VideoDialog')).not.toBeVisible();
 });
 
+test('a finished position offers review and opens its custom puzzle workout', async ({ page }) => {
+  test.setTimeout(120_000);
+  await prepare(page);
+  await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
+  await expect(page.locator('#gameView')).toBeVisible();
+  await page.locator('#resignButton').click();
+  await expect(page.locator('#resultDialog')).toBeVisible();
+  await expect(page.locator('#postReview')).toBeVisible();
+  await expect(page.locator('#km42ResultCard')).toBeVisible();
+  await expect(page.locator('#km42ResultSummary')).not.toBeEmpty();
+
+  await page.locator('#km42ResultPuzzles').click();
+  await expect(page.locator('#resultDialog')).not.toBeVisible();
+  await expect(page.locator('#km42PuzzleMode')).toBeVisible();
+  await expect(page.locator('#km42PuzzleBoard .sq')).toHaveCount(64, { timeout: 60_000 });
+  await expect(page.locator('#km42PuzzleWhyTitle')).not.toBeEmpty();
+});
+
 test('v42 phone puzzle board supports tap–tap movement and protects safe areas', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 390, height: 844 });
