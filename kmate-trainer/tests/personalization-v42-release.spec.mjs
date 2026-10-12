@@ -278,8 +278,9 @@ test('a finished position offers review and opens its custom puzzle workout', as
   await prepare(page);
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
   await expect(page.locator('#gameView')).toBeVisible();
-  await page.locator('#board > .sq[data-square="e2"]').click();
-  await page.locator('#board > .sq[data-square="e4"]').click();
+  await expect(page.locator('#board [data-svg-square]')).toHaveCount(64);
+  await page.locator('#board [data-svg-square="e2"]').click({ timeout: 10_000 });
+  await page.locator('#board [data-svg-square="e4"]').click({ timeout: 10_000 });
   await expect(page.locator('#board > .sq[data-square="e4"] .piece')).toHaveCount(1);
   await page.locator('#panelToggleButton').click();
   await expect(page.locator('#resignButton')).toBeVisible();
