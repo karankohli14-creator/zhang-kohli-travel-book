@@ -278,6 +278,8 @@ test('a finished position offers review and opens its custom puzzle workout', as
   await prepare(page);
   await page.evaluate(() => window.__KMATE__.test.startLiveCoachPrincipleDemo());
   await expect(page.locator('#gameView')).toBeVisible();
+  await page.locator('#panelToggleButton').click();
+  await expect(page.locator('#resignButton')).toBeVisible();
   await page.locator('#resignButton').click();
   await expect(page.locator('#resultDialog')).toBeVisible();
   await expect(page.locator('#postReview')).toBeVisible();
