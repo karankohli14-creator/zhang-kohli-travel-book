@@ -12,6 +12,10 @@ km42StartWorkout = async function km43StartOrdinaryWorkout(options = {}) {
 const km43BaseRecordPuzzle = km42RecordPuzzle;
 km42RecordPuzzle = function km43RecordPuzzleWithPlan(puzzle, solved) {
   km43BaseRecordPuzzle(puzzle, solved);
+  window.dispatchEvent(new CustomEvent('kmate:puzzle-result', { detail: {
+    source: km42Puzzle.source, puzzleId: puzzle.id, index: km42Puzzle.index,
+    solved: Boolean(solved), wrong: Number(km42Puzzle.wrongAttempts || 0),
+  } }));
   const planId = String(puzzle?.km43PlanId || km42Puzzle.planId || '').trim();
   if (!planId) return;
   try {
@@ -60,6 +64,7 @@ km42FinishWorkout = function km43FinishWorkoutWithPlanActions() {
     source: km42Puzzle.source,
   };
   km43BaseFinishWorkout();
+  window.dispatchEvent(new CustomEvent('kmate:puzzle-workout-complete', { detail: completed }));
   if (!planId) return;
 
   const again = km42$('#km42WorkoutAgain');
@@ -164,6 +169,18 @@ function km43AttachPreparedWorkoutApi(attempt = 0) {
   window.__KMATE_V42__.preparedWorkoutVersion = KM43_PREPARED_WORKOUT_VERSION;
   window.__KMATE_V42__.startWorkout = km42StartWorkout;
   window.__KMATE_V42__.startPreparedWorkout = km43StartPreparedWorkout;
+  window.__KMATE_V42__.closePuzzle = km42ClosePuzzleMode;
 }
 
 km43AttachPreparedWorkoutApi();
+
+const km65BaseLoadPuzzle = km42LoadPuzzleAtIndex;
+km42LoadPuzzleAtIndex = function km65LoadPuzzleWithLifecycle(options = {}) {
+  const result = km65BaseLoadPuzzle(options);
+  const puzzle = km42CurrentPuzzle();
+  if (puzzle && km42Puzzle.game) window.dispatchEvent(new CustomEvent('kmate:puzzle-load', { detail: {
+    source: km42Puzzle.source, puzzleId: puzzle.id, index: km42Puzzle.index,
+    preserveAttempt: Boolean(options.preserveAttempt),
+  } }));
+  return result;
+};

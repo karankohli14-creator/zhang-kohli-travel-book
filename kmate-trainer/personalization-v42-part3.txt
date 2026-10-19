@@ -46,6 +46,9 @@ function km42AttemptPuzzleMove(from, to) {
   if (attempted !== expected) {
     km42Puzzle.wrongAttempts += 1;
     km42Puzzle.totalWrong += 1;
+    window.dispatchEvent(new CustomEvent('kmate:puzzle-attempt', { detail: {
+      source: km42Puzzle.source, index: km42Puzzle.index, kind: 'wrong',
+    } }));
     km42Puzzle.hintSquares = km42Puzzle.wrongAttempts >= 2 ? [expected.slice(0, 2)] : [];
     km42SetPuzzleStatus(
       km42Puzzle.wrongAttempts >= 2
@@ -228,7 +231,9 @@ function km42ApplySolutionMove(uci, playerMove) {
     km42Puzzle.locked = true;
     km42UpdateTurnBars();
     km42SetPuzzleStatus('Correct. K-Mate is playing the forced reply…', 'thinking');
+    const replyGame = km42Puzzle.game;
     window.setTimeout(() => {
+      if (km42CurrentPuzzle() !== puzzle || km42Puzzle.game !== replyGame || km42$('#km42PuzzleMode')?.hidden) return;
       const reply = puzzle.solutionUci[km42Puzzle.solutionIndex];
       km42ApplySolutionMove(reply, false);
       if (km42Puzzle.solutionIndex < puzzle.solutionUci.length) {
@@ -291,6 +296,9 @@ function km42RevealPuzzleMove() {
   km42Puzzle.hintSquares = [expected.slice(0, 2), expected.slice(2, 4)];
   km42Puzzle.wrongAttempts += 1;
   km42Puzzle.totalWrong += 1;
+  window.dispatchEvent(new CustomEvent('kmate:puzzle-attempt', { detail: {
+    source: km42Puzzle.source, index: km42Puzzle.index, kind: 'hint',
+  } }));
   km42SetPuzzleStatus(`Hint: ${expected.slice(0, 2)} → ${expected.slice(2, 4)}${expected[4] ? `, promote to ${expected[4].toUpperCase()}` : ''}.`, 'bad');
   km42RenderPuzzleBoard();
 }
@@ -354,6 +362,7 @@ function km42RestoreContext() {
 }
 
 function km42ClosePuzzleMode({ restore = true } = {}) {
+  window.dispatchEvent(new CustomEvent('kmate:puzzle-close', { detail: { source: km42Puzzle.source, restore } }));
   km42CleanupPointer();
   const mode = km42$('#km42PuzzleMode');
   if (mode) mode.hidden = true;

@@ -146,7 +146,7 @@ try {
       console.warn('Optional move-relevance learning layer could not load.', error);
     }
     try {
-      await import('./personalization-v42.js?v=43.0.0');
+      await import('./personalization-v42.js?v=65.0.0');
       try {
         await import('./training-plans-v43.js?v=57.0.0');
       } catch (error) {
