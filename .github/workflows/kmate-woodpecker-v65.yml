@@ -1,0 +1,41 @@
+name: K-Mate Woodpecker repetition QA
+
+on:
+  push:
+    branches: [main]
+    paths: ['kmate-trainer/**', '.github/workflows/kmate-woodpecker-v65.yml']
+  pull_request:
+    paths: ['kmate-trainer/**', '.github/workflows/kmate-woodpecker-v65.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  repetition-journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save @playwright/test@1.55.0 chess.js@1.4.0
+      - name: Validate fixed sets and cycle accounting
+        run: node --test kmate-trainer/tests/woodpecker-core-v65.test.mjs
+      - run: npx playwright install --with-deps chromium
+      - name: Start static app
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/kmate-woodpecker.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/kmate-trainer/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Verify saved attempts, seven cycles and phone board
+        run: npx playwright test kmate-trainer/tests/woodpecker-v65.spec.mjs --workers=1 --reporter=line
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: woodpecker-failure
+          path: test-results
+          retention-days: 7

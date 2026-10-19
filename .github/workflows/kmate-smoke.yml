@@ -100,7 +100,7 @@ jobs:
           grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]" kmate-trainer/personalization-v42.js
           grep -Fq "const partUrls = [1, 2, 3, 4, 5, 6, 7, 8]" kmate-trainer/training-plans-v43.js
           grep -Eq '<script type="module" src="\./app-v7\.js\?v=[^"]+"' kmate-trainer/index.html
-          grep -q "personalization-v42.js?v=43.0.0" kmate-trainer/app-v7.js
+          grep -Eq "personalization-v42\\.js\\?v=[^']+" kmate-trainer/app-v7.js
           grep -Eq "training-plans-v43\\.js\\?v=[^']+" kmate-trainer/app-v7.js
           grep -q "svg-board-v44.js?v=44.0.0" kmate-trainer/app-v7.js
           grep -q "svg-board-v44-input.js?v=44.0.4" kmate-trainer/app-v7.js
