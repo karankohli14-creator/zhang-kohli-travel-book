@@ -45,6 +45,35 @@ async function solveCurrent(page) {
 
 test.use({ viewport: { width: 1280, height: 900 }, screenshot: 'only-on-failure', trace: 'retain-on-failure' });
 
+for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+  test(`Woodpecker scrolls with wheel input at ${viewport.width}px before and after puzzle practice`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize(viewport);
+    await prepare(page);
+    await page.locator('#wizardWoodpeckerButton').click();
+    await page.mouse.move(viewport.width / 2, viewport.height / 2);
+    await page.mouse.wheel(0, 2000);
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
+    await page.mouse.wheel(0, 10000);
+    await expect(page.locator('#woodpeckerView details:last-child')).toBeInViewport();
+
+    await page.locator('#wpSize').selectOption('25');
+    await page.locator('#wpBuild').click();
+    await expect(page.locator('#wpContinue')).toBeVisible({ timeout: 30_000 });
+    await page.locator('#wpContinue').click();
+    await expect(page.locator('#km42PuzzleMode')).toBeVisible();
+    await page.locator('#km42PuzzleClose').click();
+    await page.mouse.move(viewport.width / 2, viewport.height / 2);
+    await page.mouse.wheel(0, 2000);
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
+    await page.mouse.wheel(0, 10000);
+    await expect(page.locator('#woodpeckerView details:last-child')).toBeInViewport();
+    await page.locator('#wpHome').click();
+    await expect(page.locator('#woodpeckerView')).toBeHidden();
+    await expect(page.locator('#wizardWoodpeckerButton')).toBeVisible();
+  });
+}
+
 test('Woodpecker saves the fixed set, corrections, solve time and position across reloads', async ({ page }) => {
   test.setTimeout(120_000);
   await prepare(page);

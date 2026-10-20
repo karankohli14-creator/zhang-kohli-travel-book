@@ -13,7 +13,7 @@ html.kmate-mobile-fit-v54 {
   --km54-coordinate-anchor: -8px;
 }
 
-html.kmate-mobile-fit-v54,
+html.kmate-mobile-fit-v54.game-mode,
 html.kmate-mobile-fit-v54 body.game-mode,
 html.kmate-mobile-fit-v54 body.game-mode .shell,
 html.kmate-mobile-fit-v54 body.game-mode #gameView,
