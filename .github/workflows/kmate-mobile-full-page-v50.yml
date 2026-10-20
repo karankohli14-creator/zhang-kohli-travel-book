@@ -65,7 +65,7 @@ jobs:
           grep -Fq "mobile-full-page-v50.js?v=50.0.0" kmate-trainer/app-v7.js
           grep -Fq "sculpted-pieces-v47.js?v=52.0.0" kmate-trainer/app-v7.js
           grep -Eq '<script type="module" src="\./app-v7\.js\?v=[^"]+"' kmate-trainer/index.html
-          grep -Fq "reference-board-fit-v54.css?v=54.0.0" kmate-trainer/index.html
+          grep -Eq 'href="\./reference-board-fit-v54\.css\?v=[^"]+"' kmate-trainer/index.html
           grep -Fq "reference-board-fit-v54.js?v=54.0.0" kmate-trainer/index.html
           grep -Fq "KMATE_MOBILE_FULL_PAGE_V50 = '50.0.0'" kmate-trainer/mobile-full-page-v50.js
           grep -Fq "KMATE_REFERENCE_THEME_V52 = '52.0.0'" kmate-trainer/sculpted-pieces-v47.js
