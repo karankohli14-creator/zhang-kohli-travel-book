@@ -58,4 +58,4 @@ All 98 pages were surveyed at contact-sheet scale. Exact original-to-frame match
 
 `node scripts/verify-photo-restoration.cjs` passes: all 98 page mappings, 33 placements, source file hashes, frame bounds, layer clearing, wraparound, and trip navigation. Reconstructed composition previews for all 14 changed pages were visually inspected. Original sprite sheets and archived HTML files are byte-for-byte unchanged.
 
-A real-browser run could not be completed in this environment: the local browser executable was unavailable, browser downloads failed, and the remote browser could not access the local preview server. The visual previews are deterministic compositions of the source sheets and the restoration manifest, not browser screenshots. Phone and desktop browser layout verification remains pending.
+Real Chromium browser verification passed for every page at desktop (1280 x 1024) and phone (390 x 844) viewports: 196 page renders, all source images loaded, all 33 restored placements used contain, no frame overflow, correct page statuses and zero JavaScript errors. Browser screenshots of pages 19/20 were visually inspected.
